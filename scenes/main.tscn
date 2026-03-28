@@ -1,0 +1,135 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/main.gd" id="1_rhi7x"]
+[ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2_h0b1r"]
+
+[node name="Main" type="Node2D"]
+script = ExtResource("1_rhi7x")
+
+[node name="Arena" type="Polygon2D" parent="."]
+color = Color(0.117647, 0.129412, 0.14902, 1)
+polygon = PackedVector2Array(-576, -324, 576, -324, 576, 324, -576, 324)
+
+[node name="ArenaBorder" type="Line2D" parent="."]
+width = 6.0
+default_color = Color(0.847059, 0.713726, 0.403922, 1)
+closed = true
+points = PackedVector2Array(-576, -324, 576, -324, 576, 324, -576, 324)
+
+[node name="Enemies" type="Node2D" parent="."]
+
+[node name="Projectiles" type="Node2D" parent="."]
+
+[node name="Pickups" type="Node2D" parent="."]
+
+[node name="Player" parent="." instance=ExtResource("2_h0b1r")]
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="TimeLabel" type="Label" parent="CanvasLayer"]
+offset_left = 20.0
+offset_top = 16.0
+offset_right = 220.0
+offset_bottom = 40.0
+theme_override_font_sizes/font_size = 22
+text = "Temps: 0.0 s"
+
+[node name="HealthLabel" type="Label" parent="CanvasLayer"]
+offset_left = 20.0
+offset_top = 44.0
+offset_right = 260.0
+offset_bottom = 68.0
+theme_override_font_sizes/font_size = 20
+text = "Vie: 6 / 6"
+
+[node name="XPLabel" type="Label" parent="CanvasLayer"]
+offset_left = 20.0
+offset_top = 72.0
+offset_right = 300.0
+offset_bottom = 96.0
+theme_override_font_sizes/font_size = 20
+text = "Niveau 1  XP: 0 / 5"
+
+[node name="StatsLabel" type="Label" parent="CanvasLayer"]
+offset_left = 20.0
+offset_top = 104.0
+offset_right = 520.0
+offset_bottom = 136.0
+theme_override_font_sizes/font_size = 18
+text = "Degats: 1  Cadence: 0.55s  Vitesse: 240  Pickup: 72"
+
+[node name="ObjectiveLabel" type="Label" parent="CanvasLayer"]
+offset_left = 872.0
+offset_top = 16.0
+offset_right = 1128.0
+offset_bottom = 72.0
+horizontal_alignment = 2
+theme_override_font_sizes/font_size = 18
+text = "Survis et monte en puissance"
+
+[node name="UpgradePanel" type="PanelContainer" parent="CanvasLayer"]
+visible = false
+offset_left = 326.0
+offset_top = 128.0
+offset_right = 826.0
+offset_bottom = 520.0
+
+[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/UpgradePanel"]
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/UpgradePanel/MarginContainer"]
+theme_override_constants/separation = 16
+
+[node name="TitleLabel" type="Label" parent="CanvasLayer/UpgradePanel/MarginContainer/VBoxContainer"]
+theme_override_font_sizes/font_size = 28
+text = "Niveau atteint"
+
+[node name="SubtitleLabel" type="Label" parent="CanvasLayer/UpgradePanel/MarginContainer/VBoxContainer"]
+autowrap_mode = 3
+theme_override_font_sizes/font_size = 18
+text = "Choisis une amelioration pour continuer."
+
+[node name="ChoiceButton1" type="Button" parent="CanvasLayer/UpgradePanel/MarginContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 72)
+text = "Choix 1"
+
+[node name="ChoiceButton2" type="Button" parent="CanvasLayer/UpgradePanel/MarginContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 72)
+text = "Choix 2"
+
+[node name="ChoiceButton3" type="Button" parent="CanvasLayer/UpgradePanel/MarginContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 72)
+text = "Choix 3"
+
+[node name="GameOverPanel" type="PanelContainer" parent="CanvasLayer"]
+visible = false
+offset_left = 366.0
+offset_top = 170.0
+offset_right = 786.0
+offset_bottom = 450.0
+
+[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/GameOverPanel"]
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/GameOverPanel/MarginContainer"]
+theme_override_constants/separation = 16
+
+[node name="GameOverLabel" type="Label" parent="CanvasLayer/GameOverPanel/MarginContainer/VBoxContainer"]
+theme_override_font_sizes/font_size = 30
+horizontal_alignment = 1
+text = "Game Over"
+
+[node name="SummaryLabel" type="Label" parent="CanvasLayer/GameOverPanel/MarginContainer/VBoxContainer"]
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 18
+text = "Survie: 0.0 s"
+
+[node name="RestartButton" type="Button" parent="CanvasLayer/GameOverPanel/MarginContainer/VBoxContainer"]
+custom_minimum_size = Vector2(0, 56)
+text = "Relancer"
