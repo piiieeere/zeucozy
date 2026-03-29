@@ -1,18 +1,23 @@
 extends Node2D
 
-const ARENA_SIZE := Vector2(1152.0, 648.0)
 const CHASER_SCENE := preload("res://scenes/enemies/chaser.tscn")
 const BRUTE_SCENE := preload("res://scenes/enemies/brute.tscn")
 const XP_ORB_SCENE := preload("res://scenes/xp_orb.tscn")
 const PROJECTILE_SCENE := preload("res://scenes/projectile.tscn")
+const MIN_ARENA_SIZE := Vector2(2304.0, 1296.0)
+const ARENA_SCALE := 2.0
 
 var elapsed_time := 0.0
 var spawn_timer := 0.0
 var run_paused := false
 var game_over := false
 var current_upgrade_choices: Array[Dictionary] = []
+var arena_rect := Rect2(Vector2.ZERO, Vector2(1152.0, 648.0))
 
 @onready var player = $Player
+@onready var player_camera: Camera2D = $Player/Camera2D
+@onready var arena: Polygon2D = $Arena
+@onready var arena_border: Line2D = $ArenaBorder
 @onready var enemies_container: Node2D = $Enemies
 @onready var projectiles_container: Node2D = $Projectiles
 @onready var pickups_container: Node2D = $Pickups
@@ -37,6 +42,7 @@ var current_upgrade_choices: Array[Dictionary] = []
 func _ready() -> void:
 	randomize()
 	add_to_group("game_root")
+	get_window().size_changed.connect(_update_layout)
 
 	player.health_changed.connect(_on_player_health_changed)
 	player.xp_changed.connect(_on_player_xp_changed)
@@ -49,6 +55,7 @@ func _ready() -> void:
 
 	restart_button.pressed.connect(_on_restart_button_pressed)
 
+	_update_layout()
 	_on_player_health_changed(player.health, player.max_health)
 	_on_player_xp_changed(player.current_xp, player.xp_to_next, player.level)
 	_on_player_stats_changed(player.build_stats_text())
@@ -80,7 +87,7 @@ func is_run_paused() -> bool:
 
 
 func get_arena_rect() -> Rect2:
-	return Rect2(-ARENA_SIZE * 0.5, ARENA_SIZE)
+	return arena_rect
 
 
 func clamp_to_arena(world_position: Vector2, padding: Vector2 = Vector2(20.0, 20.0)) -> Vector2:
@@ -136,13 +143,13 @@ func _get_enemy_spawn_position() -> Vector2:
 
 	match side:
 		0:
-			return Vector2(randf_range(arena_rect.position.x, arena_rect.end.x), arena_rect.position.y - margin)
+			return Vector2(randf_range(arena_rect.position.x, arena_rect.end.x), arena_rect.position.y + margin)
 		1:
-			return Vector2(arena_rect.end.x + margin, randf_range(arena_rect.position.y, arena_rect.end.y))
+			return Vector2(arena_rect.end.x - margin, randf_range(arena_rect.position.y, arena_rect.end.y))
 		2:
-			return Vector2(randf_range(arena_rect.position.x, arena_rect.end.x), arena_rect.end.y + margin)
+			return Vector2(randf_range(arena_rect.position.x, arena_rect.end.x), arena_rect.end.y - margin)
 		_:
-			return Vector2(arena_rect.position.x - margin, randf_range(arena_rect.position.y, arena_rect.end.y))
+			return Vector2(arena_rect.position.x + margin, randf_range(arena_rect.position.y, arena_rect.end.y))
 
 
 func _on_enemy_defeated(world_position: Vector2, xp_value: int) -> void:
@@ -211,3 +218,58 @@ func _update_time_label() -> void:
 func _update_objective_text() -> void:
 	var next_enemy_text := "Brutes en approche" if elapsed_time >= 22.0 else "Survis et monte en puissance"
 	objective_label.text = "%s\nEnnemis actifs: %d" % [next_enemy_text, enemies_container.get_child_count()]
+
+
+func _update_layout() -> void:
+	var viewport_size := get_viewport_rect().size
+
+	if viewport_size == Vector2.ZERO:
+		return
+
+	var world_size := Vector2(
+		max(MIN_ARENA_SIZE.x, viewport_size.x * ARENA_SCALE),
+		max(MIN_ARENA_SIZE.y, viewport_size.y * ARENA_SCALE)
+	)
+	arena_rect = Rect2(-world_size * 0.5, world_size)
+	_update_arena_visuals()
+	_update_ui_layout(viewport_size)
+	_update_camera_limits()
+
+	if player != null and player.global_position == Vector2.ZERO:
+		player.global_position = arena_rect.get_center()
+
+
+func _update_arena_visuals() -> void:
+	var points := PackedVector2Array([
+		arena_rect.position,
+		Vector2(arena_rect.end.x, arena_rect.position.y),
+		arena_rect.end,
+		Vector2(arena_rect.position.x, arena_rect.end.y),
+	])
+	arena.polygon = points
+	arena_border.points = points
+
+
+func _update_ui_layout(viewport_size: Vector2) -> void:
+	objective_label.offset_left = viewport_size.x - 360.0
+	objective_label.offset_right = viewport_size.x - 20.0
+
+	upgrade_panel.offset_left = (viewport_size.x - 500.0) * 0.5
+	upgrade_panel.offset_right = upgrade_panel.offset_left + 500.0
+	upgrade_panel.offset_top = max(96.0, (viewport_size.y - 392.0) * 0.5)
+	upgrade_panel.offset_bottom = upgrade_panel.offset_top + 392.0
+
+	game_over_panel.offset_left = (viewport_size.x - 420.0) * 0.5
+	game_over_panel.offset_right = game_over_panel.offset_left + 420.0
+	game_over_panel.offset_top = max(120.0, (viewport_size.y - 280.0) * 0.5)
+	game_over_panel.offset_bottom = game_over_panel.offset_top + 280.0
+
+
+func _update_camera_limits() -> void:
+	if player_camera == null:
+		return
+
+	player_camera.limit_left = int(arena_rect.position.x)
+	player_camera.limit_top = int(arena_rect.position.y)
+	player_camera.limit_right = int(arena_rect.end.x)
+	player_camera.limit_bottom = int(arena_rect.end.y)
