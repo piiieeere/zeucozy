@@ -1,43 +1,56 @@
-# GAME MANIFEST — Projet Survivor
+# 🐾 GAME MANIFEST — Cozy Cat Survivor
+
+---
 
 ## 1. Vision du jeu
 
-Créer un **survivor-like 2D** nerveux, lisible et satisfaisant, centré sur :
+Créer un **survivor-like 2D cozy**, lisible et satisfaisant, centré sur :
 - le **plaisir immédiat**
-- des **runs courtes et rejouables**
-- une **montée en puissance spectaculaire**
+- des **runs courtes et relaxantes**
+- une **montée en puissance mignonne et fun**
 - un développement **simple, modulaire et itératif** dans Godot 4
 
-Le jeu doit être facile à prendre en main, rapide à tester, et suffisamment profond pour donner envie de relancer “une run de plus”.
+Le jeu doit être :
+- facile à prendre en main  
+- relaxant malgré l’action  
+- satisfaisant visuellement et auditivement  
+- irrésistible pour les **cat lovers**
 
 ---
 
 ## 2. Pitch
 
-Le joueur contrôle un survivant perdu dans une zone hostile infestée d’ennemis.  
-Il doit survivre le plus longtemps possible face à des vagues toujours plus denses, tout en gagnant de l’expérience, en choisissant des améliorations et en construisant un build de plus en plus destructeur.
+Le joueur incarne un **chat** dans un environnement domestique.  
+Il doit survivre face à tout ce qu’un chat déteste :
 
-Le cœur du plaisir vient de la progression suivante :
+- aspirateurs 🌀  
+- chiens 🐶  
+- concombres 🥒  
 
-**faible → stable → puissant → surpuissant → chaos maîtrisé**
+En progressant, il récupère des **croquettes (XP)**, améliore ses capacités et devient un chat surpuissant.
+
+Le cœur du plaisir :
+
+**chat fragile → chat malin → chat dominant → chaos félin maîtrisé**
 
 ---
 
 ## 3. Promesse joueur
 
-Le jeu promet au joueur :
+Le jeu promet :
 
-- une action immédiate
+- une expérience **cozy mais dynamique**
 - des contrôles simples
-- des décisions d’upgrade fréquentes
-- une sensation de puissance croissante
-- des builds variés à chaque partie
-- des runs courtes, intenses, rejouables
+- une ambiance **mignonne et humoristique**
+- une montée en puissance satisfaisante
+- des builds fun (et parfois absurdes)
+- des runs rapides et rejouables
 
 Le joueur doit ressentir :
-- “je comprends tout en 10 secondes”
-- “je deviens vraiment fort”
-- “j’ai envie de recommencer pour tester une autre build”
+- “c’est trop mignon”
+- “c’est relax mais fun”
+- “mon chat devient OP 😂”
+- “encore une run”
 
 ---
 
@@ -45,307 +58,232 @@ Le joueur doit ressentir :
 
 ### Genre principal
 - Action roguelite 2D
-- Survivor-like
+- Survivor-like cozy
 - Auto-attack / arena survival
 
 ### Références
 - Vampire Survivors
 - Brotato
-- 20 Minutes Till Dawn
-- Soulstone Survivors
 
 ### Positionnement
-Un survivor-like **minimaliste, propre, lisible**, pensé pour :
-- être amusant très vite
-- être réalisable sans complexité excessive
-- servir de base solide à des extensions futures
+Un survivor-like :
+- **cozy**
+- **accessible**
+- **humoristique**
+- centré sur les chats
 
 ---
 
 ## 5. Piliers de design
 
-### 5.1 Lisibilité avant tout
-Le joueur doit toujours comprendre :
-- où il est
-- où sont les menaces
-- ce que font ses attaques
-- quels objets/XP il peut ramasser
-- pourquoi il gagne ou perd
+### 5.1 Lisibilité cozy
+- couleurs douces
+- formes simples
+- animations claires
+- feedback visuel agréable
 
-### 5.2 Fun immédiat
-Dès les 30 premières secondes, il doit déjà se passer quelque chose :
-- ennemis qui arrivent
-- tirs automatiques
-- esquive
-- collecte d’XP
-- progression visible
+### 5.2 Fun sans stress
+- pas de gore
+- pas de tension anxiogène
+- feedback toujours “cute”
 
-### 5.3 Croissance de puissance
-Chaque run doit raconter une montée en puissance claire :
-- stats qui augmentent
-- armes qui évoluent
-- écran plus rempli
-- destruction plus massive
-- build de plus en plus marquée
+### 5.3 Fantasy féline
+Le joueur se sent comme un chat :
+- agile
+- rapide
+- joueur
+- imprévisible
 
 ### 5.4 Simplicité systémique
-Le jeu doit reposer sur des systèmes simples mais combinables :
-- déplacement
-- spawn
-- attaque auto
-- dégâts
-- XP
-- level up
-- upgrades
+- systèmes simples
+- combinables
+- faciles à coder
 
-### 5.5 Rejouabilité par les choix
-La variété vient surtout de :
-- choix d’upgrades
-- ordre d’obtention
-- synergies
-- pression croissante des ennemis
+### 5.5 Humour et attachement
+- éléments drôles
+- situations relatable pour les propriétaires de chats
 
 ---
 
 ## 6. Boucle de jeu principale
 
 ### Boucle moment-to-moment
-1. Le joueur se déplace
-2. Les ennemis apparaissent et poursuivent le joueur
-3. Le personnage attaque automatiquement
-4. Les ennemis meurent et lâchent de l’XP
-5. Le joueur récupère l’XP
-6. Il monte de niveau
-7. Il choisit une amélioration
-8. La difficulté augmente
-9. Il tente de survivre le plus longtemps possible
+
+1. Le chat se déplace  
+2. Les ennemis apparaissent  
+3. Le chat attaque automatiquement  
+4. Les ennemis disparaissent  
+5. Ils lâchent des croquettes  
+6. Le chat mange les croquettes  
+7. Level up  
+8. Choix d’amélioration  
+9. Intensité augmente  
+
+---
 
 ### Boucle de run
-1. Début faible
-2. Stabilisation
-3. Construction d’un build
-4. Explosion de puissance ou effondrement
-5. Mort ou victoire sur objectif de durée
-6. Recommencer avec apprentissage et envie d’optimiser
+
+1. Début fragile  
+2. Stabilisation  
+3. Build qui se construit  
+4. Montée en puissance  
+5. Chaos mignon  
+6. Mort ou victoire  
+7. Rejouer  
 
 ---
 
 ## 7. Expérience cible
 
-### Début de partie
-- peu d’ennemis
-- faible puissance
-- nécessité de bouger et kiter
+### Début
+- calme
+- découverte
 
-### Milieu de partie
-- choix de build qui se dessinent
-- densité d’ennemis plus forte
-- premières synergies visibles
+### Milieu
+- builds intéressants
+- variété
 
-### Fin de partie
-- tension élevée
-- écran dense
-- gros volume d’attaques et d’effets
-- sentiment de chaos contrôlé
-- test final de la build du joueur
+### Fin
+- chaos lisible
+- fun maximal
 
 ---
 
 ## 8. Scope MVP
 
-Le MVP doit être **petit, jouable, fun**.
-
 ### Contenu minimal
-- 1 personnage jouable
-- 1 arène
-- déplacement 8 directions
-- 1 type d’attaque automatique
-- 2 à 3 types d’ennemis simples
-- système de dégâts et de mort
-- XP drops
-- système de niveau
-- choix entre 3 upgrades à chaque level up
-- HUD minimal
-- écran de game over
-- timer de survie
 
-### Ce qu’on ne fait pas dans le MVP
-- inventaire complexe
-- meta progression persistante
-- boutique
-- boss sophistiqués
-- multijoueur
-- narration
-- crafting
-- système de classes complexe
+- 🐱 1 chat jouable  
+- 🏠 1 arène (salon / appartement)  
+- déplacement 8 directions  
+- attaque automatique  
+- ennemis :
+  - aspirateur
+  - chien
+  - concombre  
+- croquettes (XP)  
+- système de niveau  
+- upgrades  
+- HUD minimal  
+- écran game over  
+- timer  
+
+---
+
+### Boss MVP
+
+- 🧑‍⚕️ Vétérinaire
+  - seringues 💉  
+  - cage  
+  - appel “pspsps”  
 
 ---
 
 ## 9. Direction gameplay
 
 ### Contrôles
-- déplacement uniquement
-- attaque automatique
-- choix d’upgrade au level up
-- pause éventuelle
-
-### Philosophie
-Le jeu doit être :
-- simple à jouer
-- difficile à maîtriser
-- profond par accumulation de systèmes simples
+- déplacement uniquement  
+- attaque automatique  
+- choix upgrades  
 
 ### Priorité
-Le mouvement du joueur doit être agréable avant tout.  
-Si le déplacement n’est pas bon, le reste du jeu perd beaucoup en qualité.
+Le mouvement du chat doit être **fluide et agréable**
 
 ---
 
 ## 10. Systèmes principaux
 
-### 10.1 Player
-Responsabilités :
+### Player (Chat)
 - déplacement
 - vie
-- réception des dégâts
 - récupération XP
-- progression
 
-### 10.2 Enemy
-Responsabilités :
+### Enemy
 - spawn
-- poursuite du joueur
-- contact/dégâts
-- mort
-- drop d’XP
+- poursuite
+- dégâts
+- disparition
+- drop croquettes
 
-### 10.3 Weapon System
-Responsabilités :
-- tir automatique
-- cadence
-- direction / ciblage
-- projectiles ou aura
-- scaling avec upgrades
+### Weapon System
+- attaque automatique
+- projectiles
+- scaling
 
-### 10.4 XP / Leveling
-Responsabilités :
-- drop d’orbes
-- collecte
-- montée de niveau
-- affichage progression
+### XP System
+- croquettes
+- level up
 
-### 10.5 Upgrade System
-Responsabilités :
-- génération de choix
-- application de bonus
-- spécialisation de build
-- différenciation des runs
+### Upgrade System
+- choix
+- bonus
 
-### 10.6 Game Director
-Responsabilités :
-- progression de difficulté
-- rythme de spawn
-- montée de pression
-- éventuels paliers d’intensité
+### Game Director
+- difficulté progressive
 
 ---
 
 ## 11. Build fantasy
 
-Le joueur doit pouvoir créer des builds reconnaissables, par exemple :
-
-- mitrailleuse rapide
-- gros projectiles lents mais puissants
-- build critique
-- build zone / aura
-- build récupération / sustain
-- build contrôle de foule
-- build projectile en éventail
-- build glass cannon
-
-Même avec peu d’armes au départ, il faut déjà sentir cette logique.
+- chat rapide
+- chat tank
+- chat chaos
+- chat sniper
+- chat aimant à croquettes
 
 ---
 
 ## 12. Progression de difficulté
 
-La difficulté doit augmenter par :
-- nombre d’ennemis
-- vitesse des ennemis
-- points de vie
-- nouveaux types ennemis
-- pression spatiale
-- fenêtres de respiration plus rares
+- plus d’ennemis
+- plus rapides
+- plus variés
 
-Le joueur ne doit pas avoir l’impression d’une hausse arbitraire.  
-La montée doit paraître naturelle, lisible et progressive.
+Toujours :
+- lisible
+- juste
 
 ---
 
 ## 13. Esthétique et direction visuelle
 
-### Objectif visuel
-Faire quelque chose de :
-- propre
-- lisible
-- rapide à produire
-- cohérent
+### Style
 
-### Style recommandé pour le prototype
-- vue top-down 2D
-- sprites simples ou formes géométriques
-- effets visuels limités mais impactants
-- contraste clair entre :
-  - joueur
-  - ennemis
-  - projectiles
-  - XP
-  - zones dangereuses
+- cozy
+- pastel
+- cartoon / pixel soft
 
-### Règle d’or
-La lisibilité prime sur la beauté.
+### Règles
+
+- pas de gore
+- animations douces
+- lisibilité maximale
 
 ---
 
 ## 14. Direction sonore
 
-Le son doit renforcer :
-- l’impact des tirs
-- la satisfaction des kills
-- la collecte d’XP
-- la montée de niveau
-- les moments de danger
-
-Pour le prototype :
-- effets simples mais propres
-- peu de sons, bien choisis
-- boucle musicale légère ou absente au début si nécessaire
+- miaulements 🐱  
+- croquettes “crunch”  
+- aspirateur doux  
+- sons cartoon  
 
 ---
 
 ## 15. UX / UI
 
-L’interface doit rester minimale.
+### HUD
 
-### HUD MVP
-- barre de vie
-- barre d’XP
-- niveau actuel
-- temps de survie
-- éventuellement nombre d’ennemis tués
+- vie  
+- XP  
+- niveau  
+- temps  
 
-### Écrans minimaux
-- menu principal simple
-- écran game over
-- écran pause
-- écran de choix d’upgrade
+### Objectif
 
-### Objectif UX
-Le joueur doit toujours savoir :
-- s’il est en danger
-- s’il progresse
-- ce qu’il choisit
-- pourquoi il a perdu
+Toujours comprendre :
+- état du joueur
+- progression
 
 ---
 
@@ -354,11 +292,9 @@ Le joueur doit toujours savoir :
 ### Moteur
 - Godot 4.6.1
 - GDScript
-- projet 2D
-- architecture simple, modulaire
+- 2D
 
-### Organisation recommandée
-```text
+### Structure
 project/
 ├─ scenes/
 ├─ scripts/
@@ -366,3 +302,52 @@ project/
 ├─ ui/
 ├─ systems/
 └─ docs/
+
+---
+
+## 17. Méthode de développement
+
+1. Player  
+2. Ennemis  
+3. Croquettes  
+4. Attaque  
+5. Level up  
+6. Upgrades  
+7. Boss  
+
+---
+
+## 18. Conditions de réussite
+
+- fun rapide  
+- mignon  
+- lisible  
+- addictif  
+
+---
+
+## 19. Conditions d’échec
+
+- trop stressant  
+- pas lisible  
+- gameplay mou  
+
+---
+
+## 20. North Star
+
+**Rendre le jeu plus fun, plus mignon, sans complexifier.**
+
+---
+
+## 21. Résumé
+
+Un survivor-like cozy où :
+
+- tu es un chat 🐱  
+- tu évites aspirateurs, chiens et concombres  
+- tu manges des croquettes  
+- tu deviens surpuissant  
+- tu bats un vétérinaire  
+
+👉 fun simple, mignon et addictif
