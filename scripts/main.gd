@@ -4,8 +4,8 @@ const CHASER_SCENE := preload("res://scenes/enemies/chaser.tscn")
 const BRUTE_SCENE := preload("res://scenes/enemies/brute.tscn")
 const XP_ORB_SCENE := preload("res://scenes/xp_orb.tscn")
 const PROJECTILE_SCENE := preload("res://scenes/projectile.tscn")
-const MIN_ARENA_SIZE := Vector2(2304.0, 1296.0)
-const ARENA_SCALE := 2.0
+const MIN_ARENA_SIZE := Vector2(5760.0, 3240.0)
+const ARENA_SCALE := 10.0
 
 var elapsed_time := 0.0
 var spawn_timer := 0.0
