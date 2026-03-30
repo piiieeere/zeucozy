@@ -17,10 +17,16 @@ var arena_rect := Rect2(Vector2.ZERO, Vector2(1152.0, 648.0))
 @onready var player = $Player
 @onready var player_camera: Camera2D = $Player/Camera2D
 @onready var arena: Polygon2D = $Arena
+@onready var rug: Polygon2D = $Rug
+@onready var warm_light: Polygon2D = $WarmLight
+@onready var accent_blob_left: Polygon2D = $AccentBlobLeft
+@onready var accent_blob_right: Polygon2D = $AccentBlobRight
 @onready var arena_border: Line2D = $ArenaBorder
 @onready var enemies_container: Node2D = $Enemies
 @onready var projectiles_container: Node2D = $Projectiles
 @onready var pickups_container: Node2D = $Pickups
+@onready var hud_left_panel: Panel = $CanvasLayer/HudLeftPanel
+@onready var hud_right_panel: Panel = $CanvasLayer/HudRightPanel
 @onready var time_label: Label = $CanvasLayer/TimeLabel
 @onready var health_label: Label = $CanvasLayer/HealthLabel
 @onready var xp_label: Label = $CanvasLayer/XPLabel
@@ -248,9 +254,43 @@ func _update_arena_visuals() -> void:
 	])
 	arena.polygon = points
 	arena_border.points = points
+	rug.polygon = PackedVector2Array([
+		arena_rect.get_center() + Vector2(-arena_rect.size.x * 0.28, -arena_rect.size.y * 0.18),
+		arena_rect.get_center() + Vector2(arena_rect.size.x * 0.28, -arena_rect.size.y * 0.16),
+		arena_rect.get_center() + Vector2(arena_rect.size.x * 0.24, arena_rect.size.y * 0.22),
+		arena_rect.get_center() + Vector2(-arena_rect.size.x * 0.30, arena_rect.size.y * 0.20),
+	])
+	warm_light.polygon = PackedVector2Array([
+		arena_rect.position + Vector2(arena_rect.size.x * 0.08, arena_rect.size.y * 0.04),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.42, arena_rect.size.y * 0.02),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.36, arena_rect.size.y * 0.26),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.10, arena_rect.size.y * 0.24),
+	])
+	accent_blob_left.polygon = PackedVector2Array([
+		arena_rect.position + Vector2(arena_rect.size.x * 0.06, arena_rect.size.y * 0.76),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.22, arena_rect.size.y * 0.70),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.18, arena_rect.size.y * 0.88),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.04, arena_rect.size.y * 0.90),
+	])
+	accent_blob_right.polygon = PackedVector2Array([
+		arena_rect.position + Vector2(arena_rect.size.x * 0.76, arena_rect.size.y * 0.18),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.92, arena_rect.size.y * 0.14),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.90, arena_rect.size.y * 0.32),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.72, arena_rect.size.y * 0.30),
+	])
 
 
 func _update_ui_layout(viewport_size: Vector2) -> void:
+	hud_left_panel.offset_left = 12.0
+	hud_left_panel.offset_top = 12.0
+	hud_left_panel.offset_right = 552.0
+	hud_left_panel.offset_bottom = 152.0
+
+	hud_right_panel.offset_left = viewport_size.x - 428.0
+	hud_right_panel.offset_top = 12.0
+	hud_right_panel.offset_right = viewport_size.x - 12.0
+	hud_right_panel.offset_bottom = 96.0
+
 	objective_label.offset_left = viewport_size.x - 360.0
 	objective_label.offset_right = viewport_size.x - 20.0
 

@@ -20,8 +20,12 @@ xp_drop = 3
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("CircleShape2D_body")
 
+[node name="Outline" type="Polygon2D" parent="."]
+color = Color(0.164706, 0.164706, 0.227451, 0.95)
+polygon = PackedVector2Array(0, -25, 21, -10, 23, 16, 0, 25, -23, 16, -21, -10)
+
 [node name="Body" type="Polygon2D" parent="."]
-color = Color(0.796078, 0.52549, 0.247059, 1)
+color = Color(0.741176, 0.698039, 1, 1)
 polygon = PackedVector2Array(0, -22, 18, -8, 20, 14, 0, 22, -20, 14, -18, -8)
 
 [node name="Hurtbox" type="Area2D" parent="."]
