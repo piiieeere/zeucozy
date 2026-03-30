@@ -1,22 +1,31 @@
 # Todo
 
-# Étape 1
-Player movement
+## Fait
 
-# Étape 2
-Enemy follow + damage
+- Player movement
+- Enemy follow + damage
+- Auto-attack
+- Enemy death + XP drop
+- Level up + upgrades
+- Difficulty scaling initiale
+- UI + game over
+- grande map avec caméra centrée sur le player
+- spawns proches du player
+- première passe de direction artistique sans sprites
+- structure `assets/sprites/raw`, `assets/sprites/approved`, `assets/sprites/sheets`
 
-# Étape 3
-Auto-attack
+## À faire ensuite
 
-# Étape 4
-Enemy death + XP drop
-
-# Étape 5
-Level up + upgrades
-
-# Étape 6
-Difficulty scaling
-
-# Étape 7
-UI + game over + polish
+- intégrer les sprites approuvés quand ils seront prêts
+- remplacer les placeholders vectoriels par les vrais visuels cozy cat
+- ajouter les ennemis thématiques explicites :
+  - aspirateur
+  - chien
+  - concombre
+- améliorer encore le rythme de difficulté après tests
+- ajouter davantage de feedbacks visuels cute :
+  - hit
+  - level up
+  - pickup XP
+- ajouter un vrai background d'appartement plus varié
+- préparer le boss MVP vétérinaire

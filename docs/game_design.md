@@ -261,6 +261,63 @@ Toujours :
 
 ---
 
+## 14. État actuel du prototype
+
+### Boucle jouable déjà en place
+
+- déplacement 8 directions
+- auto-attaque
+- XP
+- level up
+- choix d'upgrades
+- timer
+- game over
+- HUD
+
+### Spawns et rythme actuels
+
+- les ennemis spawnent dans un rayon proche du player
+- la croissance du nombre d'ennemis est volontairement linéaire
+- la difficulté a été ralentie pour garder une sensation cozy et lisible
+
+### Carte actuelle
+
+- grande carte avec caméra centrée sur le player
+- mode windowed fullscreen pour le développement
+- décor non bloquant déjà présent pour renforcer la sensation de déplacement
+
+### Direction de production actuelle
+
+- placeholders autorisés tant que la lisibilité est bonne
+- éviter toute architecture complexe
+- privilégier des itérations courtes et testables
+- tout nouveau visuel doit respecter `docs/VISUAL_ART_DIRECTION.md`
+- tout travail d'intégration de sprites doit respecter le pipeline décrit dans les docs du dossier `docs/`
+
+---
+
+## 15. Prochaine intégration visuelle prévue
+
+- remplacer progressivement les placeholders vectoriels par de vrais sprites
+- priorités MVP :
+  - player chat
+  - ennemi aspirateur
+  - ennemi chien
+  - ennemi concombre
+  - croquette XP
+  - projectile
+
+---
+
+## 16. Références de contexte
+
+- direction artistique : `docs/VISUAL_ART_DIRECTION.md`
+- prompts sprites : `docs/SPRITE_PROMPTS.md`
+- tâche d'intégration d'assets : `docs/CODEX_ASSET_TASK_TEMPLATE.md`
+- contraintes agent/code : `docs/AI_CONTEXT.md`
+
+---
+
 ## 14. Direction sonore
 
 - miaulements 🐱  
