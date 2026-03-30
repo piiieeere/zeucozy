@@ -18,9 +18,21 @@ var arena_rect := Rect2(Vector2.ZERO, Vector2(1152.0, 648.0))
 @onready var player_camera: Camera2D = $Player/Camera2D
 @onready var arena: Polygon2D = $Arena
 @onready var rug: Polygon2D = $Rug
+@onready var rug_secondary: Polygon2D = $RugSecondary
+@onready var rug_corner: Polygon2D = $RugCorner
 @onready var warm_light: Polygon2D = $WarmLight
+@onready var warm_light_secondary: Polygon2D = $WarmLightSecondary
 @onready var accent_blob_left: Polygon2D = $AccentBlobLeft
 @onready var accent_blob_right: Polygon2D = $AccentBlobRight
+@onready var couch_left: Polygon2D = $CouchLeft
+@onready var couch_right: Polygon2D = $CouchRight
+@onready var coffee_table: Polygon2D = $CoffeeTable
+@onready var plant_top: Polygon2D = $PlantTop
+@onready var plant_bottom: Polygon2D = $PlantBottom
+@onready var cushion_left: Polygon2D = $CushionLeft
+@onready var cushion_right: Polygon2D = $CushionRight
+@onready var path_line_horizontal: Line2D = $PathLineHorizontal
+@onready var path_line_vertical: Line2D = $PathLineVertical
 @onready var arena_border: Line2D = $ArenaBorder
 @onready var enemies_container: Node2D = $Enemies
 @onready var projectiles_container: Node2D = $Projectiles
@@ -168,6 +180,10 @@ func _get_enemy_spawn_position() -> Vector2:
 
 
 func _on_enemy_defeated(world_position: Vector2, xp_value: int) -> void:
+	call_deferred("_spawn_xp_orb", world_position, xp_value)
+
+
+func _spawn_xp_orb(world_position: Vector2, xp_value: int) -> void:
 	var orb = XP_ORB_SCENE.instantiate()
 	pickups_container.add_child(orb)
 	orb.global_position = world_position
@@ -269,11 +285,29 @@ func _update_arena_visuals() -> void:
 		arena_rect.get_center() + Vector2(arena_rect.size.x * 0.24, arena_rect.size.y * 0.22),
 		arena_rect.get_center() + Vector2(-arena_rect.size.x * 0.30, arena_rect.size.y * 0.20),
 	])
+	rug_secondary.polygon = PackedVector2Array([
+		arena_rect.position + Vector2(arena_rect.size.x * 0.10, arena_rect.size.y * 0.54),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.29, arena_rect.size.y * 0.52),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.27, arena_rect.size.y * 0.68),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.08, arena_rect.size.y * 0.70),
+	])
+	rug_corner.polygon = PackedVector2Array([
+		arena_rect.position + Vector2(arena_rect.size.x * 0.68, arena_rect.size.y * 0.66),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.90, arena_rect.size.y * 0.64),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.88, arena_rect.size.y * 0.84),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.66, arena_rect.size.y * 0.86),
+	])
 	warm_light.polygon = PackedVector2Array([
 		arena_rect.position + Vector2(arena_rect.size.x * 0.08, arena_rect.size.y * 0.04),
 		arena_rect.position + Vector2(arena_rect.size.x * 0.42, arena_rect.size.y * 0.02),
 		arena_rect.position + Vector2(arena_rect.size.x * 0.36, arena_rect.size.y * 0.26),
 		arena_rect.position + Vector2(arena_rect.size.x * 0.10, arena_rect.size.y * 0.24),
+	])
+	warm_light_secondary.polygon = PackedVector2Array([
+		arena_rect.position + Vector2(arena_rect.size.x * 0.62, arena_rect.size.y * 0.70),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.92, arena_rect.size.y * 0.66),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.88, arena_rect.size.y * 0.92),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.58, arena_rect.size.y * 0.88),
 	])
 	accent_blob_left.polygon = PackedVector2Array([
 		arena_rect.position + Vector2(arena_rect.size.x * 0.06, arena_rect.size.y * 0.76),
@@ -286,6 +320,56 @@ func _update_arena_visuals() -> void:
 		arena_rect.position + Vector2(arena_rect.size.x * 0.92, arena_rect.size.y * 0.14),
 		arena_rect.position + Vector2(arena_rect.size.x * 0.90, arena_rect.size.y * 0.32),
 		arena_rect.position + Vector2(arena_rect.size.x * 0.72, arena_rect.size.y * 0.30),
+	])
+	couch_left.polygon = PackedVector2Array([
+		arena_rect.position + Vector2(arena_rect.size.x * 0.12, arena_rect.size.y * 0.18),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.23, arena_rect.size.y * 0.18),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.24, arena_rect.size.y * 0.29),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.11, arena_rect.size.y * 0.30),
+	])
+	couch_right.polygon = PackedVector2Array([
+		arena_rect.position + Vector2(arena_rect.size.x * 0.74, arena_rect.size.y * 0.42),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.86, arena_rect.size.y * 0.41),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.87, arena_rect.size.y * 0.53),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.73, arena_rect.size.y * 0.54),
+	])
+	coffee_table.polygon = PackedVector2Array([
+		arena_rect.get_center() + Vector2(-arena_rect.size.x * 0.04, -arena_rect.size.y * 0.04),
+		arena_rect.get_center() + Vector2(arena_rect.size.x * 0.05, -arena_rect.size.y * 0.05),
+		arena_rect.get_center() + Vector2(arena_rect.size.x * 0.04, arena_rect.size.y * 0.05),
+		arena_rect.get_center() + Vector2(-arena_rect.size.x * 0.05, arena_rect.size.y * 0.04),
+	])
+	plant_top.polygon = PackedVector2Array([
+		arena_rect.position + Vector2(arena_rect.size.x * 0.84, arena_rect.size.y * 0.08),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.89, arena_rect.size.y * 0.07),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.90, arena_rect.size.y * 0.13),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.83, arena_rect.size.y * 0.14),
+	])
+	plant_bottom.polygon = PackedVector2Array([
+		arena_rect.position + Vector2(arena_rect.size.x * 0.18, arena_rect.size.y * 0.82),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.24, arena_rect.size.y * 0.81),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.25, arena_rect.size.y * 0.89),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.17, arena_rect.size.y * 0.90),
+	])
+	cushion_left.polygon = PackedVector2Array([
+		arena_rect.position + Vector2(arena_rect.size.x * 0.40, arena_rect.size.y * 0.78),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.45, arena_rect.size.y * 0.77),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.46, arena_rect.size.y * 0.82),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.39, arena_rect.size.y * 0.83),
+	])
+	cushion_right.polygon = PackedVector2Array([
+		arena_rect.position + Vector2(arena_rect.size.x * 0.58, arena_rect.size.y * 0.24),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.64, arena_rect.size.y * 0.23),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.65, arena_rect.size.y * 0.29),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.57, arena_rect.size.y * 0.30),
+	])
+	path_line_horizontal.points = PackedVector2Array([
+		arena_rect.position + Vector2(arena_rect.size.x * 0.16, arena_rect.size.y * 0.50),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.84, arena_rect.size.y * 0.50),
+	])
+	path_line_vertical.points = PackedVector2Array([
+		arena_rect.position + Vector2(arena_rect.size.x * 0.50, arena_rect.size.y * 0.16),
+		arena_rect.position + Vector2(arena_rect.size.x * 0.50, arena_rect.size.y * 0.84),
 	])
 
 

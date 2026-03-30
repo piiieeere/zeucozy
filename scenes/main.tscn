@@ -78,11 +78,61 @@ polygon = PackedVector2Array(280, -200, 520, -200, 520, 20, 260, 20)
 color = Color(0.623529, 0.964706, 1, 0.32)
 polygon = PackedVector2Array(-240, -120, 240, -120, 220, 120, -240, 120)
 
+[node name="RugSecondary" type="Polygon2D" parent="."]
+color = Color(0.741176, 0.698039, 1, 0.26)
+polygon = PackedVector2Array(-420, 80, -180, 70, -200, 240, -440, 250)
+
+[node name="RugCorner" type="Polygon2D" parent="."]
+color = Color(1, 0.776471, 1, 0.24)
+polygon = PackedVector2Array(220, 140, 440, 130, 430, 300, 210, 310)
+
 [node name="ArenaBorder" type="Line2D" parent="."]
 width = 8.0
 default_color = Color(0.164706, 0.164706, 0.227451, 0.92)
 closed = true
 points = PackedVector2Array(-576, -324, 576, -324, 576, 324, -576, 324)
+
+[node name="WarmLightSecondary" type="Polygon2D" parent="."]
+color = Color(1, 0.839216, 0.647059, 0.34)
+polygon = PackedVector2Array(160, 120, 420, 120, 400, 300, 140, 300)
+
+[node name="PathLineHorizontal" type="Line2D" parent="."]
+width = 18.0
+default_color = Color(1, 0.839216, 0.647059, 0.18)
+points = PackedVector2Array(-320, 0, 320, 0)
+
+[node name="PathLineVertical" type="Line2D" parent="."]
+width = 18.0
+default_color = Color(0.623529, 0.964706, 1, 0.16)
+points = PackedVector2Array(0, -220, 0, 220)
+
+[node name="CouchLeft" type="Polygon2D" parent="."]
+color = Color(0.623529, 0.768627, 1, 0.72)
+polygon = PackedVector2Array(-420, -180, -280, -180, -270, -90, -430, -90)
+
+[node name="CouchRight" type="Polygon2D" parent="."]
+color = Color(1, 0.839216, 0.647059, 0.7)
+polygon = PackedVector2Array(260, -20, 410, -20, 420, 70, 250, 70)
+
+[node name="CoffeeTable" type="Polygon2D" parent="."]
+color = Color(1, 0.992157, 0.713726, 0.58)
+polygon = PackedVector2Array(-80, -40, 80, -40, 70, 40, -70, 40)
+
+[node name="PlantTop" type="Polygon2D" parent="."]
+color = Color(0.803922, 1, 0.74902, 0.9)
+polygon = PackedVector2Array(360, -240, 420, -250, 430, -190, 350, -180)
+
+[node name="PlantBottom" type="Polygon2D" parent="."]
+color = Color(0.803922, 1, 0.74902, 0.9)
+polygon = PackedVector2Array(-360, 200, -290, 190, -280, 270, -370, 280)
+
+[node name="CushionLeft" type="Polygon2D" parent="."]
+color = Color(1, 0.776471, 1, 0.72)
+polygon = PackedVector2Array(-80, 180, -10, 175, 0, 230, -90, 235)
+
+[node name="CushionRight" type="Polygon2D" parent="."]
+color = Color(0.992157, 1, 0.713726, 0.74)
+polygon = PackedVector2Array(120, -150, 200, -160, 210, -100, 110, -90)
 
 [node name="Enemies" type="Node2D" parent="."]
 
