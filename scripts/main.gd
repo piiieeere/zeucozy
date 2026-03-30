@@ -164,19 +164,12 @@ func _pick_enemy_scene() -> PackedScene:
 
 
 func _get_enemy_spawn_position() -> Vector2:
-	var arena_rect := get_arena_rect()
-	var margin := 54.0
-	var side := randi() % 4
+	if player != null:
+		var direction := Vector2.from_angle(randf() * TAU)
+		var distance := randf_range(260.0, 420.0)
+		return clamp_to_arena(player.global_position + direction * distance, Vector2(72.0, 72.0))
 
-	match side:
-		0:
-			return Vector2(randf_range(arena_rect.position.x, arena_rect.end.x), arena_rect.position.y + margin)
-		1:
-			return Vector2(arena_rect.end.x - margin, randf_range(arena_rect.position.y, arena_rect.end.y))
-		2:
-			return Vector2(randf_range(arena_rect.position.x, arena_rect.end.x), arena_rect.end.y - margin)
-		_:
-			return Vector2(arena_rect.position.x + margin, randf_range(arena_rect.position.y, arena_rect.end.y))
+	return get_arena_rect().get_center()
 
 
 func _on_enemy_defeated(world_position: Vector2, xp_value: int) -> void:
