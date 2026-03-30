@@ -112,14 +112,11 @@ func spawn_projectile(origin: Vector2, direction: Vector2, damage: int, speed: f
 
 
 func _get_spawn_interval() -> float:
-	return max(0.35, 1.2 - elapsed_time * 0.015)
+	return max(0.95, 1.35 - elapsed_time * 0.003)
 
 
 func _spawn_wave() -> void:
-	var enemy_count := 1 + int(elapsed_time / 18.0)
-
-	if elapsed_time >= 45.0:
-		enemy_count += 1
+	var enemy_count := _get_enemy_count_for_time()
 
 	for _index in range(enemy_count):
 		var enemy_scene := _pick_enemy_scene()
@@ -130,6 +127,18 @@ func _spawn_wave() -> void:
 		enemy.global_position = _get_enemy_spawn_position()
 		enemy.setup(player, difficulty_scale)
 		enemy.defeated.connect(_on_enemy_defeated)
+
+
+func _get_enemy_count_for_time() -> int:
+	if elapsed_time < 35.0:
+		return 1
+	if elapsed_time < 70.0:
+		return 2
+	if elapsed_time < 105.0:
+		return 3
+	if elapsed_time < 140.0:
+		return 4
+	return 5
 
 
 func _pick_enemy_scene() -> PackedScene:
