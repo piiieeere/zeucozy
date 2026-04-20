@@ -17,6 +17,7 @@ signal died
 @export var pickup_radius: float = 72.0
 
 @onready var pickup_collision: CollisionShape2D = $PickupArea/CollisionShape2D
+@onready var _sprite: AnimatedSprite2D = $AnimatedSprite2D
 
 var health: int
 var level := 1
@@ -37,6 +38,7 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if _is_run_paused():
 		velocity = Vector2.ZERO
+		_play_anim(&"idle")
 		return
 
 	var input_direction := Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
@@ -46,6 +48,7 @@ func _physics_process(delta: float) -> void:
 
 	velocity = input_direction * speed
 	move_and_slide()
+	_update_animation(input_direction)
 
 	var game = _get_game()
 
@@ -159,6 +162,21 @@ func _emit_all_state() -> void:
 	health_changed.emit(health, max_health)
 	xp_changed.emit(current_xp, xp_to_next, level)
 	stats_changed.emit(build_stats_text())
+
+
+func _update_animation(input_dir: Vector2) -> void:
+	if input_dir == Vector2.ZERO:
+		_play_anim(&"idle")
+		return
+	if abs(input_dir.x) >= abs(input_dir.y):
+		_play_anim(&"walk_right" if input_dir.x > 0 else &"walk_left")
+	else:
+		_play_anim(&"walk_down" if input_dir.y > 0 else &"walk_up")
+
+
+func _play_anim(anim: StringName) -> void:
+	if _sprite.animation != anim or not _sprite.is_playing():
+		_sprite.play(anim)
 
 
 func _get_game() -> Node:

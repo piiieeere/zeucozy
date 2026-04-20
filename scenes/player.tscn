@@ -1,6 +1,7 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=22 format=3]
 
 [ext_resource type="Script" path="res://scripts/player.gd" id="1_gjffe"]
+[ext_resource type="Texture2D" path="res://assets/sprites/approved/player_cat_sheet.png" id="2_sheet"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_body"]
 radius = 14.0
@@ -11,6 +12,149 @@ radius = 16.0
 [sub_resource type="CircleShape2D" id="CircleShape2D_pickup"]
 radius = 72.0
 
+[sub_resource type="AtlasTexture" id="AT_d0"]
+atlas = ExtResource("2_sheet")
+region = Rect2(0, 0, 128, 128)
+
+[sub_resource type="AtlasTexture" id="AT_d1"]
+atlas = ExtResource("2_sheet")
+region = Rect2(128, 0, 128, 128)
+
+[sub_resource type="AtlasTexture" id="AT_d2"]
+atlas = ExtResource("2_sheet")
+region = Rect2(256, 0, 128, 128)
+
+[sub_resource type="AtlasTexture" id="AT_d3"]
+atlas = ExtResource("2_sheet")
+region = Rect2(384, 0, 128, 128)
+
+[sub_resource type="AtlasTexture" id="AT_u0"]
+atlas = ExtResource("2_sheet")
+region = Rect2(0, 128, 128, 128)
+
+[sub_resource type="AtlasTexture" id="AT_u1"]
+atlas = ExtResource("2_sheet")
+region = Rect2(128, 128, 128, 128)
+
+[sub_resource type="AtlasTexture" id="AT_u2"]
+atlas = ExtResource("2_sheet")
+region = Rect2(256, 128, 128, 128)
+
+[sub_resource type="AtlasTexture" id="AT_u3"]
+atlas = ExtResource("2_sheet")
+region = Rect2(384, 128, 128, 128)
+
+[sub_resource type="AtlasTexture" id="AT_r0"]
+atlas = ExtResource("2_sheet")
+region = Rect2(0, 256, 128, 128)
+
+[sub_resource type="AtlasTexture" id="AT_r1"]
+atlas = ExtResource("2_sheet")
+region = Rect2(128, 256, 128, 128)
+
+[sub_resource type="AtlasTexture" id="AT_r2"]
+atlas = ExtResource("2_sheet")
+region = Rect2(256, 256, 128, 128)
+
+[sub_resource type="AtlasTexture" id="AT_r3"]
+atlas = ExtResource("2_sheet")
+region = Rect2(384, 256, 128, 128)
+
+[sub_resource type="AtlasTexture" id="AT_l0"]
+atlas = ExtResource("2_sheet")
+region = Rect2(0, 384, 128, 128)
+
+[sub_resource type="AtlasTexture" id="AT_l1"]
+atlas = ExtResource("2_sheet")
+region = Rect2(128, 384, 128, 128)
+
+[sub_resource type="AtlasTexture" id="AT_l2"]
+atlas = ExtResource("2_sheet")
+region = Rect2(256, 384, 128, 128)
+
+[sub_resource type="AtlasTexture" id="AT_l3"]
+atlas = ExtResource("2_sheet")
+region = Rect2(384, 384, 128, 128)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_main"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AT_d0")
+}],
+"loop": true,
+"name": &"idle",
+"speed": 4.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AT_d0")
+}, {
+"duration": 1.0,
+"texture": SubResource("AT_d1")
+}, {
+"duration": 1.0,
+"texture": SubResource("AT_d2")
+}, {
+"duration": 1.0,
+"texture": SubResource("AT_d3")
+}],
+"loop": true,
+"name": &"walk_down",
+"speed": 8.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AT_u0")
+}, {
+"duration": 1.0,
+"texture": SubResource("AT_u1")
+}, {
+"duration": 1.0,
+"texture": SubResource("AT_u2")
+}, {
+"duration": 1.0,
+"texture": SubResource("AT_u3")
+}],
+"loop": true,
+"name": &"walk_up",
+"speed": 8.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AT_r0")
+}, {
+"duration": 1.0,
+"texture": SubResource("AT_r1")
+}, {
+"duration": 1.0,
+"texture": SubResource("AT_r2")
+}, {
+"duration": 1.0,
+"texture": SubResource("AT_r3")
+}],
+"loop": true,
+"name": &"walk_right",
+"speed": 8.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AT_l0")
+}, {
+"duration": 1.0,
+"texture": SubResource("AT_l1")
+}, {
+"duration": 1.0,
+"texture": SubResource("AT_l2")
+}, {
+"duration": 1.0,
+"texture": SubResource("AT_l3")
+}],
+"loop": true,
+"name": &"walk_left",
+"speed": 8.0
+}]
+
 [node name="Player" type="CharacterBody2D"]
 collision_layer = 1
 collision_mask = 0
@@ -19,13 +163,11 @@ script = ExtResource("1_gjffe")
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("CircleShape2D_body")
 
-[node name="Outline" type="Polygon2D" parent="."]
-color = Color(0.164706, 0.164706, 0.227451, 0.95)
-polygon = PackedVector2Array(0, -21, 18, 0, 0, 21, -18, 0)
-
-[node name="Body" type="Polygon2D" parent="."]
-color = Color(0.623529, 0.964706, 1, 1)
-polygon = PackedVector2Array(0, -18, 15, 0, 0, 18, -15, 0)
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+sprite_frames = SubResource("SpriteFrames_main")
+animation = &"idle"
+autoplay = "idle"
+scale = Vector2(0.35, 0.35)
 
 [node name="Hurtbox" type="Area2D" parent="."]
 collision_layer = 8
