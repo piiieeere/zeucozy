@@ -168,10 +168,24 @@ func _update_animation(input_dir: Vector2) -> void:
 	if input_dir == Vector2.ZERO:
 		_play_anim(&"idle")
 		return
-	if abs(input_dir.x) >= abs(input_dir.y):
-		_play_anim(&"walk_right" if input_dir.x > 0 else &"walk_left")
+
+	var dx := input_dir.x
+	var dy := input_dir.y
+	var diagonal: bool = abs(dx) > 0.35 and abs(dy) > 0.35
+
+	if diagonal:
+		if dx > 0 and dy > 0:
+			_play_anim(&"walk_down_right")
+		elif dx < 0 and dy > 0:
+			_play_anim(&"walk_down_left")
+		elif dx > 0 and dy < 0:
+			_play_anim(&"walk_up_right")
+		else:
+			_play_anim(&"walk_up_left")
+	elif abs(dx) >= abs(dy):
+		_play_anim(&"walk_right" if dx > 0 else &"walk_left")
 	else:
-		_play_anim(&"walk_down" if input_dir.y > 0 else &"walk_up")
+		_play_anim(&"walk_down" if dy > 0 else &"walk_up")
 
 
 func _play_anim(anim: StringName) -> void:

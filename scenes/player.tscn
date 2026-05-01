@@ -1,7 +1,20 @@
-[gd_scene load_steps=22 format=3]
+[gd_scene load_steps=21 format=3]
 
 [ext_resource type="Script" path="res://scripts/player.gd" id="1_gjffe"]
-[ext_resource type="Texture2D" path="res://assets/sprites/approved/player_cat_sheet.png" id="2_sheet"]
+[ext_resource type="Texture2D" path="res://assets/sprites/approved/player_idle_01.png" id="2_i1"]
+[ext_resource type="Texture2D" path="res://assets/sprites/approved/player_idle_02.png" id="3_i2"]
+[ext_resource type="Texture2D" path="res://assets/sprites/approved/player_idle_03.png" id="4_i3"]
+[ext_resource type="Texture2D" path="res://assets/sprites/approved/player_idle_04.png" id="5_i4"]
+[ext_resource type="Texture2D" path="res://assets/sprites/approved/player_idle_05.png" id="6_i5"]
+[ext_resource type="Texture2D" path="res://assets/sprites/approved/player_idle_06.png" id="7_i6"]
+[ext_resource type="Texture2D" path="res://assets/sprites/approved/player_down.png" id="8_down"]
+[ext_resource type="Texture2D" path="res://assets/sprites/approved/player_up.png" id="9_up"]
+[ext_resource type="Texture2D" path="res://assets/sprites/approved/player_right.png" id="10_right"]
+[ext_resource type="Texture2D" path="res://assets/sprites/approved/player_left.png" id="11_left"]
+[ext_resource type="Texture2D" path="res://assets/sprites/approved/player_down_right.png" id="12_dr"]
+[ext_resource type="Texture2D" path="res://assets/sprites/approved/player_down_left.png" id="13_dl"]
+[ext_resource type="Texture2D" path="res://assets/sprites/approved/player_up_right.png" id="14_ur"]
+[ext_resource type="Texture2D" path="res://assets/sprites/approved/player_up_left.png" id="15_ul"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_body"]
 radius = 14.0
@@ -12,147 +25,70 @@ radius = 16.0
 [sub_resource type="CircleShape2D" id="CircleShape2D_pickup"]
 radius = 72.0
 
-[sub_resource type="AtlasTexture" id="AT_d0"]
-atlas = ExtResource("2_sheet")
-region = Rect2(0, 0, 128, 128)
-
-[sub_resource type="AtlasTexture" id="AT_d1"]
-atlas = ExtResource("2_sheet")
-region = Rect2(128, 0, 128, 128)
-
-[sub_resource type="AtlasTexture" id="AT_d2"]
-atlas = ExtResource("2_sheet")
-region = Rect2(256, 0, 128, 128)
-
-[sub_resource type="AtlasTexture" id="AT_d3"]
-atlas = ExtResource("2_sheet")
-region = Rect2(384, 0, 128, 128)
-
-[sub_resource type="AtlasTexture" id="AT_u0"]
-atlas = ExtResource("2_sheet")
-region = Rect2(0, 128, 128, 128)
-
-[sub_resource type="AtlasTexture" id="AT_u1"]
-atlas = ExtResource("2_sheet")
-region = Rect2(128, 128, 128, 128)
-
-[sub_resource type="AtlasTexture" id="AT_u2"]
-atlas = ExtResource("2_sheet")
-region = Rect2(256, 128, 128, 128)
-
-[sub_resource type="AtlasTexture" id="AT_u3"]
-atlas = ExtResource("2_sheet")
-region = Rect2(384, 128, 128, 128)
-
-[sub_resource type="AtlasTexture" id="AT_r0"]
-atlas = ExtResource("2_sheet")
-region = Rect2(0, 256, 128, 128)
-
-[sub_resource type="AtlasTexture" id="AT_r1"]
-atlas = ExtResource("2_sheet")
-region = Rect2(128, 256, 128, 128)
-
-[sub_resource type="AtlasTexture" id="AT_r2"]
-atlas = ExtResource("2_sheet")
-region = Rect2(256, 256, 128, 128)
-
-[sub_resource type="AtlasTexture" id="AT_r3"]
-atlas = ExtResource("2_sheet")
-region = Rect2(384, 256, 128, 128)
-
-[sub_resource type="AtlasTexture" id="AT_l0"]
-atlas = ExtResource("2_sheet")
-region = Rect2(0, 384, 128, 128)
-
-[sub_resource type="AtlasTexture" id="AT_l1"]
-atlas = ExtResource("2_sheet")
-region = Rect2(128, 384, 128, 128)
-
-[sub_resource type="AtlasTexture" id="AT_l2"]
-atlas = ExtResource("2_sheet")
-region = Rect2(256, 384, 128, 128)
-
-[sub_resource type="AtlasTexture" id="AT_l3"]
-atlas = ExtResource("2_sheet")
-region = Rect2(384, 384, 128, 128)
-
 [sub_resource type="SpriteFrames" id="SpriteFrames_main"]
 animations = [{
 "frames": [{
 "duration": 1.0,
-"texture": SubResource("AT_d0")
+"texture": ExtResource("2_i1")
+}, {
+"duration": 1.0,
+"texture": ExtResource("3_i2")
+}, {
+"duration": 1.0,
+"texture": ExtResource("4_i3")
+}, {
+"duration": 1.0,
+"texture": ExtResource("5_i4")
+}, {
+"duration": 1.0,
+"texture": ExtResource("6_i5")
+}, {
+"duration": 1.0,
+"texture": ExtResource("7_i6")
 }],
 "loop": true,
 "name": &"idle",
-"speed": 4.0
+"speed": 6.0
 }, {
-"frames": [{
-"duration": 1.0,
-"texture": SubResource("AT_d0")
-}, {
-"duration": 1.0,
-"texture": SubResource("AT_d1")
-}, {
-"duration": 1.0,
-"texture": SubResource("AT_d2")
-}, {
-"duration": 1.0,
-"texture": SubResource("AT_d3")
-}],
+"frames": [{"duration": 1.0, "texture": ExtResource("8_down")}],
 "loop": true,
 "name": &"walk_down",
-"speed": 8.0
+"speed": 1.0
 }, {
-"frames": [{
-"duration": 1.0,
-"texture": SubResource("AT_u0")
-}, {
-"duration": 1.0,
-"texture": SubResource("AT_u1")
-}, {
-"duration": 1.0,
-"texture": SubResource("AT_u2")
-}, {
-"duration": 1.0,
-"texture": SubResource("AT_u3")
-}],
+"frames": [{"duration": 1.0, "texture": ExtResource("9_up")}],
 "loop": true,
 "name": &"walk_up",
-"speed": 8.0
+"speed": 1.0
 }, {
-"frames": [{
-"duration": 1.0,
-"texture": SubResource("AT_r0")
-}, {
-"duration": 1.0,
-"texture": SubResource("AT_r1")
-}, {
-"duration": 1.0,
-"texture": SubResource("AT_r2")
-}, {
-"duration": 1.0,
-"texture": SubResource("AT_r3")
-}],
+"frames": [{"duration": 1.0, "texture": ExtResource("10_right")}],
 "loop": true,
 "name": &"walk_right",
-"speed": 8.0
+"speed": 1.0
 }, {
-"frames": [{
-"duration": 1.0,
-"texture": SubResource("AT_l0")
-}, {
-"duration": 1.0,
-"texture": SubResource("AT_l1")
-}, {
-"duration": 1.0,
-"texture": SubResource("AT_l2")
-}, {
-"duration": 1.0,
-"texture": SubResource("AT_l3")
-}],
+"frames": [{"duration": 1.0, "texture": ExtResource("11_left")}],
 "loop": true,
 "name": &"walk_left",
-"speed": 8.0
+"speed": 1.0
+}, {
+"frames": [{"duration": 1.0, "texture": ExtResource("12_dr")}],
+"loop": true,
+"name": &"walk_down_right",
+"speed": 1.0
+}, {
+"frames": [{"duration": 1.0, "texture": ExtResource("13_dl")}],
+"loop": true,
+"name": &"walk_down_left",
+"speed": 1.0
+}, {
+"frames": [{"duration": 1.0, "texture": ExtResource("14_ur")}],
+"loop": true,
+"name": &"walk_up_right",
+"speed": 1.0
+}, {
+"frames": [{"duration": 1.0, "texture": ExtResource("15_ul")}],
+"loop": true,
+"name": &"walk_up_left",
+"speed": 1.0
 }]
 
 [node name="Player" type="CharacterBody2D"]
@@ -167,7 +103,7 @@ shape = SubResource("CircleShape2D_body")
 sprite_frames = SubResource("SpriteFrames_main")
 animation = &"idle"
 autoplay = "idle"
-scale = Vector2(0.35, 0.35)
+scale = Vector2(0.38, 0.38)
 
 [node name="Hurtbox" type="Area2D" parent="."]
 collision_layer = 8
