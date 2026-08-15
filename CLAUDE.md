@@ -8,7 +8,7 @@ Guide de référence pour Claude Code sur ce projet. Lire les docs listés ci-de
 
 **Zeucozy** est un jeu action-roguelite 2D cozy à thème chat, de type survivor. Le joueur contrôle un chat qui survit à des vagues d'ennemis (aspirateur, chien, concombre), collecte des croquettes (XP) et choisit des améliorations à chaque niveau.
 
-- **Moteur :** Godot 4.6.1 — GDScript idiomatique Godot 4
+- **Moteur :** Godot 4.7 — GDScript idiomatique Godot 4
 - **Physique :** Jolt Physics
 - **Plateforme cible :** Windows (DirectX 12), dev sous VS Code
 - **Dépôt :** `https://github.com/piiieeere/zeucozy.git`
