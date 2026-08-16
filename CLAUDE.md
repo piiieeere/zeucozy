@@ -277,7 +277,8 @@ zeucozy/
 │   │   ├── chaser.tscn   # Ennemi rapide (spawn dès le début) — capsule placeholder
 │   │   └── brute.tscn    # Ennemi costaud (spawn après 22s) — sphère placeholder
 │   └── tests/
-│       └── cel_test.tscn # Banc de test du cel-shading, isolé du gameplay
+│       ├── cel_test.tscn  # Banc de test du cel-shading du chat, isolé du gameplay
+│       └── prop_test.tscn # Banc de test du mobilier
 ├── scripts/          # Logique GDScript
 │   ├── main.gd       # Directeur de jeu, spawn, difficulté, UI
 │   ├── player.gd     # Mouvement, attaque auto, upgrades, XP
@@ -295,7 +296,8 @@ zeucozy/
 │   │   ├── impact_frame.gd         # Flash ambré plein cadre, 2 frames
 │   │   └── hit_burst.gd            # Éclat de collision, 8 poses
 │   └── tests/
-│       └── cel_test.gd # Cadrage, bascules et captures du banc
+│       ├── cel_test.gd  # Cadrage, bascules et captures du banc du chat
+│       └── prop_test.gd # Banc des meubles : 8 directions + rapport de taille au chat
 ├── shaders/          # cel_toon, cel_outline, cel_face, retro_post
 │                     # cel_ground (parquet peint), cel_rug (tapis)
 │                     # hit_burst (éclat de collision), impact_frame (flash)
