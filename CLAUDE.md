@@ -290,6 +290,7 @@ zeucozy/
 │   │   ├── upgrade_definitions.gd  # Pool et définitions des upgrades
 │   │   ├── cel_style.gd            # Matériaux cel des primitives, du sol + ombre de contact
 │   │   ├── cel_model.gd            # ⭐ Le style du chat — partagé jeu ↔ banc de test
+│   │   ├── cel_prop.gd             # ⭐ Le style des meubles — .glb sans squelette
 │   │   ├── fx_cadence.gd           # ⭐ Les 2 durées de pose des FX (§7) — source unique
 │   │   ├── impact_frame.gd         # Flash ambré plein cadre, 2 frames
 │   │   └── hit_burst.gd            # Éclat de collision, 8 poses
@@ -371,7 +372,8 @@ Le rig de caméra fait exception : il bouge dans `_process`, donc son interpolat
 ## Conventions d'assets
 
 - **Modèles 3D :** `assets/models/{catégorie}_{nom}.glb` ex. `player_cat.glb`
-- **Catégories valides :** `player`, `enemy`, `xp`, `projectile`, `boss`, `pickup`, `ui`, `fx`
+- **Catégories valides :** `player`, `enemy`, `xp`, `projectile`, `boss`, `pickup`, `ui`, `fx`,
+  `prop` *(ajoutée le 2026-08-16 avec le canapé — le mobilier n'entrait dans aucune)*
 - **Travail en cours :** hors dépôt, dans `C:\Users\tibo\Documents\zeucozy_3d\` (`.blend` versionnés `_v01`, `_v02`…)
 - Seuls les **exports validés** entrent dans `assets/models/`.
 

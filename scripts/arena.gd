@@ -17,6 +17,9 @@ extends Node3D
 ## Le sol, lui, ne se construit plus en geometrie du tout — voir plus bas.
 
 const CelStyle := preload("res://scripts/systems/cel_style.gd")
+const CelProp := preload("res://scripts/systems/cel_prop.gd")
+
+const CANAPE := "res://assets/models/prop_canape.glb"
 
 ## Ton moyen du parquet. Sert de fond de melange aux aplats du mobilier, pour
 ## qu'ils restent coherents avec le sol sur lequel ils sont poses.
@@ -60,11 +63,22 @@ const RUGS := [
 ]
 
 # Mobilier — meme convention, plus une hauteur.
+#
+# Deux familles cohabitent, et c'est un etat transitoire assume :
+#
+#   * "model" — un .glb cel-shade, style pose par cel_prop.gd. Son emprise
+#     "size" doit egaler celle du modele, elle ne le redimensionne pas : §11
+#     interdit le scaling non uniforme sur un objet exporte, et un canape
+#     etire ne serait plus le canape qu'on a valide au banc ;
+#   * sans "model" — la boite pastel du prototype, en attendant son modele.
 const PROPS := [
-	{"at": Vector2(0.24, 0.30), "size": Vector2(6.4, 2.6), "height": 1.6,
-		"color": Color("#9FC4FF"), "alpha": 0.72},   # canape
-	{"at": Vector2(0.76, 0.66), "size": Vector2(6.4, 2.6), "height": 1.6,
-		"color": Color("#FFD6A5"), "alpha": 0.70},   # canape
+	{"at": Vector2(0.24, 0.30), "size": Vector2(6.4, 2.6),
+		"model": CANAPE, "variant": "bleu", "yaw": 0.0},
+	# Le second canape tourne le dos au premier. Deux exemplaires identiques
+	# poses dans le meme sens se liraient comme du papier peint — c'est deja la
+	# raison du decalage aleatoire par cellule.
+	{"at": Vector2(0.76, 0.66), "size": Vector2(6.4, 2.6),
+		"model": CANAPE, "variant": "sauge", "yaw": 180.0},
 	{"at": Vector2(0.50, 0.52), "size": Vector2(3.0, 1.6), "height": 0.8,
 		"color": Color("#FDFDB6"), "alpha": 0.58},   # table basse
 	{"at": Vector2(0.90, 0.12), "size": Vector2(1.4, 1.4), "height": 2.6,
@@ -184,6 +198,10 @@ func _add_rug(area: Rect2, color: Color, y: float) -> void:
 
 
 func _add_prop(footprint: Rect2, prop: Dictionary) -> void:
+	if prop.has("model"):
+		_add_model_prop(footprint, prop)
+		return
+
 	var height: float = prop["height"]
 
 	var mesh := BoxMesh.new()
@@ -199,6 +217,22 @@ func _add_prop(footprint: Rect2, prop: Dictionary) -> void:
 		_over_floor(prop["color"], prop["alpha"]),
 		minf(footprint.size.x, minf(footprint.size.y, height)) * 0.045
 	)
+	add_child(node)
+
+
+## Un meuble modelise. Il apporte son propre style (palette, contour, ombres
+## peintes) : rien de ce que fait `_add_prop` sur une boite ne s'applique ici.
+##
+## Pose sur le SOL, pas centre en hauteur : les modeles sortent de Blender avec
+## leur origine entre les pieds, comme le chat ("Convention Blender" §2).
+func _add_model_prop(footprint: Rect2, prop: Dictionary) -> void:
+	var node := CelProp.spawn(prop["model"], prop["variant"])
+
+	if node == null:
+		return
+
+	node.position = Vector3(footprint.get_center().x, 0.0, footprint.get_center().y)
+	node.rotation_degrees.y = prop.get("yaw", 0.0)
 	add_child(node)
 
 
