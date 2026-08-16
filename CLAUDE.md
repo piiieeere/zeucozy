@@ -28,6 +28,25 @@ Le projet **abandonne les sprites 2D** au profit de **modèles Blender 3D cel-sh
 - **Style arrêté :** variante **A** — 2 tons de cluster, contour épais (×1,75).
   Lisibilité maximale, très cartoon. Voir §2bis de `Visual Art Direction.md`.
 
+### Précision de style : rétro anime 80–90 (2026-08-16)
+
+Le rendu et l'animation se calent sur l'**anime TV des années 80–90**, d'après *Orbitals*
+(Shapefarm / Kepler) — une 3D qui se fait passer pour du cellulo dessiné à la main.
+**Ghibli garde** le ton cozy, la palette et les formes ; **le rétro anime apporte** la
+technique. L'univers sci-fi d'*Orbitals* n'est **pas** repris.
+
+- **Trait d'encre** — épaisseur variable (canal R des couleurs de sommet), couleur teintée
+  vers la couleur locale, dépassements peints
+- **Ombre = forme dessinée** — biais peint (canal G) ajouté au seuil, pas subi de l'éclairage
+- **Animation en pas** — squelette sur 3s (~20 fps), **position et caméra lisses à 60**.
+  Rien à changer dans `player.gd` / `enemy.gd` : la cadence vit dans les fichiers d'animation
+- **Post-process léger et permanent** — grain 3–5 % *rafraîchi sur 3s*, halation chaude,
+  vignette. Pas de tremblement d'image ni de saignement chroma (écartés)
+
+> Toute la donnée de style traverse le glTF via **un seul attribut de couleur de sommet
+> `Attr_Style`** (R/G/B). C'est à peu près la seule chose stylistique qui survit à l'export.
+> Détail dans `Convention Blender.md`.
+
 ### Prochaine étape — attaquer par le plus risqué
 
 Exporter le chat en **glTF**, l'importer dans Godot, et reproduire **cel-shading + contour
@@ -43,6 +62,9 @@ l'aspirateur, le chien et le concombre.
    Parade : fusionner les maillages et unifier les normales.
 3. **Les poids automatiques déchirent ce modèle.** Le rig utilise des **poids rigides**
    (1 objet = 1 os), sauf la **queue** qui a un dégradé sur 3 os.
+4. *(anticipé, pas encore vérifié)* **L'export glTF détruit la cadence en pas** si l'option
+   *Always Sample Animations* reste cochée — elle rebake tout en LINEAR. À décocher, et à
+   contrôler au premier export. Parade : forcer `Animation.INTERPOLATION_NEAREST` à l'import.
 
 ### Décision ouverte
 
@@ -64,8 +86,9 @@ Lire ces fichiers avant toute tâche concernant le domaine correspondant :
 | `00 - Index.md` | Map of content — pitch, état actuel, stack |
 | `01 - Game Design/Game Manifest.md` | Manifeste — boucle de gameplay, ennemis, upgrades, équilibre |
 | `03 - Production/Contexte IA.md` | Contraintes de développement, préférences, à lire EN PRIORITÉ |
-| `02 - Direction Artistique/Visual Art Direction.md` | **Doc clé** — §2bis contient toute la traduction des règles Ghibli en 3D |
-| `02 - Direction Artistique/Pipeline 3D.md` | Pipeline Blender → glTF → Godot |
+| `02 - Direction Artistique/Visual Art Direction.md` | **Doc clé** — §2bis = règles Ghibli traduites en 3D, §2ter = vocabulaire rétro anime, §7 = cadence en pas, §8bis = post-process |
+| `02 - Direction Artistique/Convention Blender.md` | Les gestes dans Blender — nœuds toon, couleurs de sommet, cadences, réglages d'export |
+| `02 - Direction Artistique/Pipeline 3D.md` | Pipeline Blender → glTF → Godot, + la liste de ce qui reste à écrire en shader |
 | `04 - Roadmap/Critères MVP.md` | Critères de succès du prototype |
 | `04 - Roadmap/Todo.md` | Suivi des features en cours |
 
