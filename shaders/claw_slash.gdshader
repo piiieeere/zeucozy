@@ -12,12 +12,13 @@
 //
 // Le vocabulaire est celui du reste du jeu :
 //   * deux tons de cluster, francs, sans degrade (variante A, §2bis) ;
-//   * un trait d'encre epais, brun chaud #3D2B1A, jamais noir (§4) ;
+//   * un trait d'encre epais, brun tres sombre, jamais noir pur (§4) ;
 //   * des griffes INEGALES — trois traits identiques feraient une fourchette.
 //
-// Couleurs : creme chaud + ambre, PAS le rose-rouge #D45870. Ce rose est le
-// "hit feedback" de §4, et il est deja pris par l'eclat qui marque le chat
-// TOUCHE. Deux evenements opposes ne peuvent pas partager une couleur.
+// Couleurs : gris anthracite + coeur creme depuis le 2026-08-16 (le corps etait
+// l'ambre Ghibli jusque-la). Toujours PAS le rose-rouge #D45870 : ce rose est
+// le "hit feedback" de §4, deja pris par l'eclat qui marque le chat TOUCHE, et
+// deux evenements opposes ne peuvent pas partager une couleur.
 //
 // Tout ce qui bouge est pose depuis claw_slash.gd, pose par pose. Ce shader ne
 // sait rien du temps : il dessine UNE pose (§7).
@@ -71,12 +72,25 @@ uniform float taper : hint_range(0.5, 6.0) = 2.0;
 uniform float roll = 0.0;
 
 group_uniforms couleurs;
-// Ambre Ghibli #D4A860 (§4) — le ton exterieur du cluster.
-uniform vec4 fill_color : source_color = vec4(0.831, 0.659, 0.376, 1.0);
+// Gris anthracite #37393B — le ton exterieur du cluster, celui qui donne sa
+// couleur a la griffure vue de loin. C'etait l'ambre Ghibli #D4A860 de §4
+// jusqu'au 2026-08-16. Anthracite quasi neutre et non le #383E42 canonique :
+// sur une palette parchemin, un gris qui tire au bleu se voit comme une tache
+// froide (meme raison que "jamais de blanc froid", §5).
+uniform vec4 fill_color : source_color = vec4(0.216, 0.224, 0.231, 1.0);
 // Creme chaud #F7EFE0 — le 2e ton, au coeur du trait. Jamais un blanc froid (§5).
 uniform vec4 core_color : source_color = vec4(0.969, 0.937, 0.878, 1.0);
-// Trait brun chaud #3D2B1A (§4). Jamais de noir pur, pas plus ici qu'ailleurs.
-uniform vec4 ink_color : source_color = vec4(0.239, 0.169, 0.102, 1.0);
+// Trait brun tres sombre #1A120C. Jamais de noir pur, pas plus ici qu'ailleurs.
+//
+// C'etait le brun chaud #3D2B1A de §4 tant que le corps etait ambre. Il a du
+// suivre le passage a l'anthracite, EXACTEMENT comme sur le pelage tuxedo et
+// pour la meme raison : le trait doit rester plus sombre que l'aplat qu'il
+// cerne. Mesure sur les frames — #3D2B1A est a 0,182 de luminance contre 0,216
+// pour l'anthracite, soit 0,034 d'ecart : l'encre couvrait 1 968 px contre
+// 1 075 a l'aplat et les deux fusionnaient en une seule masse sombre, le
+// cluster 2 tons retombant a un seul ton (contre §2bis). #1A120C est a 0,078,
+// soit 4x plus d'ecart.
+uniform vec4 ink_color : source_color = vec4(0.102, 0.071, 0.047, 1.0);
 // Epaisseur du trait, en unites de quad. Epais, comme partout (variante A).
 uniform float ink : hint_range(0.0, 0.2) = 0.038;
 
