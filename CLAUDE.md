@@ -81,6 +81,19 @@ contour sont reproduits en shader Godot**. Le style tient hors de Blender.
 > crâne sont **identiques à 45° et à 60°** : ce sont des problèmes de peinture et de modèle,
 > pas de cadrage. Ne pas les rechercher du côté de la caméra.
 >
+> 🔍 **Diagnostic repris le 2026-08-16, et les deux étiquettes étaient fausses :**
+> - Le **liseré d'œil n'est pas dans le `.blend` du tout.** Les yeux — cerne compris — sont
+>   dessinés par `cel_face.gdshader` seul ; Blender ne peint aucun visage. C'est un réglage
+>   de shader (`face_front_min` contre `eye_pos + eye_size + eye_border`), corrigible à
+>   tout moment sans rouvrir Blender. **Toujours ouvert.**
+> - L'amande de la joue n'est **ni un trou, ni une normale retournée, ni la base du cône
+>   qui perce** — la base est 0,09 à 0,18 *dans* la paroi, mesuré. C'est **l'oreille
+>   PROCHE, pas l'éloignée**, et c'est sa partie légitimement émergée : sous 45° de
+>   plongée, l'oreille proche se projette plus bas que l'éloignée et atterrit au milieu du
+>   disque de la tête, où sa propre coque inversée la referme en tache autonome.
+>   *Méthode qui a tranché : teinter la surface en magenta, puis rendre en Workbench
+>   `MATERIAL` + backface culling, puis lancer un rayon caméra à travers le pixel.*
+>
 > Effet de bord à connaître : à 45° **le décor occulte pour de bon** — un ennemi derrière un
 > meuble disparaît, ce qui n'arrivait pas à 60°.
 
@@ -96,9 +109,20 @@ contour sont reproduits en shader Godot**. Le style tient hors de Blender.
    des traits dessinés : **on les garde**.
 3. **Les poids automatiques déchirent ce modèle.** Le rig utilise des **poids rigides**
    (1 objet = 1 os), sauf la **queue** qui a un dégradé sur 3 os.
-4. *(anticipé, pas encore vérifié)* **L'export glTF détruit la cadence en pas** si l'option
-   *Always Sample Animations* reste cochée — elle rebake tout en LINEAR. À décocher, et à
-   contrôler au premier export. Parade : forcer `Animation.INTERPOLATION_NEAREST` à l'import.
+4. ✅ **Vérifié le 2026-08-16, et le piège n'était pas là où on l'attendait.** *Always Sample
+   Animations* décoché suffit : le glTF sort bien en `STEP`, jamais rebaké en `LINEAR`.
+   Mais la cadence mourait **deux fois ailleurs**, silencieusement :
+   - **`animation/fps=30` dans le `.import` de Godot.** L'importateur rééchantillonne à
+     30 fps, donc une pose toutes les 2 frames : sur 13 poses posées, 7 seulement
+     retombaient sur la grille de 3. **À laisser à 60.**
+   - **Deux canaux d'un même os avec des temps de clés différents.** Les trois `r*`
+     fusionnent en UN quaternion glTF ; si leurs frames divergent, l'exporteur
+     rééchantillonne **cet os** à 60 fps en LINEAR — sans erreur ni avertissement, et sur
+     lui seul. Constaté sur `tete` dans `idle` (rx toutes les 12 frames, rz toutes les 24) :
+     145 clés LINEAR à l'arrivée. `tools/build_animations.py` refuse désormais de construire
+     une action qui viole cette règle.
+   - Godot n'importe pas non plus le **mode de boucle** : tout arrive en `LOOP_NONE`, et
+     `cel_model.gd` le repasse en `LOOP_LINEAR` au chargement.
 5. **Godot applique le skinning AVANT `vertex()`** *(vérifié le 2026-08-16, en animation)*.
    `VERTEX` arrive déformé : tout masque peint calculé dessus **glisse sur la géométrie** dès
    qu'un os bouge. Parade dans les shaders : `rest_undo`, l'inverse du delta repos→pose de
@@ -152,6 +176,12 @@ n'en croiserait jamais un.
 Godot n'est **pas dans le `PATH`** — toujours l'appeler par son chemin complet.
 
 ```bash
+# Reconstruire idle/walk dans le .blend, puis exporter le chat
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background \
+  "C:/Users/tibo/Documents/zeucozy_3d/chat_style_v3.blend" \
+  --python tools/build_animations.py -- --save
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background \
+  "C:/Users/tibo/Documents/zeucozy_3d/chat_style_v3.blend" --python tools/export_cat.py
 # Réimporter les assets sans ouvrir l'éditeur
 "C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64.exe" --headless --import --path .
 # Banc de test du cel-shading — mode interactif (orbite souris, touches O/P/A)
@@ -224,7 +254,8 @@ zeucozy/
 │       └── cel_test.gd # Cadrage, bascules et captures du banc
 ├── shaders/          # cel_toon, cel_outline, cel_face, cel_core (include), retro_post
 ├── tools/
-│   └── export_cat.py # ⚠️ LE SEUL chemin d'export du chat (voir piège n°6)
+│   ├── export_cat.py       # ⚠️ LE SEUL chemin d'export du chat (voir piège n°6)
+│   └── build_animations.py # Construit idle/walk posées en pas, dans le .blend
 └── assets/
     └── models/       # player_cat.glb
 ```
@@ -313,14 +344,33 @@ boîtes pastel, croquettes en cubes.
 épaisseur variable, ombres peintes, bord de cluster irrégulier, accent de brillance, et le
 post-process §8bis (grain sur 3s, halation, vignette) dans `shaders/retro_post.gdshader`.
 
+**Animation — faite le 2026-08-16.** `idle` (2,4 s : respiration, queue, frisson d'oreille)
+et `walk` (0,4 s : rebond + pattes alternées) sont construites par
+`tools/build_animations.py`, exportées, et jouées par `cel_model.gd` — le jeu bascule sur
+la vitesse du joueur, **sans fondu** (un fondu interpolerait les deux poses, soit
+exactement le glissement que la cadence existe pour supprimer).
+
+> ✅ **La cadence en pas est prouvée de bout en bout, mesurée et non supposée.** Le banc
+> lit la pose réellement appliquée à `bras_L`, frame par frame : elle change aux frames
+> 0, 3, 6… 24, écarts tous à 3. Deux rapports le surveillent en permanence —
+> `cel_model.animation_report()` (les pistes) et `_capture_cadence()` du banc (l'os).
+> Le déplacement, lui, reste lisse à 60 : `move_and_slide` n'a pas été touché.
+
+**Oreilles remontées de 0,12** (2026-08-16, géométrie **et** os, du même vecteur). Le
+dégagement au-dessus du crâne passe de 0,19 à 0,30. **Résultat mitigé, assumé :** de face
+les oreilles se lisent enfin à taille de jeu (§3) ; de profil l'amande a *grossi*, puisque
+l'oreille proche émerge davantage. Conséquences à connaître : le chat mesure désormais
+**1,858** (contre 1,738), et `PAINTED.center` dans `cel_model.gd` a suivi.
+
 **Prochaines priorités :**
-1. Animer le chat (idle, marche) avec la **cadence en pas** — c'est ce qui débloque les
-   trois derniers items de la passe rétro anime, tous non testables sans animation.
-2. Modéliser l'aspirateur, le chien et le concombre — budget géométrie **serré** (§11) :
-   ils se multiplient à l'écran et la coque inversée double le compte.
-3. Corriger dans Blender les deux défauts que la baisse de plongée n'a **pas** réglés :
-   l'oreille éloignée qui se projette en amande dans la joue, et le liseré d'œil de profil.
-4. Peindre 3 à 5 **dépassements de trait** — vrai travail à la main, à ne pas générer.
+1. Modéliser l'aspirateur, le chien et le concombre — budget géométrie **serré** (§11) :
+   ils se multiplient à l'écran et la coque inversée double le compte. C'est le seul
+   chantier restant qui change ce qu'on **joue**, et non ce qu'on regarde.
+2. Corriger le **liseré d'œil de profil** — côté `cel_face.gdshader`, pas Blender.
+3. Peindre 3 à 5 **dépassements de trait** — vrai travail à la main, à ne pas générer.
+4. Juger la **queue** : son balayage est latéral, donc lisible de dessus mais raccourci en
+   projection de profil, où elle se rapproche du dos. Amplitudes dans
+   `tools/build_animations.py`, à l'œil au banc avec `[A]`.
 
 **Comparer un cadrage sans rouvrir l'éditeur.** `camera_rig.gd`, `cel_model.gd` et le banc
 lisent `--pitch=`, `--face-pitch=`, `--distance=`, `--fov=` et `--out=` en arguments

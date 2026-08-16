@@ -54,8 +54,12 @@ var _dragging := false
 
 var _show_outline := true
 var _show_paint := true
-var _animate := false
-var _time := 0.0
+
+# Clip joue par [A] : on fait defiler idle -> walk -> arret. Ce sont les vrais
+# clips du .glb, plus le balancement code en dur d'avant — juger le style sur
+# une animation improvisee n'apprend rien sur celle qui ira dans le jeu.
+const CLIPS := ["idle", "walk", ""]
+var _clip := 0
 
 var _capture_mode := false
 var _capture_dir := CAPTURE_DIR
@@ -87,12 +91,19 @@ func _ready() -> void:
 		return
 
 	if _capture_mode:
+		# Le tour de camera juge la SILHOUETTE : il lui faut la pose de repos.
+		# cel_model lance `idle` des le chargement, sinon les huit vues
+		# tomberaient chacune sur une pose differente et ne seraient plus
+		# comparables d'une session a l'autre.
+		_clip = CLIPS.find("")
+		_apply_clip()
 		await _capture_turntable()
 		await _capture_skinning_probe()
+		await _capture_cadence()
 		_finish()
 	else:
 		_setup_hud()
-		set_process(true)
+		_apply_clip()
 		set_process_unhandled_input(true)
 
 
@@ -137,6 +148,9 @@ func _setup_model() -> void:
 		_log("Attr_Style (min/moy/max) — neutre attendu : R 1.0, G 0.5, B 0.0")
 		for line in _model.style_report():
 			_log(line)
+		_log("Animations — attendu : NEAREST partout (la cadence en pas, §7)")
+		for line in _model.animation_report():
+			_log(line)
 
 
 func _update_camera() -> void:
@@ -179,7 +193,7 @@ func _refresh_hud() -> void:
 		"",
 		"[O]  contour ............. %s" % _on_off(_show_outline),
 		"[P]  visage + oreilles ... %s" % _on_off(_show_paint),
-		"[A]  animation de test ... %s" % _on_off(_animate),
+		"[A]  clip ................ %s" % _clip_label(),
 		"[Haut/Bas]  bascule du visage ... %d°" % int(_model.face_pitch_deg),
 		"[R]  recadrer     [1-8]  vues fixes     [Echap]  quitter",
 		"",
@@ -189,6 +203,10 @@ func _refresh_hud() -> void:
 
 func _on_off(v: bool) -> String:
 	return "ON" if v else "off"
+
+
+func _clip_label() -> String:
+	return CLIPS[_clip] if CLIPS[_clip] != "" else "arrete"
 
 
 # ------------------------------------------------------------------ interactif
@@ -229,9 +247,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				_model.set_paint_enabled(_show_paint)
 				_refresh_hud()
 			KEY_A:
-				_animate = not _animate
-				if not _animate:
-					_reset_pose()
+				_clip = (_clip + 1) % CLIPS.size()
+				_apply_clip()
 				_refresh_hud()
 			KEY_R:
 				_yaw = 0.0
@@ -257,21 +274,20 @@ func _set_face_pitch(value: float) -> void:
 	_refresh_hud()
 
 
-## Balancement lent de la tete + frisson d'oreille. Sert a juger deux choses
-## que le rendu fixe ne montre pas : le contour tient-il sous deformation, et
-## la peinture reste-t-elle accrochee a l'oreille ?
-##
-## L'ordre compte : ce _process pose les os, celui de CelModel (enfant, donc
-## traite apres) rafraichit rest_undo sur la pose qu'on vient d'ecrire.
-func _process(delta: float) -> void:
-	if _capture_mode or _skeleton == null or not _animate:
+## Joue le clip choisi par [A]. C'est ce qui permet de juger deux choses qu'un
+## rendu fixe ne montre pas : le contour tient-il sous deformation, et la
+## peinture reste-t-elle accrochee au visage et a l'oreille ?
+func _apply_clip() -> void:
+	var player: AnimationPlayer = _model.animation_player
+
+	if player == null:
 		return
 
-	_time += delta
-	_pose_bone("tete", Vector3.RIGHT, sin(_time * 1.2) * 18.0)
-	_pose_bone("cou", Vector3.UP, sin(_time * 0.8) * 14.0)
-	_pose_bone("oreille_L", Vector3.RIGHT, (sin(_time * 3.1) * 0.5 + 0.5) * 40.0)
-	_pose_bone("queue_2", Vector3.FORWARD, sin(_time * 1.6) * 20.0)
+	if CLIPS[_clip] == "":
+		player.stop()
+		_reset_pose()
+	else:
+		player.play(CLIPS[_clip])
 
 
 func _pose_bone(bone_name: String, axis: Vector3, degrees: float) -> void:
@@ -342,6 +358,64 @@ func _capture_skinning_probe() -> void:
 	var ear_path := "%s/cel_ear_probe.png" % _capture_dir
 	get_viewport().get_texture().get_image().save_png(ear_path)
 	_log("sonde calotte (os 'oreille_L' a 70°, oreille_R temoin) -> %s" % ear_path)
+
+
+## Mesure la cadence en pas la ou elle se decide vraiment : sur la POSE
+## appliquee a l'os, frame par frame.
+##
+## `animation_report()` de cel_model lit les PISTES ; ce test-ci lit le
+## resultat, et couvre donc tout ce que Godot fait entre la piste et l'os.
+## §7 demande une pose toutes les 3 frames : les ecarts doivent etre des 3,
+## et rien d'autre.
+func _capture_cadence() -> void:
+	var player: AnimationPlayer = _model.animation_player
+
+	if player == null or _skeleton == null:
+		_log("cadence : pas d'AnimationPlayer, mesure ignoree")
+		return
+
+	var bone := _skeleton.find_bone("bras_L")
+
+	if bone == -1 or not player.has_animation("walk"):
+		_log("cadence : 'walk' ou l'os 'bras_L' introuvable")
+		return
+
+	# Une marche se juge de profil : de face, le balancement des pattes se
+	# projette sur rien et on ne voit plus que le rebond.
+	_yaw = 90.0
+	_update_camera()
+
+	player.play("walk")
+	player.pause()
+
+	var previous := Quaternion.IDENTITY
+	var poses: Array[int] = []
+
+	for frame in 25:
+		player.seek(frame / 60.0, true)
+		await RenderingServer.frame_post_draw
+
+		var current := _skeleton.get_bone_pose_rotation(bone)
+
+		if frame == 0 or current.angle_to(previous) > 0.0005:
+			poses.append(frame)
+			get_viewport().get_texture().get_image().save_png(
+				"%s/cel_walk_%02d.png" % [_capture_dir, frame]
+			)
+
+		previous = current
+
+	var gaps: Array[int] = []
+
+	for i in range(1, poses.size()):
+		gaps.append(poses[i] - poses[i - 1])
+
+	_log("cadence de 'walk' — 'bras_L' change de pose aux frames %s" % str(poses))
+	_log("           ecarts : %s" % str(gaps))
+	_log("           %s" % ("sur 3s, conforme a §7" if gaps.all(func(g): return g == 3)
+			else "⚠ ECART NON CONFORME — la cadence n'est pas sur 3s"))
+
+	player.stop()
 
 
 func _log(line: String) -> void:

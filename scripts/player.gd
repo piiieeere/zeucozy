@@ -9,6 +9,7 @@ extends CharacterBody3D
 
 const UpgradeDefinitions = preload("res://scripts/systems/upgrade_definitions.gd")
 const CelStyle := preload("res://scripts/systems/cel_style.gd")
+const CelModel := preload("res://scripts/systems/cel_model.gd")
 
 signal health_changed(current_health: int, max_health: int)
 signal xp_changed(current_xp: int, xp_required: int, level: int)
@@ -55,6 +56,9 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	if _is_run_paused():
 		velocity = Vector3.ZERO
+		# Choix d'upgrade ou Game Over : le chat s'arrete de marcher, sinon il
+		# pietine sur place derriere le panneau.
+		_sync_animation(false)
 		return
 
 	# "up" pousse vers le fond de l'ecran : -Z, l'avant de Godot.
@@ -66,6 +70,7 @@ func _physics_process(delta: float) -> void:
 
 	velocity = input_direction * speed
 	move_and_slide()
+	_sync_animation(input_direction != Vector3.ZERO)
 
 	var game = _get_game()
 
@@ -146,6 +151,15 @@ func build_stats_text() -> String:
 		speed,
 		pickup_radius
 	]
+
+
+## Le squelette claque sur 3s pendant que la position, elle, reste lisse a 60 :
+## c'est le dispositif de "Visual Art Direction" §7, et il ne demande aucun code.
+## `move_and_slide` continue de deplacer le chat au metre pres a chaque tick,
+## l'AnimationPlayer ne touche qu'aux os. Rien ici n'echantillonne la
+## translation — dans un survivor, l'esquive se joue au pixel.
+func _sync_animation(moving: bool) -> void:
+	model.play(CelModel.ANIM_WALK if moving else CelModel.ANIM_IDLE)
 
 
 ## Oriente le modele vers la marche. Un objet Godot tourne de rotation.y regarde

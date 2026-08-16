@@ -62,10 +62,12 @@ const FALLBACK_COLOR := Color("#D89A55")
 # plate sans contour sur le crane.
 #
 # Reperes en espace objet Godot (glTF Y-up) : Blender (x, y, z) -> (x, z, -y).
-# Oreille Blender (0.281, -0.622, 1.472) -> Godot (0.281, 1.472, 0.622).
+# Oreille Blender (0.281, -0.622, 1.592) -> Godot (0.281, 1.592, 0.622).
+# Le z Blender est passe de 1,472 a 1,592 le 2026-08-16 : les cones d'oreille
+# et leurs os ont ete remontes de 0,12 pour degager le crane (0,19 -> 0,30).
 const PAINTED := {
 	"oreille_peinte": {
-		"center": Vector3(0.281, 1.472, 0.622),
+		"center": Vector3(0.281, 1.592, 0.622),
 		# L'oreille est mince en Z : on etire cet axe pour que le masque
 		# soit pilote par l'avant/arriere et non par la hauteur.
 		"squash": Vector3(1.0, 0.6, 3.0),
@@ -86,6 +88,10 @@ const REST_UNDO_BONES := {
 	"museau_peint": ["tete", ""],
 	"oreille_peinte": ["oreille_L", "oreille_R"],
 }
+
+# Clips portes par le .glb, construits par tools/build_animations.py.
+const ANIM_IDLE := &"idle"
+const ANIM_WALK := &"walk"
 
 @export_file("*.glb") var model_path: String = "res://assets/models/player_cat.glb"
 
@@ -123,6 +129,7 @@ const REST_UNDO_BONES := {
 
 var mesh_instance: MeshInstance3D
 var skeleton: Skeleton3D
+var animation_player: AnimationPlayer
 
 var toon_materials: Array[ShaderMaterial] = []
 var outline_materials: Array[ShaderMaterial] = []
@@ -150,6 +157,15 @@ func _ready() -> void:
 
 	skeleton = mesh_instance.get_parent() as Skeleton3D
 	_apply_cel_materials()
+	_setup_animations()
+
+	# rest_undo doit se calculer sur la pose de la frame COURANTE, donc APRES
+	# que l'AnimationPlayer l'ait ecrite. Ce player est un descendant, et un
+	# parent est traite avant ses enfants : sans cette priorite, la peinture
+	# du visage travaillerait sur la pose de la frame precedente et decalerait
+	# d'une frame a chaque changement de pose.
+	# (Godot : priorite plus haute = traite plus tard.)
+	process_priority = 100
 
 	# Sans surface peinte ni squelette, rest_undo reste l'identite pour
 	# toujours : inutile de le recalculer a chaque frame.
@@ -174,15 +190,16 @@ func _spawn_model() -> MeshInstance3D:
 	var model := packed.instantiate() as Node3D
 	add_child(model)
 	model.rotation_degrees.y = yaw_offset_deg
-	return _find_mesh_instance(model)
+	animation_player = _find_node(model, "AnimationPlayer") as AnimationPlayer
+	return _find_node(model, "MeshInstance3D") as MeshInstance3D
 
 
-func _find_mesh_instance(node: Node) -> MeshInstance3D:
-	if node is MeshInstance3D:
+func _find_node(node: Node, type_name: StringName) -> Node:
+	if node.is_class(type_name):
 		return node
 
 	for child in node.get_children():
-		var found := _find_mesh_instance(child)
+		var found := _find_node(child, type_name)
 
 		if found != null:
 			return found
@@ -238,6 +255,39 @@ func _apply_cel_materials() -> void:
 		toon_materials.append(toon_mat)
 		outline_materials.append(toon_mat.next_pass as ShaderMaterial)
 		paint_counts.append(caps)
+
+
+## Le glTF transporte les clips mais pas leur mode de boucle : Godot les
+## importe tous en LOOP_NONE, et le chat se figerait sur sa derniere pose.
+func _setup_animations() -> void:
+	if animation_player == null:
+		return
+
+	for anim_name in animation_player.get_animation_list():
+		var anim := animation_player.get_animation(anim_name)
+
+		if anim.loop_mode == Animation.LOOP_NONE:
+			anim.loop_mode = Animation.LOOP_LINEAR
+
+	# Aucun fondu entre clips. Un fondu interpole les deux poses pendant sa
+	# duree — soit exactement le glissement que la cadence en pas existe pour
+	# supprimer. "Pose a pose, jamais de flux continu" ("Convention Blender"
+	# §6.3) : le passage idle <-> walk est une coupe franche, comme au montage.
+	animation_player.playback_default_blend_time = 0.0
+
+	play(ANIM_IDLE)
+
+
+## Bascule de clip. Sans effet si le clip demande tourne deja — sinon chaque
+## appel relancerait la boucle a zero et le chat piétinerait sur place.
+func play(anim_name: StringName) -> void:
+	if animation_player == null or not animation_player.has_animation(anim_name):
+		return
+
+	if animation_player.current_animation == anim_name:
+		return
+
+	animation_player.play(anim_name)
 
 
 func _apply_painted_caps(mat: ShaderMaterial, mat_name: String) -> int:
@@ -335,6 +385,81 @@ func style_report() -> Array[String]:
 		])
 
 	return lines
+
+
+## Etat des animations tel que Godot les voit, apres le pont glTF.
+##
+## Diagnostic, pas decoration — meme role que style_report() pour Attr_Style.
+## La cadence en pas ("Visual Art Direction" §7) ne vit dans aucun code : elle
+## est ENTIEREMENT portee par l'interpolation des pistes. Une seule piste
+## revenue en LINEAR et le chat se remet a glisser, sans que rien ne casse ni
+## ne previenne. C'est exactement le piege n°4 de "Pipeline 3D".
+##
+## Lecture : NEAREST = en pas (STEP cote glTF), LINEAR = cadence perdue.
+func animation_report() -> Array[String]:
+	var lines: Array[String] = []
+
+	if animation_player == null:
+		lines.append("  aucun AnimationPlayer dans le .glb")
+		return lines
+
+	for anim_name in animation_player.get_animation_list():
+		var anim := animation_player.get_animation(anim_name)
+		var keys := 0
+		var changes := 0
+		var off_grid := 0
+		var lisses: Array[String] = []
+
+		for track in anim.get_track_count():
+			var count := anim.track_get_key_count(track)
+			keys += count
+			var moves := false
+
+			for key in range(1, count):
+				if anim.track_get_key_value(track, key) == anim.track_get_key_value(track, key - 1):
+					continue
+
+				moves = true
+				changes += 1
+
+				if not _on_step_grid(anim.track_get_key_time(track, key)):
+					off_grid += 1
+
+			# Seule une piste qui BOUGE et qui n'est pas en NEAREST casse la
+			# cadence. Godot en fabrique beaucoup d'autres (position et echelle
+			# par os) qui restent a leur valeur de repos : elles sont en LINEAR
+			# et parfaitement inoffensives, les compter alarmerait pour rien.
+			if moves and anim.track_get_interpolation_type(track) != Animation.INTERPOLATION_NEAREST:
+				lisses.append(String(anim.track_get_path(track)))
+
+		lines.append("  %-10s %5.2fs  %2d pistes  %3d cles  %3d changements dont %d hors grille  boucle %s" % [
+			anim_name, anim.length, anim.get_track_count(), keys, changes, off_grid,
+			"oui" if anim.loop_mode != Animation.LOOP_NONE else "non",
+		])
+
+		if lisses.is_empty():
+			lines.append("             cadence en pas intacte — aucune piste mobile interpolee")
+		else:
+			lines.append("             ⚠ %d piste(s) mobile(s) NON en pas : %s"
+					% [lisses.size(), ", ".join(lisses)])
+
+	return lines
+
+
+## Une pose tombe-t-elle sur la grille de 3 frames a 60 fps ?
+##
+## Compter les cles ne mesure PAS la cadence : l'importateur de Godot
+## reechantillonne a `animation/fps` (30 par defaut — a mettre a 60 dans le
+## .import, sinon la grille de 3 est deja perdue a l'import). Il en resulte
+## beaucoup de cles redondantes, et elles sont inoffensives : en NEAREST, une
+## cle qui reprend la valeur precedente ne fait rien voir.
+##
+## Ce qui compte est l'instant ou la valeur CHANGE. Un seul changement entre
+## deux marches ajoute une pose que personne n'a posee, et la cadence cesse
+## d'etre sur 3s sans que rien ne casse ni ne previenne.
+func _on_step_grid(time: float) -> bool:
+	var frame := time * 60.0
+	return absf(frame - roundf(frame / 3.0) * 3.0) < 0.02
 
 
 func set_face_pitch(value: float) -> void:
