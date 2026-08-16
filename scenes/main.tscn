@@ -86,7 +86,7 @@ physics_interpolation_mode = 2
 script = ExtResource("4_camrig")
 
 [node name="Camera3D" type="Camera3D" parent="CameraRig"]
-transform = Transform3D(1, 0, 0, 0, 0.504967, -0.863139, 0, 0.863139, 0.504967, 0, 32.9089, 19)
+transform = Transform3D(1, 0, 0, 0, 0.719226, -0.694776, 0, 0.694776, 0.719226, 0, 26.8701, 26.8701)
 fov = 24.0
 near = 1.0
 far = 400.0

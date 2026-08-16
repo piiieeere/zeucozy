@@ -71,9 +71,18 @@ contour sont reproduits en shader Godot**. Le style tient hors de Blender.
 **Restes connus :** liseré d'œil qui dépasse de profil ; Blender et Godot ont divergé
 (le `.blend` ignore le visage peint et l'oreille peinte).
 
-> ⚠️ **La plongée caméra à 60° est à reconsidérer en DA.** Elle est la cause racine de trois
-> problèmes distincts : le personnage se lit mal de face, l'oreille éloignée se projette dans
-> le crâne, et le visage doit être relevé — ce qui le rend visible de dos.
+> ✅ **La plongée caméra est passée de 60° à 45°** (2026-08-16), après comparaison à taille
+> de jeu sur 45/50/55/60. À 60° la croupe passait **au-dessus** de la tête et avalait les
+> oreilles : le chat se lisait comme un cadenas. À 45° la tête redevient un disque net, les
+> oreilles se détachent sur le fond, les pattes avant reposent le personnage au sol.
+>
+> ⚠️ **Mais l'attribution était trop large.** Sur les trois problèmes imputés à la plongée,
+> **un seul** disparaît. Le liseré d'œil de profil et l'oreille éloignée projetée dans le
+> crâne sont **identiques à 45° et à 60°** : ce sont des problèmes de peinture et de modèle,
+> pas de cadrage. Ne pas les rechercher du côté de la caméra.
+>
+> Effet de bord à connaître : à 45° **le décor occulte pour de bon** — un ennemi derrière un
+> meuble disparaît, ce qui n'arrivait pas à 60°.
 
 ### Pièges connus (appris à la dure, ne pas les reperdre)
 
@@ -206,7 +215,7 @@ zeucozy/
 │   ├── projectile.gd # Projectile (direction, portée, collision)
 │   ├── xp_orb.gd     # Croquette d'XP (magnétisme, collecte)
 │   ├── arena.gd      # Décor : sol, carrelage, tapis, mobilier, mur de bordure
-│   ├── camera_rig.gd # Vue plongeante 60°, suit le joueur, bornée à l'arène
+│   ├── camera_rig.gd # Vue plongeante 45°, suit le joueur, bornée à l'arène
 │   ├── systems/
 │   │   ├── upgrade_definitions.gd  # Pool et définitions des upgrades
 │   │   ├── cel_style.gd            # Matériaux cel des primitives + ombre de contact
@@ -236,7 +245,8 @@ zeucozy/
 
 ### Échelle du monde
 **1 mètre ≈ 20 px** de l'ancienne version 2D. Le chat mesure **1,74 unité**. L'arène fait
-**160 × 90 m**, le cadre en montre ~29 × 16 — soit un chat à ~11 % de la hauteur d'écran.
+**160 × 90 m**, le cadre en montre ~29 m de large et ~25 m de profondeur au sol (16 m
+devant le point visé, 9 m derrière) — soit un chat à ~11 % de la hauteur d'écran.
 Le réglage à bouger en premier si le chat paraît trop petit est `distance` dans
 `camera_rig.gd` (38 m), pas le FOV.
 
@@ -304,10 +314,14 @@ boîtes pastel, croquettes en cubes.
 post-process §8bis (grain sur 3s, halation, vignette) dans `shaders/retro_post.gdshader`.
 
 **Prochaines priorités :**
-1. Reconsidérer la **plongée à 60°** en DA — cause racine de trois problèmes distincts
-   (lecture de face, oreille éloignée, bascule du visage).
-2. Animer le chat (idle, marche) avec la **cadence en pas** — c'est ce qui débloque les
+1. Animer le chat (idle, marche) avec la **cadence en pas** — c'est ce qui débloque les
    trois derniers items de la passe rétro anime, tous non testables sans animation.
-3. Modéliser l'aspirateur, le chien et le concombre — budget géométrie **serré** (§11) :
+2. Modéliser l'aspirateur, le chien et le concombre — budget géométrie **serré** (§11) :
    ils se multiplient à l'écran et la coque inversée double le compte.
+3. Corriger dans Blender les deux défauts que la baisse de plongée n'a **pas** réglés :
+   l'oreille éloignée qui se projette en amande dans la joue, et le liseré d'œil de profil.
 4. Peindre 3 à 5 **dépassements de trait** — vrai travail à la main, à ne pas générer.
+
+**Comparer un cadrage sans rouvrir l'éditeur.** `camera_rig.gd`, `cel_model.gd` et le banc
+lisent `--pitch=`, `--face-pitch=`, `--distance=`, `--fov=` et `--out=` en arguments
+utilisateur (après le `--`). Le jeu et le banc partagent les mêmes noms.

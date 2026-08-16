@@ -2,7 +2,7 @@ extends Node3D
 
 ## Camera de jeu — vue plongeante qui suit le joueur.
 ##
-## Cadrage tire de "Visual Art Direction" §11 : plongee ~60°, longue focale
+## Cadrage tire de "Visual Art Direction" §11 : plongee 45°, longue focale
 ## (peu de distorsion, profondeur ecrasee — c'est ce qui fait tenir la lecture
 ## en aplats). La contrepartie est une camera tres loin ; la scene est petite,
 ## ca ne coute rien.
@@ -17,7 +17,13 @@ extends Node3D
 @export var target_path: NodePath = NodePath("../Player")
 
 ## Plongee, en degres au-dessus de l'horizon.
-@export var pitch_deg: float = 60.0
+##
+## Abaissee de 60° a 45° le 2026-08-16, apres comparaison a taille de jeu.
+## A 60° la croupe passe AU-DESSUS de la tete et avale les oreilles : le chat
+## se lit comme un cadenas, pas comme un chat. A 45° la tete redevient un
+## disque net, les oreilles se detachent sur le fond et les pattes avant
+## reapparaissent — c'est ce qui pose le personnage au sol.
+@export var pitch_deg: float = 45.0
 
 ## FOV vertical. 24° ≈ un 85 mm — la "focale ~72 mm" de §11 a une frame pres.
 @export var fov_deg: float = 24.0
@@ -35,7 +41,11 @@ extends Node3D
 
 ## Marge gardee entre le point vise et le bord de l'arene, pour que le mur
 ## reste au bord de l'ecran et non en plein milieu.
-@export var arena_margin: Vector2 = Vector2(17.0, 11.0)
+##
+## Le Z depend de la plongee : a 60° le cadre montrait 11 m devant le point
+## vise, a 45° il en montre 16. Garder 11 laisserait le mur du fond entrer
+## dans l'image avant que la camera ne s'arrete.
+@export var arena_margin: Vector2 = Vector2(17.0, 16.0)
 
 @onready var camera: Camera3D = $Camera3D
 
@@ -46,8 +56,22 @@ var _game
 
 func _ready() -> void:
 	physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+	_read_cmdline_overrides()
 	_target = get_node_or_null(target_path) as Node3D
 	_place_camera()
+
+
+## Cadrage passable en ligne de commande, pour comparer plusieurs plongees
+## sans rouvrir l'editeur :
+##     ... --path . -- --pitch=50 --distance=38
+func _read_cmdline_overrides() -> void:
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--pitch="):
+			pitch_deg = float(arg.trim_prefix("--pitch="))
+		elif arg.begins_with("--distance="):
+			distance = float(arg.trim_prefix("--distance="))
+		elif arg.begins_with("--fov="):
+			fov_deg = float(arg.trim_prefix("--fov="))
 
 
 func _process(delta: float) -> void:

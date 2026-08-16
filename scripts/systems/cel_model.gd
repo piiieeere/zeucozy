@@ -134,6 +134,13 @@ var _skinned_paint := {}
 
 
 func _ready() -> void:
+	# La bascule du visage est indissociable de la plongee de la camera : la
+	# comparer en ligne de commande evite de juger une plongee avec un visage
+	# regle pour une autre.
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--face-pitch="):
+			face_pitch_deg = float(arg.trim_prefix("--face-pitch="))
+
 	mesh_instance = _spawn_model()
 
 	if mesh_instance == null:

@@ -58,10 +58,20 @@ var _animate := false
 var _time := 0.0
 
 var _capture_mode := false
+var _capture_dir := CAPTURE_DIR
 
 
 func _ready() -> void:
 	_capture_mode = "--capture" in OS.get_cmdline_user_args()
+
+	# Plongee et dossier de sortie surchargeables, pour comparer plusieurs
+	# cadrages d'affilee. `--pitch=` porte le meme nom que dans le jeu
+	# (camera_rig.gd), `--face-pitch=` est lu par cel_model.gd lui-meme.
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--pitch="):
+			_pitch = float(arg.trim_prefix("--pitch="))
+		elif arg.begins_with("--out="):
+			_capture_dir = arg.trim_prefix("--out=")
 
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 	DisplayServer.window_set_size(CAPTURE_SIZE if _capture_mode else WINDOW_SIZE)
@@ -280,8 +290,8 @@ func _reset_pose() -> void:
 # --------------------------------------------------------------------- capture
 
 func _capture_turntable() -> void:
-	if not DirAccess.dir_exists_absolute(CAPTURE_DIR):
-		DirAccess.make_dir_recursive_absolute(CAPTURE_DIR)
+	if not DirAccess.dir_exists_absolute(_capture_dir):
+		DirAccess.make_dir_recursive_absolute(_capture_dir)
 
 	for angle in ANGLES:
 		_yaw = float(angle)
@@ -291,7 +301,7 @@ func _capture_turntable() -> void:
 		await RenderingServer.frame_post_draw
 
 		var image := get_viewport().get_texture().get_image()
-		var path := "%s/cel_%03d.png" % [CAPTURE_DIR, angle]
+		var path := "%s/cel_%03d.png" % [_capture_dir, angle]
 		var err := image.save_png(path)
 		_log("capture %03d° -> %s (err %d)" % [angle, path, err])
 
@@ -315,7 +325,7 @@ func _capture_skinning_probe() -> void:
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
 
-	var path := "%s/cel_skin_probe.png" % CAPTURE_DIR
+	var path := "%s/cel_skin_probe.png" % _capture_dir
 	get_viewport().get_texture().get_image().save_png(path)
 	_log("sonde skinning (os 'tete' a 35°) -> %s" % path)
 
@@ -329,7 +339,7 @@ func _capture_skinning_probe() -> void:
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
 
-	var ear_path := "%s/cel_ear_probe.png" % CAPTURE_DIR
+	var ear_path := "%s/cel_ear_probe.png" % _capture_dir
 	get_viewport().get_texture().get_image().save_png(ear_path)
 	_log("sonde calotte (os 'oreille_L' a 70°, oreille_R temoin) -> %s" % ear_path)
 
