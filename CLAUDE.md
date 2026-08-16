@@ -6,9 +6,9 @@ Guide de référence pour Claude Code sur ce projet. Lire les docs listés ci-de
 
 ## Projet
 
-**Zeucozy** est un jeu action-roguelite 2D cozy à thème chat, de type survivor. Le joueur contrôle un chat qui survit à des vagues d'ennemis (aspirateur, chien, concombre), collecte des croquettes (XP) et choisit des améliorations à chaque niveau.
+**Zeucozy** est un jeu action-roguelite cozy à thème chat, de type survivor. Le joueur contrôle un chat qui survit à des vagues d'ennemis (aspirateur, chien, concombre), collecte des croquettes (XP) et choisit des améliorations à chaque niveau.
 
-- **Moteur :** Godot 4.7 — GDScript idiomatique Godot 4
+- **Moteur :** Godot 4.7.1-stable — GDScript idiomatique Godot 4
 - **Physique :** Jolt Physics
 - **Plateforme cible :** Windows (DirectX 12), dev sous VS Code
 - **Dépôt :** `https://github.com/piiieeere/zeucozy.git`
@@ -16,19 +16,62 @@ Guide de référence pour Claude Code sur ce projet. Lire les docs listés ci-de
 
 ---
 
+## ⚠️ Pivot graphique : 2D → 3D (2026-08-15)
+
+Le projet **abandonne les sprites 2D** au profit de **modèles Blender 3D cel-shadés**.
+
+- Tous les assets sprites et l'outillage de découpe ont été **supprimés** du dépôt le 2026-08-16.
+  Ils restent récupérables dans l'historique git (`git show dcc3fff:assets/sprites/...`).
+- Le joueur et les ennemis sont désormais **tous** des `Polygon2D` placeholders.
+- **Rien de 3D n'est encore dans le dépôt.** Le modèle en cours vit hors projet :
+  `C:\Users\tibo\Documents\zeucozy_3d\chat_style_v1.blend`
+- **Style arrêté :** variante **A** — 2 tons de cluster, contour épais (×1,75).
+  Lisibilité maximale, très cartoon. Voir §2bis de `Visual Art Direction.md`.
+
+### Prochaine étape — attaquer par le plus risqué
+
+Exporter le chat en **glTF**, l'importer dans Godot, et reproduire **cel-shading + contour
+en shader Godot**. Si le style ne tient pas, il faut le savoir *avant* de modéliser
+l'aspirateur, le chien et le concombre.
+
+### Trois pièges connus (appris à la dure, ne pas les reperdre)
+
+1. **Le contour ne survit pas à l'export glTF.** Dans Blender il est fait en *coque inversée*
+   (solidify + normales retournées + backface culling) — c'est du setup Blender, pas de la
+   géométrie exportable. **C'est le risque principal du pivot**, à refaire en shader Godot.
+2. **Deux objets qui s'interpénètrent produisent un trait parasite** à leur intersection.
+   Parade : fusionner les maillages et unifier les normales.
+3. **Les poids automatiques déchirent ce modèle.** Le rig utilise des **poids rigides**
+   (1 objet = 1 os), sauf la **queue** qui a un dégradé sur 3 os.
+
+### Décision ouverte
+
+§2bis décrit de la **3D temps réel** (caméra top-down 3/4 ~60°). Or tout le code actuel est
+en nœuds 2D (`CharacterBody2D`, `Camera2D`, `Polygon2D`). La migration des scènes vers des
+nœuds 3D **n'est pas tranchée** — à décider une fois le shader validé.
+
+---
+
 ## Documentation de référence
+
+> ⚠️ La doc **ne vit plus dans `docs/`** (dossier supprimé au commit `bd66724`).
+> Elle est dans le vault Obsidian : `C:\Users\tibo\ThibsVault\02 — Projets\jeu-video-godot\`
 
 Lire ces fichiers avant toute tâche concernant le domaine correspondant :
 
-| Fichier | Contenu |
+| Fichier (vault) | Contenu |
 |--------|---------|
-| [docs/game_design.md](docs/game_design.md) | Manifeste du jeu — boucle de gameplay, ennemis, upgrades, équilibre |
-| [docs/AI_CONTEXT.md](docs/AI_CONTEXT.md) | Contraintes de développement, préférences, à lire EN PRIORITÉ |
-| [docs/VISUAL_ART_DIRECTION.md](docs/VISUAL_ART_DIRECTION.md) | Direction artistique complète — palette, style, principes visuels |
-| [docs/SPRITE_NAMING_CONVENTION.md](docs/SPRITE_NAMING_CONVENTION.md) | Convention de nommage et pipeline d'assets |
-| [docs/CODEX_ASSET_TASK_TEMPLATE.md](docs/CODEX_ASSET_TASK_TEMPLATE.md) | Workflow d'intégration de sprites |
-| [docs/MVP_ROADMAP.md](docs/MVP_ROADMAP.md) | Critères de succès du prototype |
-| [docs/todo.md](docs/todo.md) | Suivi des features en cours |
+| `00 - Index.md` | Map of content — pitch, état actuel, stack |
+| `01 - Game Design/Game Manifest.md` | Manifeste — boucle de gameplay, ennemis, upgrades, équilibre |
+| `03 - Production/Contexte IA.md` | Contraintes de développement, préférences, à lire EN PRIORITÉ |
+| `02 - Direction Artistique/Visual Art Direction.md` | **Doc clé** — §2bis contient toute la traduction des règles Ghibli en 3D |
+| `02 - Direction Artistique/Pipeline 3D.md` | Pipeline Blender → glTF → Godot |
+| `04 - Roadmap/Critères MVP.md` | Critères de succès du prototype |
+| `04 - Roadmap/Todo.md` | Suivi des features en cours |
+
+> 📦 **Archivés** (pipeline 2D abandonné, conservés pour référence historique) :
+> `Pipeline Sprites.md`, `Convention de Nommage Sprites.md`, `Prompts de Génération.md`,
+> `Template Intégration Assets.md`.
 
 ---
 
@@ -38,7 +81,7 @@ Lire ces fichiers avant toute tâche concernant le domaine correspondant :
 zeucozy/
 ├── scenes/           # Scènes Godot (.tscn)
 │   ├── main.tscn     # Scène principale (arène, UI, game manager)
-│   ├── player.tscn
+│   ├── player.tscn   # Placeholder Polygon2D (ambre + contour brun)
 │   ├── projectile.tscn
 │   ├── xp_orb.tscn
 │   └── enemies/
@@ -52,11 +95,8 @@ zeucozy/
 │   ├── xp_orb.gd     # Orbe XP (magnétisme, collecte)
 │   └── systems/
 │       └── upgrade_definitions.gd  # Pool et définitions des upgrades
-├── assets/sprites/
-│   ├── raw/          # Assets en cours (versionnés : _v01, _v02…)
-│   ├── approved/     # Assets validés, prêts pour la prod
-│   └── sheets/       # Sprite sheets / frames d'animation
-└── docs/             # Documentation complète du projet
+└── assets/
+    └── models/       # Modèles 3D (glTF) — vide pour l'instant
 ```
 
 ---
@@ -85,7 +125,7 @@ zeucozy/
 
 ## Règles de développement
 
-> Tiré de [docs/AI_CONTEXT.md](docs/AI_CONTEXT.md) — ces règles priment sur les instincts par défaut.
+> Tiré de `03 - Production/Contexte IA.md` dans le vault — ces règles priment sur les instincts par défaut.
 
 - **Fournir des scripts complets** lors de modifications, jamais des extraits partiels.
 - **Ne pas complexifier** — architecture simple et modulaire, pas d'abstractions spéculatives.
@@ -99,17 +139,21 @@ zeucozy/
 
 ## Conventions d'assets
 
-- **Raw :** `{catégorie}_{nom}_v##.png` ex. `player_cat_v01.png`
-- **Approved :** `{catégorie}_{nom}.png` ex. `player_cat.png`
+- **Modèles 3D :** `assets/models/{catégorie}_{nom}.glb` ex. `player_cat.glb`
 - **Catégories valides :** `player`, `enemy`, `xp`, `projectile`, `boss`, `pickup`, `ui`, `fx`
-- Raw → `assets/sprites/raw/` | Approved → `assets/sprites/approved/`
+- **Travail en cours :** hors dépôt, dans `C:\Users\tibo\Documents\zeucozy_3d\` (`.blend` versionnés `_v01`, `_v02`…)
+- Seuls les **exports validés** entrent dans `assets/models/`.
 
 ---
 
 ## État actuel
 
-**Systèmes en place :** mouvement 8 directions, spawn ennemis, attaque auto, XP/niveaux, 6 upgrades, scaling difficulté, HUD complet, Game Over/restart, arène large.
+**Systèmes en place :** mouvement 8 directions, spawn ennemis, attaque auto, XP/niveaux,
+6 upgrades, scaling difficulté, HUD complet, Game Over/restart, arène large.
+Toute la logique de gameplay tourne — elle n'est pas affectée par le pivot graphique.
 
-**En cours :** intégration des sprites — `player_cat_v01.png` créé, pas encore approuvé.
+**Visuels :** **tout est placeholder.** Joueur et ennemis en `Polygon2D` vectoriel.
+Aucun asset graphique final dans le dépôt.
 
-**Prochaine priorité :** remplacer les visuels vectoriels placeholder par les vrais sprites.
+**Prochaine priorité :** valider le pipeline glTF + shader cel-shading/contour dans Godot
+avec le chat, avant toute autre modélisation.

@@ -1,20 +1,6 @@
-[gd_scene load_steps=21 format=3]
+[gd_scene load_steps=5 format=3]
 
-[ext_resource type="Script" path="res://scripts/player.gd" id="1_gjffe"]
-[ext_resource type="Texture2D" path="res://assets/sprites/approved/player_idle_01.png" id="2_i1"]
-[ext_resource type="Texture2D" path="res://assets/sprites/approved/player_idle_02.png" id="3_i2"]
-[ext_resource type="Texture2D" path="res://assets/sprites/approved/player_idle_03.png" id="4_i3"]
-[ext_resource type="Texture2D" path="res://assets/sprites/approved/player_idle_04.png" id="5_i4"]
-[ext_resource type="Texture2D" path="res://assets/sprites/approved/player_idle_05.png" id="6_i5"]
-[ext_resource type="Texture2D" path="res://assets/sprites/approved/player_idle_06.png" id="7_i6"]
-[ext_resource type="Texture2D" path="res://assets/sprites/approved/player_down.png" id="8_down"]
-[ext_resource type="Texture2D" path="res://assets/sprites/approved/player_up.png" id="9_up"]
-[ext_resource type="Texture2D" path="res://assets/sprites/approved/player_right.png" id="10_right"]
-[ext_resource type="Texture2D" path="res://assets/sprites/approved/player_left.png" id="11_left"]
-[ext_resource type="Texture2D" path="res://assets/sprites/approved/player_down_right.png" id="12_dr"]
-[ext_resource type="Texture2D" path="res://assets/sprites/approved/player_down_left.png" id="13_dl"]
-[ext_resource type="Texture2D" path="res://assets/sprites/approved/player_up_right.png" id="14_ur"]
-[ext_resource type="Texture2D" path="res://assets/sprites/approved/player_up_left.png" id="15_ul"]
+[ext_resource type="Script" path="res://scripts/player.gd" id="1_player"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_body"]
 radius = 14.0
@@ -25,85 +11,21 @@ radius = 16.0
 [sub_resource type="CircleShape2D" id="CircleShape2D_pickup"]
 radius = 72.0
 
-[sub_resource type="SpriteFrames" id="SpriteFrames_main"]
-animations = [{
-"frames": [{
-"duration": 1.0,
-"texture": ExtResource("2_i1")
-}, {
-"duration": 1.0,
-"texture": ExtResource("3_i2")
-}, {
-"duration": 1.0,
-"texture": ExtResource("4_i3")
-}, {
-"duration": 1.0,
-"texture": ExtResource("5_i4")
-}, {
-"duration": 1.0,
-"texture": ExtResource("6_i5")
-}, {
-"duration": 1.0,
-"texture": ExtResource("7_i6")
-}],
-"loop": true,
-"name": &"idle",
-"speed": 6.0
-}, {
-"frames": [{"duration": 1.0, "texture": ExtResource("8_down")}],
-"loop": true,
-"name": &"walk_down",
-"speed": 1.0
-}, {
-"frames": [{"duration": 1.0, "texture": ExtResource("9_up")}],
-"loop": true,
-"name": &"walk_up",
-"speed": 1.0
-}, {
-"frames": [{"duration": 1.0, "texture": ExtResource("10_right")}],
-"loop": true,
-"name": &"walk_right",
-"speed": 1.0
-}, {
-"frames": [{"duration": 1.0, "texture": ExtResource("11_left")}],
-"loop": true,
-"name": &"walk_left",
-"speed": 1.0
-}, {
-"frames": [{"duration": 1.0, "texture": ExtResource("12_dr")}],
-"loop": true,
-"name": &"walk_down_right",
-"speed": 1.0
-}, {
-"frames": [{"duration": 1.0, "texture": ExtResource("13_dl")}],
-"loop": true,
-"name": &"walk_down_left",
-"speed": 1.0
-}, {
-"frames": [{"duration": 1.0, "texture": ExtResource("14_ur")}],
-"loop": true,
-"name": &"walk_up_right",
-"speed": 1.0
-}, {
-"frames": [{"duration": 1.0, "texture": ExtResource("15_ul")}],
-"loop": true,
-"name": &"walk_up_left",
-"speed": 1.0
-}]
-
 [node name="Player" type="CharacterBody2D"]
 collision_layer = 1
 collision_mask = 0
-script = ExtResource("1_gjffe")
+script = ExtResource("1_player")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
 shape = SubResource("CircleShape2D_body")
 
-[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
-sprite_frames = SubResource("SpriteFrames_main")
-animation = &"idle"
-autoplay = "idle"
-scale = Vector2(0.38, 0.38)
+[node name="Outline" type="Polygon2D" parent="."]
+color = Color(0.239216, 0.168627, 0.101961, 1)
+polygon = PackedVector2Array(-11, -22, -6, -14, 6, -14, 11, -22, 15, -4, 12, 15, -12, 15, -15, -4)
+
+[node name="Body" type="Polygon2D" parent="."]
+color = Color(0.831373, 0.658824, 0.376471, 1)
+polygon = PackedVector2Array(-8, -19, -5, -11, 5, -11, 8, -19, 12, -3, 9, 12, -9, 12, -12, -3)
 
 [node name="Hurtbox" type="Area2D" parent="."]
 collision_layer = 8
