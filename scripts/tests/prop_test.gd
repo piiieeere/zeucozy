@@ -65,6 +65,11 @@ var _dragging := false
 var _capture_mode := false
 var _capture_dir := CAPTURE_DIR
 
+## Trait du meuble. Par defaut celui du jeu — un banc qui juge le canape sous un
+## autre trait que celui qu'il aura en jeu n'apprend rien, exactement comme il
+## le jugerait sous une autre plongee. `--decor-outline=` sert a COMPARER.
+var _outline_scale := CelProp.OUTLINE_SCALE
+
 
 func _ready() -> void:
 	_capture_mode = "--capture" in OS.get_cmdline_user_args()
@@ -74,6 +79,8 @@ func _ready() -> void:
 			_pitch = float(arg.trim_prefix("--pitch="))
 		elif arg.begins_with("--out="):
 			_capture_dir = arg.trim_prefix("--out=")
+		elif arg.begins_with("--decor-outline="):
+			_outline_scale = float(arg.trim_prefix("--decor-outline="))
 
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 	DisplayServer.window_set_size(CAPTURE_SIZE if _capture_mode else WINDOW_SIZE)
@@ -131,7 +138,7 @@ func _setup_ground() -> void:
 
 
 func _setup_couch() -> void:
-	_couch = CelProp.spawn(MODEL, "bleu")
+	_couch = CelProp.spawn(MODEL, "bleu", _outline_scale)
 
 	if _couch == null:
 		return

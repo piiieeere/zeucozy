@@ -41,6 +41,20 @@ const CELL_JITTER := Vector2(3.5, 2.5)
 ## Rayon garde libre autour du point d'apparition du chat.
 const SPAWN_CLEARANCE := 2.5
 
+## Trait du mobilier — canapes ET boites pastel, meme facteur. La decision et
+## son pourquoi vivent dans `cel_prop.OUTLINE_SCALE` : c'est la fabrique de
+## style des meubles, et la recopier ici ferait diverger le jeu du banc.
+##
+## Les boites y passent aussi. Ce sont des meubles en attente de leur modele,
+## pas une autre famille d'objets : laisser la table basse franchement cernee
+## pendant que le canape s'allege redessinerait exactement la hierarchie que ce
+## reglage existe pour corriger.
+##
+## Surcharge par `--decor-outline=` — meme convention que `--pitch=` et
+## `--ui-card=`. C'est par la que 100 / 50 / 0 % ont ete compares a l'image,
+## §16 interdisant de trancher un reglage de trait en raisonnant.
+var _outline_scale := CelProp.OUTLINE_SCALE
+
 # Tapis — centre en fraction de la cellule, emprise en metres.
 # L'ordre compte : chaque tapis se pose un cran au-dessus du precedent.
 #
@@ -96,6 +110,10 @@ const PROPS := [
 func build(rect: Rect2) -> void:
 	for child in get_children():
 		child.queue_free()
+
+	for argument in OS.get_cmdline_user_args():
+		if argument.begins_with("--decor-outline="):
+			_outline_scale = float(argument.trim_prefix("--decor-outline="))
 
 	_build_ground(rect)
 	_build_furnishings(rect)
@@ -215,7 +233,7 @@ func _add_prop(footprint: Rect2, prop: Dictionary) -> void:
 	CelStyle.apply_outlined(
 		node,
 		_over_floor(prop["color"], prop["alpha"]),
-		minf(footprint.size.x, minf(footprint.size.y, height)) * 0.045
+		minf(footprint.size.x, minf(footprint.size.y, height)) * 0.045 * _outline_scale
 	)
 	add_child(node)
 
@@ -226,7 +244,7 @@ func _add_prop(footprint: Rect2, prop: Dictionary) -> void:
 ## Pose sur le SOL, pas centre en hauteur : les modeles sortent de Blender avec
 ## leur origine entre les pieds, comme le chat ("Convention Blender" §2).
 func _add_model_prop(footprint: Rect2, prop: Dictionary) -> void:
-	var node := CelProp.spawn(prop["model"], prop["variant"])
+	var node := CelProp.spawn(prop["model"], prop["variant"], _outline_scale)
 
 	if node == null:
 		return

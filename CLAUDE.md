@@ -809,6 +809,32 @@ Trois fabriques de style coexistent désormais, et le découpage n'est pas arbit
 > **Reste connu :** de profil strict (90°), l'accoudoir éloigné pointe au-dessus du dossier
 > comme une fine antenne. Quelques pixels au cadrage de jeu — non traité.
 
+### Le trait du décor — moitié moins, tranché le 2026-08-16
+
+Le mobilier — canapés **et** boîtes pastel — est cerné à **la moitié** du trait des
+personnages (`cel_prop.OUTLINE_SCALE = 0.5`). §2ter.A de la DA : dans la référence, les
+personnages sont cernés, **le décor ne l'est presque pas** ; les grandes masses de fond se
+séparent par la **valeur**, pas par la ligne. Zeucozy cernait tout de la même encre.
+
+**Réduit et non supprimé, et c'est la mesure qui l'a imposé.** Sur la silhouette du canapé
+contre le parquet, le saut de valeur qui reste sans le trait : médian **0,33** à 100 %,
+**0,39** à 50 %, **0,12** à 0 % — et à 0 %, **28,7 %** du contour passe sous le seuil de
+lecture, contre 0,3 % à 50 %. À 50 % l'encre tombe de **41 %** sans qu'un pixel de
+silhouette lâche.
+
+> ⚠️ **À 0 % le meuble perd son ASSISE, et ce n'est pas la crainte qu'on avait notée.**
+> On redoutait qu'il se fonde dans le parquet clair : le bleu et le blé ne se confondent
+> pas. Ce qui lâche, c'est que **le mobilier n'a pas d'ombre de contact** — elle est
+> réservée aux personnages — donc son trait est la seule chose qui le pose au sol.
+>
+> ⚠️ **Ne pas étendre au chat ni aux ennemis** : le relevé dit l'inverse pour eux. Ni au
+> **mur de bordure**, qui n'est pas du décor mais la limite de jeu.
+>
+> ⚠️ **Une épaisseur nulle ne suffit pas à retirer un contour** : une coque inversée
+> d'épaisseur nulle tombe exactement sur la surface qu'elle double et se dispute le
+> z-buffer avec elle, ce qui marbre l'aplat. `cel_style.make_outlined()` retire donc le
+> `next_pass` sous 0 — et `cel_prop` ne suppose plus qu'il existe.
+
 **Prochaines priorités :**
 0. 🅿️ **Le squash du `hit`** — l'impact frame est faite, mais §7 demande aussi un
    squash/stretch franc sur le squelette quand le chat encaisse. C'est du travail
@@ -836,3 +862,13 @@ Trois fabriques de style coexistent désormais, et le découpage n'est pas arbit
 **Comparer un cadrage sans rouvrir l'éditeur.** `camera_rig.gd`, `cel_model.gd` et le banc
 lisent `--pitch=`, `--face-pitch=`, `--distance=`, `--fov=` et `--out=` en arguments
 utilisateur (après le `--`). Le jeu et le banc partagent les mêmes noms.
+
+**Comparer le trait du décor.** `--decor-outline=<facteur>`, lu par `arena.gd` **et** par
+le banc des meubles — 1.0 rend l'ancien trait plein, 0.0 le retire. C'est par là que
+100 / 50 / 0 % ont été comparés à l'image avant de trancher, sans éditer une constante
+entre deux captures.
+
+```bash
+"C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --path . \
+  --write-movie <dossier>/g.png --fixed-fps 30 --quit-after 12 -- --decor-outline=1.0
+```

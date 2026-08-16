@@ -33,6 +33,35 @@ const CelStyle := preload("res://scripts/systems/cel_style.gd")
 ## chat pose dessus, et volerait l'attention au personnage.
 const OUTLINE_THICKNESS := 0.045
 
+## Facteur applique a cette epaisseur sur tout le MOBILIER — modeles et boites
+## pastel. C'est la reponse a "Visual Art Direction" §2ter.A.
+##
+## Le releve d'*Orbitals* dit que le decor n'est presque pas cerne : personnages
+## et objets manipulables ont un trait, les grandes masses de fond se separent
+## par la VALEUR, pas par la ligne. Zeucozy cernait tout de la meme encre, et un
+## canape de 6,4 m entierement trace n'est pas plus fidele au style — il est
+## plus charge, et il ramene le regard sur le decor au lieu du chat (§15 :
+## lisibilite > detail).
+##
+## REDUIT, pas supprime, et c'est la MESURE qui a tranche dans ce sens — 100 /
+## 50 / 0 % captures au cadrage de jeu, §16 interdisant de decider un reglage de
+## trait en raisonnant. Sur la silhouette du canape contre le parquet :
+##
+##   100 %  saut de valeur median 0,33  —  0,0 % du bord sous 0,10
+##    50 %  saut de valeur median 0,39  —  0,3 % du bord sous 0,10
+##     0 %  saut de valeur median 0,12  — 28,7 % du bord sous 0,10, 7,6 % sous 0,05
+##
+## A 0 le meuble perd son ASSISE : un canape n'a pas d'ombre de contact (elle est
+## reservee aux personnages), donc le trait est la seule chose qui le pose sur le
+## sol. Plus d'un quart de son contour tombe alors sous le seuil de lecture et il
+## flotte. A 0,5 il n'en tombe rien — 0,3 % — pour 41 % d'encre en moins
+## (masse d'encre 658 -> 386 sur la meme image). C'est tout l'interet du reglage :
+## la charge s'en va, la lecture reste.
+##
+## Ne s'applique NI au chat NI aux ennemis : le releve dit l'inverse pour eux.
+## Ni au mur de bordure, qui n'est pas du decor mais la limite de jeu.
+const OUTLINE_SCALE := 0.5
+
 ## Bord de cluster irregulier — §5.3 demande ±0,03, le shader prend la moitie.
 const EDGE_NOISE := 0.06
 
@@ -86,7 +115,12 @@ static var _cache := {}
 
 
 ## Instancie un meuble, style applique, pret a etre place.
-static func spawn(model_path: String, variant: String) -> Node3D:
+##
+## `outline_scale` ne se passe que pour COMPARER — le banc et le jeu prennent
+## tous deux OUTLINE_SCALE par defaut, et c'est ce qui les empeche de diverger.
+static func spawn(
+	model_path: String, variant: String, outline_scale: float = OUTLINE_SCALE
+) -> Node3D:
 	var packed: PackedScene = load(model_path)
 
 	if packed == null:
@@ -100,7 +134,7 @@ static func spawn(model_path: String, variant: String) -> Node3D:
 		push_warning("cel_prop : aucun MeshInstance3D dans %s" % model_path)
 		return root
 
-	var materials := _materials(model_path, variant, mesh_instance.mesh)
+	var materials := _materials(model_path, variant, outline_scale, mesh_instance.mesh)
 
 	for i in materials.size():
 		mesh_instance.set_surface_override_material(i, materials[i])
@@ -121,8 +155,12 @@ static func _find_mesh(node: Node) -> MeshInstance3D:
 	return null
 
 
-static func _materials(model_path: String, variant: String, mesh: Mesh) -> Array:
-	var key := "%s|%s" % [model_path, variant]
+static func _materials(
+	model_path: String, variant: String, outline_scale: float, mesh: Mesh
+) -> Array:
+	# L'epaisseur entre dans la cle : deux runs de comparaison ne doivent pas se
+	# repasser les materiaux du premier.
+	var key := "%s|%s|%.3f" % [model_path, variant, outline_scale]
 
 	if _cache.has(key):
 		return _cache[key]
@@ -135,12 +173,17 @@ static func _materials(model_path: String, variant: String, mesh: Mesh) -> Array
 		var mat_name := source.resource_name if source else ""
 		var color: Color = palette.get(mat_name, FALLBACK_COLOR)
 
-		var mat := CelStyle.make_outlined(color, OUTLINE_THICKNESS)
+		var mat := CelStyle.make_outlined(color, OUTLINE_THICKNESS * outline_scale)
 		mat.set_shader_parameter("use_vertex_style", true)
 		mat.set_shader_parameter("edge_noise", EDGE_NOISE)
 		mat.set_shader_parameter("accent_strength", ACCENT_STRENGTH)
 		mat.set_shader_parameter("shadow_bias_strength", SHADOW_BIAS_STRENGTH)
-		(mat.next_pass as ShaderMaterial).set_shader_parameter("use_vertex_style", true)
+
+		# Absent a epaisseur nulle : `make_outlined` retire le contour plutot
+		# que de le laisser a zero (une coque nulle z-fighte avec sa surface).
+		var outline := mat.next_pass as ShaderMaterial
+		if outline != null:
+			outline.set_shader_parameter("use_vertex_style", true)
 
 		materials.append(mat)
 

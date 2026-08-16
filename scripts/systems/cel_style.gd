@@ -56,10 +56,18 @@ static func make_flat(color: Color) -> ShaderMaterial:
 ## qu'il cerne. Sur une couleur claire, INK convient partout ; sur la fourrure
 ## noire du chat, il passerait au-dessus de son propre ton d'ombre et le
 ## contour se lirait en clair. Voir INKS dans cel_model.gd.
+##
+## A `thickness` nulle le contour est RETIRE, jamais laisse a zero. Une coque
+## inversee d'epaisseur nulle n'est pas invisible : ses faces arriere tombent
+## exactement sur les faces avant et les deux se disputent le z-buffer, ce qui
+## marbre la surface au lieu de la laisser nue.
 static func make_outlined(
 	color: Color, thickness: float, ink: Color = INK, tint: float = 0.2
 ) -> ShaderMaterial:
 	var mat := make_flat(color)
+
+	if thickness <= 0.0:
+		return mat
 
 	var outline := ShaderMaterial.new()
 	outline.shader = OUTLINE_SHADER
