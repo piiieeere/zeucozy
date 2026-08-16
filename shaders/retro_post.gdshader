@@ -1,19 +1,29 @@
 // La couche de tele d'epoque — "Visual Art Direction" §8bis.
 //
-// Trois effets, tous discrets, appliques sur l'image finale :
-// grain argentique, halation chaude, vignette chaude.
+// Deux effets, tous deux discrets, appliques sur l'image finale :
+// grain argentique et vignette chaude.
+//
+// La HALATION a ete retiree le 2026-08-16. Elle etait la troisieme couche
+// (bave ambre autour des zones claires, calculee par ecart au flou) : elle
+// marchait, mais elle chargeait l'image sans que le jeu y gagne. §15 tranche
+// dans ce sens — lisibilite > detail. Son diagnostic reste dans la doc, il ne
+// faut pas le reperdre si on la rebranche un jour : elle ne peut PAS se
+// seuiller sur la luminance absolue, la palette parchemin etant deja a ~0,93.
 //
 // Ce qui est VOLONTAIREMENT absent, et ne doit pas etre rajoute :
 // le tremblement du signal hertzien (nauseeux sur une run de 20 minutes),
 // le saignement chromatique et les lignes de balayage (ils nuisent a la
 // lecture dans une arene chargee), et tout bloom froid ou bleute.
 //
-// §15 tranche : lisibilite > detail. Ces trois effets doivent se remarquer
-// quand on les COUPE, pas quand on les regarde.
+// §15 tranche : ces effets doivent se remarquer quand on les COUPE, pas
+// quand on les regarde.
 
 shader_type canvas_item;
 
-uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
+// filter_linear et non filter_linear_mipmap : plus personne ne lit l'ecran en
+// LOD depuis le retrait de la halation, et la chaine de mipmaps de l'ecran
+// etait regeneree a chaque frame pour elle seule.
+uniform sampler2D screen_tex : hint_screen_texture, filter_linear;
 
 group_uniforms grain;
 uniform float grain_amount : hint_range(0.0, 0.15) = 0.04;
@@ -22,15 +32,6 @@ uniform float grain_amount : hint_range(0.0, 0.15) = 0.04;
 // numerique et trahit tout le travail de cellulo.
 uniform float grain_hz = 20.0;
 uniform float grain_size : hint_range(1.0, 4.0) = 1.5;
-
-group_uniforms halation;
-// Seuil de SOURCE : quelles zones ont le droit de baver. Bas volontairement —
-// ce n'est pas lui qui protege l'image, c'est le calcul par ecart (voir plus bas).
-uniform float halation_threshold : hint_range(0.0, 1.0) = 0.55;
-uniform float halation_strength : hint_range(0.0, 1.0) = 0.55;
-uniform vec4 halation_tint : source_color = vec4(1.0, 0.78, 0.45, 1.0);
-// Le flou large se prend gratuitement dans les mipmaps de l'ecran.
-uniform float halation_lod : hint_range(0.0, 8.0) = 4.0;
 
 group_uniforms vignette;
 uniform float vignette_strength : hint_range(0.0, 1.0) = 0.30;
@@ -43,19 +44,6 @@ float hash21(vec2 p) {
 
 void fragment() {
 	vec3 col = texture(screen_tex, SCREEN_UV).rgb;
-
-	// --- halation : la lumiere bave, en ambre --------------------------------
-	//
-	// Calculee par ECART au flou, pas sur la luminance absolue. La palette du
-	// jeu est un parchemin a ~0,93 de luminance : un seuil absolu allumerait
-	// l'ecran entier et delaverait tous les aplats. L'ecart, lui, ne vaut
-	// quelque chose que la ou un voisinage clair borde un sujet plus sombre —
-	// c'est-a-dire exactement la ou une pellicule bave, et rien sur une
-	// grande surface claire uniforme.
-	vec3 blurred = textureLod(screen_tex, SCREEN_UV, halation_lod).rgb;
-	vec3 bleed = max(blurred - col, vec3(0.0));
-	float source = smoothstep(halation_threshold, 1.0, dot(blurred, vec3(0.299, 0.587, 0.114)));
-	col += bleed * halation_tint.rgb * source * halation_strength;
 
 	// --- vignette chaude : recentre le regard, pose l'epoque -----------------
 	float edge = smoothstep(vignette_start, 1.42, length(SCREEN_UV - vec2(0.5)) * 2.0);

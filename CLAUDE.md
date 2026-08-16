@@ -41,8 +41,12 @@ technique. L'univers sci-fi d'*Orbitals* n'est **pas** repris.
 - **Ombre = forme dessinée** — biais peint (canal G) ajouté au seuil, pas subi de l'éclairage
 - **Animation en pas** — squelette sur 3s (~20 fps), **position et caméra lisses à 60**.
   Rien à changer dans `player.gd` / `enemy.gd` : la cadence vit dans les fichiers d'animation
-- **Post-process léger et permanent** — grain 3–5 % *rafraîchi sur 3s*, halation chaude,
-  vignette. Pas de tremblement d'image ni de saignement chroma (écartés)
+- **Post-process léger et permanent** — grain 3–5 % *rafraîchi sur 3s* et vignette chaude.
+  Pas de tremblement d'image ni de saignement chroma (écartés).
+  ⚠️ **La halation a été retirée le 2026-08-16** — elle marchait, mais elle chargeait
+  l'image sans que le jeu y gagne (§15 : lisibilité > détail). Son diagnostic est conservé
+  dans `Pipeline 3D.md` : si on la rebranche, elle ne peut **pas** se seuiller sur la
+  luminance absolue, la palette parchemin étant déjà à ~0,93
 
 > Toute la donnée de style traverse le glTF via **un seul attribut de couleur de sommet
 > `Attr_Style`** (R = épaisseur du trait, G = biais d'ombre peinte, B = masque d'accent).
@@ -492,7 +496,7 @@ tables / plantes / coussins en boîtes pastel, croquettes en cubes.
 **Passe rétro anime — faite le 2026-08-16.** `Attr_Style` peint et câblé, trait à
 épaisseur variable **des deux côtés du pont** (Godot par `cel_outline.gdshader`, Blender par
 `tools/build_outline.py`), ombres peintes, bord de cluster irrégulier, accent de brillance,
-et le post-process §8bis (grain sur 3s, halation, vignette) dans `shaders/retro_post.gdshader`.
+et le post-process §8bis (grain sur 3s + vignette) dans `shaders/retro_post.gdshader`.
 
 > ⚠️ **Le `.blend` du chat est une SOURCE, sans garde-fou.** Il a été retrouvé le
 > 2026-08-16 réenregistré sur un état antérieur à la passe tuxedo — matériau

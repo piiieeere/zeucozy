@@ -8,8 +8,8 @@ extends CanvasLayer
 ## points de vie ou une touche coute 1/6 de la run, chaque contact en est un.
 ##
 ## Place SOUS le post-process (layer -1, donc dessine avant RetroPost) : un
-## impact frame est une frame de l'IMAGE, pas un calque d'interface. Le grain,
-## la halation et la vignette de §8bis doivent passer par-dessus, sinon le
+## impact frame est une frame de l'IMAGE, pas un calque d'interface. Le grain
+## et la vignette de §8bis doivent passer par-dessus, sinon le
 ## flash se lit comme un element d'UI colle sur le film. Le HUD, lui, reste
 ## au-dessus des deux — c'est de l'interface, il ne clignote pas avec le chat.
 
