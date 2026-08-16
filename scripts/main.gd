@@ -13,6 +13,7 @@ const BRUTE_SCENE := preload("res://scenes/enemies/brute.tscn")
 const XP_ORB_SCENE := preload("res://scenes/xp_orb.tscn")
 const PROJECTILE_SCENE := preload("res://scenes/projectile.tscn")
 const HIT_BURST_SCENE := preload("res://scenes/fx/hit_burst.tscn")
+const UpgradeDefinitions = preload("res://scripts/systems/upgrade_definitions.gd")
 
 ## Aire de jeu, en metres. Environ 4 largeurs d'ecran de large — le meme
 ## rapport qu'avant entre l'arene et le cadre.
@@ -37,30 +38,17 @@ var arena_rect := Rect2(-ARENA_SIZE * 0.5, ARENA_SIZE)
 @onready var projectiles_container: Node3D = $Projectiles
 @onready var pickups_container: Node3D = $Pickups
 @onready var fx_container: Node3D = $Fx
-@onready var hud_left_panel: Panel = $CanvasLayer/HudLeftPanel
-@onready var hud_right_panel: Panel = $CanvasLayer/HudRightPanel
-@onready var time_label: Label = $CanvasLayer/TimeLabel
-@onready var health_label: Label = $CanvasLayer/HealthLabel
-@onready var xp_label: Label = $CanvasLayer/XPLabel
-@onready var stats_label: Label = $CanvasLayer/StatsLabel
-@onready var objective_label: Label = $CanvasLayer/ObjectiveLabel
-@onready var upgrade_panel: PanelContainer = $CanvasLayer/UpgradePanel
-@onready var upgrade_title_label: Label = $CanvasLayer/UpgradePanel/MarginContainer/VBoxContainer/TitleLabel
-@onready var upgrade_subtitle_label: Label = $CanvasLayer/UpgradePanel/MarginContainer/VBoxContainer/SubtitleLabel
-@onready var upgrade_buttons: Array[Button] = [
-	$CanvasLayer/UpgradePanel/MarginContainer/VBoxContainer/ChoiceButton1,
-	$CanvasLayer/UpgradePanel/MarginContainer/VBoxContainer/ChoiceButton2,
-	$CanvasLayer/UpgradePanel/MarginContainer/VBoxContainer/ChoiceButton3,
-]
-@onready var game_over_panel: PanelContainer = $CanvasLayer/GameOverPanel
-@onready var game_over_summary_label: Label = $CanvasLayer/GameOverPanel/MarginContainer/VBoxContainer/SummaryLabel
-@onready var restart_button: Button = $CanvasLayer/GameOverPanel/MarginContainer/VBoxContainer/RestartButton
+## Toute l'interface passe par la. main.gd ne connait plus AUCUN Label ni aucun
+## offset : il envoie des valeurs de jeu, le HUD decide comment elles se
+## dessinent. C'est ce qui a permis de supprimer `_update_ui_layout()` et sa
+## trentaine de decalages en dur, qui refaisaient a la main le travail des
+## ancrages de Godot.
+@onready var hud = $HudLayer/Hud
 
 
 func _ready() -> void:
 	randomize()
 	add_to_group("game_root")
-	get_window().size_changed.connect(_update_ui_layout)
 
 	player.health_changed.connect(_on_player_health_changed)
 	player.xp_changed.connect(_on_player_xp_changed)
@@ -69,10 +57,8 @@ func _ready() -> void:
 	player.hit.connect(_on_player_hit)
 	player.died.connect(_on_player_died)
 
-	for index in range(upgrade_buttons.size()):
-		upgrade_buttons[index].pressed.connect(_on_upgrade_button_pressed.bind(index))
-
-	restart_button.pressed.connect(_on_restart_button_pressed)
+	hud.choice_selected.connect(_on_upgrade_button_pressed)
+	hud.restart_pressed.connect(_on_restart_button_pressed)
 
 	arena.build(arena_rect)
 	player.global_position = Vector3(arena_rect.get_center().x, 0.0, arena_rect.get_center().y)
@@ -81,12 +67,37 @@ func _ready() -> void:
 	# toute seule dans son propre _ready.
 	camera_rig.snap_to_target()
 
-	_update_ui_layout()
 	_on_player_health_changed(player.health, player.max_health)
 	_on_player_xp_changed(player.current_xp, player.xp_to_next, player.level)
 	_on_player_stats_changed(player.build_stats_text())
 	_update_objective_text()
 	_update_time_label()
+	_apply_ui_preview()
+
+
+## Ouvre un carton au lancement, pour le JUGER a l'image sans avoir a jouer
+## jusqu'au level-up ou jusqu'a la mort.
+##
+##   --ui-card=level      le carton de niveau et ses 3 choix
+##   --ui-card=gameover   le carton de K.O.
+##
+## Meme convention d'arguments utilisateur que `--pitch=` et `--capture` des
+## bancs de test : un carton qu'on ne peut pas capturer est un carton qu'on
+## regle a l'aveugle, et tout ce projet dit que ca ne marche pas.
+func _apply_ui_preview() -> void:
+	for argument in OS.get_cmdline_user_args():
+		if not argument.begins_with("--ui-card="):
+			continue
+
+		match argument.trim_prefix("--ui-card="):
+			"level":
+				run_paused = true
+				current_upgrade_choices = UpgradeDefinitions.roll_choices(3)
+				hud.show_level_card(3, current_upgrade_choices)
+			"gameover":
+				game_over = true
+				run_paused = true
+				hud.show_game_over(96.0, 4)
 
 
 func _process(delta: float) -> void:
@@ -217,33 +228,21 @@ func _on_player_hit(contact_position: Vector3) -> void:
 
 
 func _on_player_health_changed(current_health: int, max_health: int) -> void:
-	health_label.text = "Vie: %d / %d" % [current_health, max_health]
+	hud.set_health(current_health, max_health)
 
 
 func _on_player_xp_changed(current_xp: int, xp_required: int, level: int) -> void:
-	xp_label.text = "Niveau %d  XP: %d / %d" % [level, current_xp, xp_required]
+	hud.set_xp(current_xp, xp_required, level)
 
 
 func _on_player_stats_changed(stats_text: String) -> void:
-	stats_label.text = stats_text
+	hud.set_telemetry(stats_text)
 
 
 func _on_player_level_up_requested(choices: Array[Dictionary]) -> void:
 	run_paused = true
 	current_upgrade_choices = choices
-	upgrade_panel.visible = true
-	upgrade_title_label.text = "Niveau %d atteint" % player.level
-	upgrade_subtitle_label.text = "Choisis une amelioration pour continuer la run."
-
-	for index in range(upgrade_buttons.size()):
-		var button := upgrade_buttons[index]
-
-		if index < current_upgrade_choices.size():
-			var choice: Dictionary = current_upgrade_choices[index]
-			button.visible = true
-			button.text = "%s\n%s" % [choice["title"], choice["description"]]
-		else:
-			button.visible = false
+	hud.show_level_card(player.level, choices)
 
 
 func _on_upgrade_button_pressed(index: int) -> void:
@@ -252,7 +251,7 @@ func _on_upgrade_button_pressed(index: int) -> void:
 
 	player.apply_upgrade(current_upgrade_choices[index]["id"])
 	current_upgrade_choices.clear()
-	upgrade_panel.visible = false
+	hud.hide_level_card()
 	run_paused = false
 	_update_objective_text()
 
@@ -260,8 +259,7 @@ func _on_upgrade_button_pressed(index: int) -> void:
 func _on_player_died() -> void:
 	game_over = true
 	run_paused = true
-	game_over_panel.visible = true
-	game_over_summary_label.text = "Survie: %.1f s\nNiveau atteint: %d" % [elapsed_time, player.level]
+	hud.show_game_over(elapsed_time, player.level)
 
 
 func _on_restart_button_pressed() -> void:
@@ -269,39 +267,9 @@ func _on_restart_button_pressed() -> void:
 
 
 func _update_time_label() -> void:
-	time_label.text = "Temps: %.1f s" % elapsed_time
+	hud.set_time(elapsed_time)
 
 
 func _update_objective_text() -> void:
-	var next_enemy_text := "Brutes en approche" if elapsed_time >= 22.0 else "Survis et monte en puissance"
-	objective_label.text = "%s\nEnnemis actifs: %d" % [next_enemy_text, enemies_container.get_child_count()]
-
-
-func _update_ui_layout() -> void:
-	var viewport_size := get_viewport().get_visible_rect().size
-
-	if viewport_size == Vector2.ZERO:
-		return
-
-	hud_left_panel.offset_left = 12.0
-	hud_left_panel.offset_top = 12.0
-	hud_left_panel.offset_right = 672.0
-	hud_left_panel.offset_bottom = 152.0
-
-	hud_right_panel.offset_left = viewport_size.x - 428.0
-	hud_right_panel.offset_top = 12.0
-	hud_right_panel.offset_right = viewport_size.x - 12.0
-	hud_right_panel.offset_bottom = 96.0
-
-	objective_label.offset_left = viewport_size.x - 360.0
-	objective_label.offset_right = viewport_size.x - 20.0
-
-	upgrade_panel.offset_left = (viewport_size.x - 500.0) * 0.5
-	upgrade_panel.offset_right = upgrade_panel.offset_left + 500.0
-	upgrade_panel.offset_top = max(96.0, (viewport_size.y - 392.0) * 0.5)
-	upgrade_panel.offset_bottom = upgrade_panel.offset_top + 392.0
-
-	game_over_panel.offset_left = (viewport_size.x - 420.0) * 0.5
-	game_over_panel.offset_right = game_over_panel.offset_left + 420.0
-	game_over_panel.offset_top = max(120.0, (viewport_size.y - 280.0) * 0.5)
-	game_over_panel.offset_bottom = game_over_panel.offset_top + 280.0
+	var objective := "Brutes en approche" if elapsed_time >= 22.0 else "Survis"
+	hud.set_objective(objective, enemies_container.get_child_count())

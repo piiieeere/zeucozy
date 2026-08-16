@@ -41,6 +41,18 @@ func setup(new_target: Node3D, difficulty_scale: float) -> void:
 	max_health = max(1, int(round(max_health * difficulty_scale)))
 	current_health = max_health
 	base_speed *= 1.0 + (difficulty_scale - 1.0) * 0.35
+
+	# ⚠️ CETTE LIGNE NE FAISAIT RIEN AVANT LE 2026-08-16, et personne ne pouvait
+	# le voir : `contact_damage` valait 1 pour le chaser, donc `round(1 * 1,2)`
+	# rendait 1. Il fallait un facteur de 1,5 — soit 225 s de run — pour que le
+	# degat passe enfin a 2, c'est-a-dire DOUBLE d'un coup.
+	#
+	# Le passage de la vie du joueur en points (6 → 100) a remis les degats a
+	# l'echelle (1 → 15, 2 → 30), et l'arrondi cesse de tout ecraser : le chaser
+	# monte desormais de 15 a ~21 en continu sur une run. C'est un EFFET DE BORD
+	# du changement d'echelle, pas une decision d'equilibrage — la montee en
+	# difficulte fait enfin ce que cette ligne dit depuis le debut, et la fin de
+	# run est donc plus dure qu'avant.
 	contact_damage = max(1, int(round(contact_damage * (1.0 + (difficulty_scale - 1.0) * 0.2))))
 
 

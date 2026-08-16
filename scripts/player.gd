@@ -43,7 +43,20 @@ signal stats_changed(stats_text: String)
 signal died
 
 @export var speed: float = 7.5
-@export var max_health: int = 6
+
+## La vie est en POINTS depuis le 2026-08-16 — 100, et non plus 6.
+##
+## Ce n'est pas un changement d'affichage : sur 6 points, un objet qui rend de
+## la vie ne peut rendre que 1 (17 % de la barre) ou 0. Toute la famille des
+## objets a petit effet continu — vol de vie sur griffure, regeneration lente,
+## soin par croquette — etait mecaniquement impossible. Sur 100, un vol de vie
+## de 2 par coup est un vrai reglage.
+##
+## ⚠️ Les degats des ennemis ont ete remis a l'echelle DU MEME FACTEUR (chaser
+## 1 → 15, brute 2 → 30, dans leurs .tscn). La survivabilite est donc quasi
+## inchangee : 6,7 coups de chaser au lieu de 6, 3,3 coups de brute au lieu
+## de 3. Changer l'un sans l'autre rendrait le chat immortel.
+@export var max_health: int = 100
 ## Une griffure toutes les 1,1 s — la cadence a ete DIVISEE PAR DEUX en meme
 ## temps que la portee doublait (2026-08-16). Les deux vont ensemble : un arc
 ## de 5,2 m qui balaie deux fois par seconde nettoierait l'ecran sans que le
@@ -265,8 +278,11 @@ func apply_upgrade(upgrade_id: String) -> void:
 		"move_speed":
 			speed += 0.9
 		"max_health":
-			max_health += 2
-			health = min(max_health, health + 2)
+			# +30 % de la vie de depart, et le soin suit — la meme proportion
+			# que le +2 sur 6 d'avant. Une upgrade se dose en FRACTION de la
+			# barre, jamais en points absolus : +2 sur 100 ne se verrait pas.
+			max_health += 30
+			health = min(max_health, health + 30)
 		"pickup_radius":
 			pickup_radius += 0.85
 			_sync_pickup_radius()
@@ -283,7 +299,10 @@ func apply_upgrade(upgrade_id: String) -> void:
 
 
 func build_stats_text() -> String:
-	return "Griffure: %d  Cadence: %.2fs  Portee: %.1f  Vitesse: %.1f  Pickup: %.1f" % [
+	# Le releve de build, en bas d'ecran. Les separateurs en point median plutot
+	# qu'en double espace : a 12 px et en creme assourdi, deux espaces ne
+	# separent plus rien et la ligne se lit comme une seule bouillie.
+	return "GRIFFURE %d · CADENCE %.2f s · PORTÉE %.1f m · VITESSE %.1f m/s · AIMANT %.1f m" % [
 		claw_damage,
 		attack_interval,
 		claw_range,

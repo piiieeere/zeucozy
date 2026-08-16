@@ -297,6 +297,8 @@ Godot n'est **pas dans le `PATH`** — toujours l'appeler par son chemin complet
   "C:/Users/tibo/Documents/zeucozy_3d/chat_style_v3.blend" --python tools/export_cat.py
 # Réimporter les assets sans ouvrir l'éditeur
 "C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64.exe" --headless --import --path .
+# Recuperer les polices d'UI (rejouable, idempotent) — puis reimporter
+powershell -ExecutionPolicy Bypass -File tools/fetch_fonts.ps1
 # Banc de test du cel-shading — mode interactif (orbite souris, touches O/P/A)
 "C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64.exe" --path . res://scenes/tests/cel_test.tscn
 # Banc de test — mode capture : 8 directions + sondes de skinning, puis quitte
@@ -382,13 +384,17 @@ zeucozy/
 │   │   ├── cel_model.gd            # ⭐ Le style du chat — partagé jeu ↔ banc de test
 │   │   ├── cel_prop.gd             # ⭐ Le style des meubles — .glb sans squelette
 │   │   ├── fx_cadence.gd           # ⭐ Les 2 durées de pose des FX (§7) — source unique
+│   │   ├── ui_style.gd             # ⭐ Le style de l'interface — palette, polices, cadence
 │   │   ├── impact_frame.gd         # Flash ambré plein cadre, 2 frames
 │   │   └── hit_burst.gd            # Éclat de collision, 8 poses
+│   ├── ui/
+│   │   └── hud.gd       # 🖥️ Le HUD + les cartons, construits EN CODE depuis ui_style
 │   └── tests/
 │       ├── cel_test.gd  # Cadrage, bascules et captures du banc du chat
 │       ├── prop_test.gd # Banc des meubles : 8 directions + rapport de taille au chat
 │       └── motion_probe.gd # ⏱️ Fluidité : temps de frame + battement sur 3 frames
 ├── shaders/          # cel_toon, cel_outline, cel_face, cel_paws, retro_post
+│                     # ui_frame (plaque chanfreinée), ui_speedlines (lignes de vitesse)
 │                     # cel_paws (bouts de pattes + les 3 griffes dessinées)
 │                     # cel_ground (parquet peint), cel_rug (tapis)
 │                     # hit_burst (éclat de collision), impact_frame (flash)
@@ -401,9 +407,11 @@ zeucozy/
 │   ├── build_outline.py    # Contour Blender : épaisseur × Attr_Style.R, 1 encre / surface
 │   ├── build_couch.py      # Canapé : géométrie ET Attr_Style, dans un .blend neuf
 │   ├── export_prop.py      # Export générique d'un meuble, même réinjection COLOR_0
+│   ├── fetch_fonts.ps1     # Récupère les polices d'UI en sous-ensembles (rejouable)
 │   └── dump_paws.gd        # Relève os porteurs + boîtes de repos — source des PAWS
 └── assets/
-    └── models/       # player_cat.glb, prop_canape.glb
+    ├── models/       # player_cat.glb, prop_canape.glb
+    └── fonts/        # Dela Gothic One + Zen Kaku Gothic New, sous-ensembles + OFL
 ```
 
 > **`cel_model.gd` est le point d'entrée du style.** Palette par matériau, visage peint,
@@ -429,7 +437,7 @@ Le réglage à bouger en premier si le chat paraît trop petit est `distance` da
 `camera_rig.gd` (38 m), pas le FOV.
 
 ### Joueur — stats de base (player.gd)
-- Speed 7,5 m/s | Health 6 | Attack interval **1,1 s**
+- Speed 7,5 m/s | **Vie 100 points** | Attack interval **1,1 s**
 - **Griffure** : damage 3 | range 5,2 m | arc frontal 120° | **visée à la souris**
 - Projectile *(en sommeil)* : damage 1 | Speed 17,5 m/s | Range 10 m
 - Pickup radius 2,5 m
@@ -586,6 +594,12 @@ Elle était portée par la direction de marche ; elle est désormais à la **sou
 ouvre le jeu de jambes que le survivor demande : reculer en frappant devant soi. La manette
 reste à faire, et sa place est déjà prévue (`aim_source`).
 
+**L'interface a été refaite le 2026-08-16** — voir « L'interface » plus haut. Elle est
+passée du placeholder Godot (police par défaut, panneaux arrondis, textes de debug) au
+registre anime TV 80–90, **d'après un relevé image d'*Orbitals*** et non de mémoire : HUD
+nu et minuscule dans un coin, cartons chanfreinés qui s'ouvrent en pas, deux polices
+gothiques japonaises sous-ensemblées à 73 Ko. §9 de la DA a été réécrit dans la foulée.
+
 **Visuels :** le **chat est dans le jeu**, cel-shadé, contour, visage peint et **griffes
 dessinées** compris, et il se lit à taille de jeu — désormais en **tuxedo noir et blanc**,
 qui se détache mieux du
@@ -651,6 +665,115 @@ de se doubler : **l'éclat dit OÙ ça a cogné, l'impact frame dit que c'était
 > pas la distance au bord, donc l'encre ne cerne que les pointes ; et une pique plus
 > longue que `r = 1` se fait trancher par le bord du quad. Détail chiffré dans la Todo,
 > section « Pièges FX ».
+
+### L'interface — refaite le 2026-08-16, d'après l'image
+
+L'UI était du placeholder : police Godot par défaut, `StyleBoxFlat` arrondis, et des
+textes de debug (`Vie: 6 / 6`, `Griffure: 3  Cadence: 0.55s…`). Elle est refaite en
+registre **anime TV 80–90**.
+
+> 🔍 **§9 de la DA a été RÉÉCRIT à partir de l'image**, pas de souvenirs : 4 min de
+> gameplay d'*Orbitals* en 720p60 + 5 captures éditeur en 4K. L'ancien §9 (*« arrondi ·
+> chaud · livre illustré Ghibli · fenêtres en bois ou parchemin »*) appliquait à
+> l'interface le registre du **décor** et n'avait jamais été confronté à la référence.
+
+**Ce que le relevé donne** — et qui contredit l'intuition sur trois points :
+
+- **Le HUD d'*Orbitals* n'a AUCUN contenant.** Ni plaque, ni cadre, ni équerre : du texte
+  posé nu sur l'image, en capitales, à ~2 % de la hauteur d'écran, crème avec une **ombre
+  décalée rouge** (de la désynchronisation vidéo, pas une ombre portée).
+- **Aucun chiffre nulle part**, et la vie est en **cœurs**. On garde la forme (pastilles,
+  barre) mais **pas** le zéro-chiffre : un survivor se joue sur des lectures constantes.
+- **Il n'y a aucune mincho dans *Orbitals*.** Son HUD est une grotesque techno carrée, son
+  logo une **gothique lourde angulaire**. Une mincho avait été choisie ici par réflexe
+  « carton d'anime », puis retirée le jour même.
+
+**Le partage, et c'est tout le dispositif :**
+
+| | HUD permanent | Cartons (niveau, K.O.) |
+|---|---|---|
+| Contenant | **aucun** — texte cerné d'encre, posé sur le jeu | plaque sombre, filet, coins **coupés** |
+| Place | un coin, jamais un bandeau | plein cadre, voile + lignes de vitesse |
+| Entrée | — | **en pas**, 4 poses (`fx_cadence.FX_POSE`) |
+
+C'est leur **contraste** qui fabrique l'événement, pas la taille des cartons.
+
+- **Polices : Dela Gothic One** (moments) + **Zen Kaku Gothic New** (information), OFL,
+  sous-ensembles `latin` + `latin-ext` + `kana` — **73 Ko au total**. Récupérées par
+  `tools/fetch_fonts.ps1`, **rejouable** : une police est un geste de style, pas un
+  binaire tombé du ciel.
+- **Kana décoratif seulement**, toujours le plus petit corps de l'écran. ⚠️ Le fichier
+  `kana` ne porte **que** les caractères listés dans le script : un kana ajouté à
+  `ui_style.KANA` sans être ajouté à `fetch_fonts.ps1` rend un **carré vide, en silence**.
+- **Le HUD est en `layer = -2`**, donc *sous* l'impact frame (−1) et *sous* `RetroPost` (0) :
+  il fait partie de l'**image** et reçoit le grain et la vignette. Même argument que
+  l'impact frame — au-dessus, il se lirait comme un calque d'UI collé sur le film.
+- **La plaque est SOMBRE**, à l'inverse de l'ancien §9. Pas un goût : le sol est en
+  parchemin `#F5ECD8` et en blé `#E8D4A8`, une plaque parchemin ne s'y lit pas.
+- **`main.gd` ne connaît plus aucun `Label` ni aucun offset** — il envoie des valeurs, le
+  HUD décide du dessin. C'est ce qui a supprimé `_update_ui_layout()` et sa trentaine de
+  décalages en dur, qui refaisaient à la main le travail des ancrages.
+
+> ⚠️ **Quatre pièges, tous trouvés en REGARDANT les frames, aucun en lisant le code :**
+> - **Un `HBoxContainer` étire ses enfants à la hauteur de la rangée.** La piste d'XP
+>   sortait en dalle de 20 px malgré ses 9 px déclarés — `custom_minimum_size` est un
+>   minimum, il ne plafonne rien. Parade : `SIZE_SHRINK_CENTER`.
+> - **Un uniform `rect_size` recâblé sur `resized` arrive en retard**, et d'un facteur
+>   *différent par plaque* — donc aucune plaque juste pour servir de témoin. Les shaders
+>   déduisent désormais leurs pixels de **`fwidth(UV)`** et ne dépendent plus de rien.
+> - **2 px de cerne sur un glyphe de 12 px le remplissent.** Le kana sortait en bouillie.
+>   Un cerne se dose en fraction de la hauteur d'x, jamais en valeur absolue partagée.
+> - **Le volet d'entrée est dans le shader de la plaque, donc il ne coupe pas ses
+>   enfants.** Le texte s'affichait entier pendant que la plaque s'ouvrait encore —
+>   l'inverse d'un carton d'anime. Le contenu est masqué jusqu'à la dernière pose.
+
+> ✅ **L'ouverture en pas est vérifiée par sonde, pas supposée** : les 4 poses tombent une
+> par frame à 30 fps. ⚠️ La première sonde mesurait `Engine.get_frames_drawn()` — qui reste
+> à **0 en headless**, puisque rien n'est dessiné. Elle rendait « tout sur la frame 0 »,
+> un résultat parfaitement plausible et entièrement faux.
+
+**Juger l'UI sans jouer** — les cartons n'apparaissent pas dans une capture passive :
+
+```bash
+"C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --path . \
+  --write-movie <dossier>/c.png --fixed-fps 30 --quit-after 30 -- --ui-card=level
+#   --ui-card=level      le carton de niveau et ses 3 choix
+#   --ui-card=gameover   le carton de K.O.
+```
+
+### La vie en points — faite le 2026-08-16
+
+La vie est passée de **6 points à 100**, et l'affichage de **pastilles à barre**.
+Détail dans la DA, §9.6.
+
+**Ce n'est pas une décision d'affichage.** Sur 6 points, un objet qui rend de la vie ne
+peut rendre que 1 — soit 17 % de la barre — ou rien. Toute la famille des effets petits et
+continus (**vol de vie** sur griffure, régénération, soin par croquette) était
+*mécaniquement* impossible à doser. Sur 100, un vol de vie de 2 par coup est un vrai
+réglage. C'est le point de départ de ces objets, pas leur implémentation.
+
+| | Valeur | Note |
+|---|---|---|
+| Vie du chat | **100** | `player.max_health` |
+| Chaser | **15** de contact | 6,7 coups (c'était 6) |
+| Brute | **30** de contact | 3,3 coups (c'était 3) |
+| Upgrade « Réserve de vie » | **+30**, soigne 30 | même proportion que le +2 sur 6 |
+
+- **Une échelle de points se remet à l'échelle des DEUX côtés.** Changer la vie sans
+  changer les dégâts rendrait le chat immortel.
+- **Une upgrade se dose en fraction de la barre**, jamais en points absolus : +2 sur 100
+  ne se verrait pas.
+- **La barre de vie est plus épaisse que celle d'XP** (14 px contre 8) et **porte son
+  nombre**, contrairement à l'XP. La forme reste le premier niveau de lecture ; le nombre
+  dit ce que la forme ne peut pas — de combien ce coup a coûté, de combien ce vol de vie
+  a rendu. Sous **30 %** la barre bascule au rose de blessure.
+
+> 🔍 **Effet de bord mesuré, non voulu, à connaître : la montée en difficulté des dégâts de
+> contact était SILENCIEUSEMENT MORTE.** `round(1 × 1,2)` rend 1 — il fallait 225 s de run
+> pour que le dégât du chaser passe à 2, c'est-à-dire *double* d'un coup. À l'échelle des
+> points l'arrondi cesse de tout écraser et le chaser monte de 15 à ~21 en continu.
+> **La fin de run est donc plus dure qu'avant, sans qu'on ait rééquilibré quoi que ce
+> soit.** À retester avant de toucher aux courbes de `main.gd`.
 
 ### Mobilier 3D — le canapé, fait le 2026-08-16
 

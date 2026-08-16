@@ -10,8 +10,8 @@ extends RefCounted
 const DEFINITIONS: Array[Dictionary] = [
 	{
 		"id": "damage",
-		"title": "Griffes aiguisees",
-		"description": "+1 degat sur chaque griffure."
+		"title": "Griffes aiguisées",
+		"description": "+1 dégât par griffure."
 	},
 	{
 		"id": "attack_speed",
@@ -25,13 +25,13 @@ const DEFINITIONS: Array[Dictionary] = [
 	},
 	{
 		"id": "max_health",
-		"title": "Reserve de vie",
-		"description": "+2 vie max et soigne de 2."
+		"title": "Réserve de vie",
+		"description": "+30 vie max, et soigne de 30."
 	},
 	{
 		"id": "pickup_radius",
 		"title": "Aimant artisanal",
-		"description": "Augmente le rayon de ramassage."
+		"description": "Ramasse les croquettes de plus loin."
 	},
 	{
 		"id": "claw_range",
