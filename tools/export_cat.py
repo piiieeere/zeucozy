@@ -48,6 +48,15 @@ OUTPUT = Path(__file__).resolve().parent.parent / "assets" / "models" / "player_
 GLTF_JSON_CHUNK = 0x4E4F534A
 GLTF_BIN_CHUNK = 0x004E4942
 
+# Ecart tolere entre une position du .glb et son sommet d'origine. L'exporteur
+# reordonne et dedouble les sommets mais n'en DEPLACE jamais un : l'ecart doit
+# rester nul. Une valeur non nulle signifie qu'un modificateur a ete applique —
+# typiquement le `contour` (Solidify) de `tools/build_outline.py`, dont la coque
+# arriverait a `thickness x R` de son sommet. Le contour ne doit pas s'exporter
+# ("Pipeline 3D", piege n°1) : mieux vaut echouer que sortir un asset a deux
+# coques, que rien ne signalerait ensuite.
+MAX_DISTANCE = 1e-5
+
 
 def f32(value: float) -> float:
     """Arrondit comme le fera le fichier : l'exporteur ecrit du float32."""
@@ -67,6 +76,10 @@ def export(path: Path) -> None:
         export_yup=True,
         export_skins=True,
         export_materials="EXPORT",
+        # Explicite, et pas par confiance dans le defaut : applique, le
+        # `contour` de `tools/build_outline.py` doublerait le maillage d'une
+        # coque inversee, et l'`Armature` cuirait la pose de repos.
+        export_apply=False,
         # Cree un COLOR_0 sur les 6 primitives — meme si une seule est remplie.
         export_vertex_color="ACTIVE",
         export_all_vertex_colors=False,
@@ -200,6 +213,11 @@ def main() -> None:
               % (name, stats["vertices"], stats["exact"], stats["approx"]))
     print("  total exact %d / approche %d / ecart max %.6f"
           % (report["exact"], report["approx"], report["worst_distance"]))
+
+    if report["worst_distance"] > MAX_DISTANCE:
+        sys.exit("ECHEC : ecart max %.6f > %.6f — un modificateur a-t-il ete "
+                 "applique ? Le contour ne doit pas s'exporter."
+                 % (report["worst_distance"], MAX_DISTANCE))
 
 
 main()

@@ -138,6 +138,11 @@ Deux réglages ont dû suivre le changement de valeur, et pour la même raison d
 1. **Le contour ne survit pas à l'export glTF.** Dans Blender il est fait en *coque inversée*
    (solidify + normales retournées + backface culling) — c'est du setup Blender, pas de la
    géométrie exportable. ✅ *Résolu le 2026-08-16* : refait dans `cel_outline.gdshader`.
+   ⚠️ *Et l'aller-retour a coûté le contour Blender* : la fusion des 21 objets en `MSH_cat`
+   a emporté leurs 21 Solidify, et personne ne l'avait noté — le viewport montrait un chat
+   **sans contour**. `tools/build_outline.py` le repose, en prenant **Godot pour référence**
+   (épaisseur 0,041 × `Attr_Style.R`, une encre par surface). Vérifié : le `.glb` réexporté
+   est **md5-identique**, le contour ne part pas avec.
 2. **Deux objets qui s'interpénètrent produisent un trait parasite** à leur intersection.
    ⚠️ *La parade documentée est insuffisante* : fusionner 21 objets en un seul **objet** ne
    fusionne pas la **géométrie** — le maillage garde 21 coques fermées, chacune génère sa
@@ -220,6 +225,10 @@ Godot n'est **pas dans le `PATH`** — toujours l'appeler par son chemin complet
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background \
   "C:/Users/tibo/Documents/zeucozy_3d/chat_style_v3.blend" \
   --python tools/paint_tuxedo.py -- --save
+# Reposer le contour Blender — epaisseur pilotee par Attr_Style.R, une encre par surface
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background \
+  "C:/Users/tibo/Documents/zeucozy_3d/chat_style_v3.blend" \
+  --python tools/build_outline.py -- --save
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background \
   "C:/Users/tibo/Documents/zeucozy_3d/chat_style_v3.blend" --python tools/export_cat.py
 # Réimporter les assets sans ouvrir l'éditeur
@@ -314,6 +323,7 @@ zeucozy/
 │   ├── export_cat.py       # ⚠️ LE SEUL chemin d'export du chat (voir piège n°6)
 │   ├── build_animations.py # Construit idle/walk posées en pas, dans le .blend
 │   ├── paint_tuxedo.py     # Pelage noir/blanc : matériau des extrémités + couleurs
+│   ├── build_outline.py    # Contour Blender : épaisseur × Attr_Style.R, 1 encre / surface
 │   ├── build_couch.py      # Canapé : géométrie ET Attr_Style, dans un .blend neuf
 │   └── export_prop.py      # Export générique d'un meuble, même réinjection COLOR_0
 └── assets/
@@ -404,8 +414,17 @@ variantes (bleu ciel, vert sauge). Le reste est placeholder : ennemis en primiti
 tables / plantes / coussins en boîtes pastel, croquettes en cubes.
 
 **Passe rétro anime — faite le 2026-08-16.** `Attr_Style` peint et câblé, trait à
-épaisseur variable, ombres peintes, bord de cluster irrégulier, accent de brillance, et le
-post-process §8bis (grain sur 3s, halation, vignette) dans `shaders/retro_post.gdshader`.
+épaisseur variable **des deux côtés du pont** (Godot par `cel_outline.gdshader`, Blender par
+`tools/build_outline.py`), ombres peintes, bord de cluster irrégulier, accent de brillance,
+et le post-process §8bis (grain sur 3s, halation, vignette) dans `shaders/retro_post.gdshader`.
+
+> ⚠️ **Le `.blend` du chat est une SOURCE, sans garde-fou.** Il a été retrouvé le
+> 2026-08-16 réenregistré sur un état antérieur à la passe tuxedo — matériau
+> `fourrure_blanche` disparu, palette revenue à l'ambre — alors que le `.glb` du dépôt était
+> bon. Le jeu ne montrait donc rien ; seul un réexport aurait révélé la régression, **en la
+> propageant**. Ce qui a permis de la réparer sans perte, c'est que chaque geste de style
+> soit un script rejouable. Avant tout réexport du chat, relancer `paint_tuxedo.py` et
+> `build_outline.py` — ils sont idempotents et ne coûtent rien.
 
 **Animation — faite le 2026-08-16.** `idle` (2,4 s : respiration, queue, frisson d'oreille)
 et `walk` (0,4 s : rebond + pattes alternées) sont construites par
@@ -504,6 +523,8 @@ Trois fabriques de style coexistent désormais, et le découpage n'est pas arbit
    savoir de la caméra. Ni `face_pitch` ni `face_front_min` ne peuvent le corriger — voir
    la Todo, les deux fausses pistes y sont mesurées.
 5. Peindre 3 à 5 **dépassements de trait** — vrai travail à la main, à ne pas générer.
+   ⚠️ Ce sera le **premier geste de style que rien ne saura rejouer** : à faire dans un
+   `.blend` versionné à part, ou à réduire à des données que `build_outline.py` repose.
 6. **Redresser la queue dans Blender**, si on veut qu'elle pointe vraiment vers l'arrière.
    Sa pose de repos est un point d'interrogation propre, mais la pointe revient vers
    l'avant ; l'ouvrir demanderait **111°** sur `queue_3`, ce que des poids dégradés ne
