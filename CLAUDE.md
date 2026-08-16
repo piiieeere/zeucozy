@@ -228,6 +228,14 @@ Godot n'est **pas dans le `PATH`** — toujours l'appeler par son chemin complet
 "C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64.exe" --path . res://scenes/tests/cel_test.tscn
 # Banc de test — mode capture : 8 directions + sondes de skinning, puis quitte
 "C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64.exe" --path . res://scenes/tests/cel_test.tscn -- --capture
+# Reconstruire puis exporter le canape (le .blend est REGENERE, jamais edite a la main)
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --factory-startup \
+  --python tools/build_couch.py -- --save
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background \
+  "C:/Users/tibo/Documents/zeucozy_3d/prop_canape_v1.blend" \
+  --python tools/export_prop.py -- --mesh MSH_canape --out prop_canape.glb
+# Banc des meubles — 8 directions + le chat a cote et sur l'assise, au cadrage de jeu
+"C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64.exe" --path . res://scenes/tests/prop_test.tscn -- --capture
 # Le jeu, en enregistrant des PNG puis en quittant — pour juger le rendu sans y jouer
 "C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --path . \
   --write-movie <dossier>/game.png --fixed-fps 30 --quit-after 200
@@ -305,9 +313,11 @@ zeucozy/
 ├── tools/
 │   ├── export_cat.py       # ⚠️ LE SEUL chemin d'export du chat (voir piège n°6)
 │   ├── build_animations.py # Construit idle/walk posées en pas, dans le .blend
-│   └── paint_tuxedo.py     # Pelage noir/blanc : matériau des extrémités + couleurs
+│   ├── paint_tuxedo.py     # Pelage noir/blanc : matériau des extrémités + couleurs
+│   ├── build_couch.py      # Canapé : géométrie ET Attr_Style, dans un .blend neuf
+│   └── export_prop.py      # Export générique d'un meuble, même réinjection COLOR_0
 └── assets/
-    └── models/       # player_cat.glb
+    └── models/       # player_cat.glb, prop_canape.glb
 ```
 
 > **`cel_model.gd` est le point d'entrée du style.** Palette par matériau, visage peint,
@@ -389,8 +399,9 @@ Toute la logique de gameplay tourne — le passage en 3D ne l'a pas touchée.
 
 **Visuels :** le **chat est dans le jeu**, cel-shadé, contour et visage peint compris, et
 il se lit à taille de jeu — désormais en **tuxedo noir et blanc**, qui se détache mieux du
-parquet que l'ambre d'avant. Le reste est placeholder : ennemis en primitives 3D, décor en
-boîtes pastel, croquettes en cubes.
+parquet que l'ambre d'avant. Les **canapés sont modélisés** et posés dans l'arène en deux
+variantes (bleu ciel, vert sauge). Le reste est placeholder : ennemis en primitives 3D,
+tables / plantes / coussins en boîtes pastel, croquettes en cubes.
 
 **Passe rétro anime — faite le 2026-08-16.** `Attr_Style` peint et câblé, trait à
 épaisseur variable, ombres peintes, bord de cluster irrégulier, accent de brillance, et le
@@ -442,19 +453,58 @@ de se doubler : **l'éclat dit OÙ ça a cogné, l'impact frame dit que c'était
 > longue que `r = 1` se fait trancher par le bord du quad. Détail chiffré dans la Todo,
 > section « Pièges FX ».
 
+### Mobilier 3D — le canapé, fait le 2026-08-16
+
+Premier meuble modélisé : `assets/models/prop_canape.glb`, **2 064 tris**, 12 coques,
+2 matériaux (`tissu`, `coussin`). **Club rebondi** — accoudoirs roulés, 3 coussins bombés,
+dossier en 3 bosses — la forme la plus ronde, donc la plus conforme à §3 et §12.
+
+> ⚠️ **Le `.blend` est REGÉNÉRÉ par `tools/build_couch.py`, jamais édité à la main.**
+> Contrairement au chat, la géométrie du canapé est procédurale : elle et sa peinture
+> `Attr_Style` ont la même source. Les séparer rejouerait le décalage que le chat a payé
+> cher — une peinture calée sur une version du maillage qui n'existe plus.
+
+**La hauteur ment, et c'est la seule chose qui ment.** L'emprise au sol (6,4 × 2,6 m) est
+déjà juste : ≈4 longueurs de chat, le rapport réel chat/canapé. Mais un vrai canapé vu par
+un chat de 1,86 unité culminerait à **6,3 m**, et à 45° de plongée ça occulte un pan
+d'arène entier. Le dossier s'arrête donc à **3,2 m**, l'assise à **1,6 m** — assez pour que
+le chat posé dessus (1,6 + 1,86 = 3,46) **dépasse le dossier de 0,26** et reste lisible.
+C'est vérifié en image par le banc, pas déduit.
+
+Quatre réglages n'ont pu se décider qu'en **regardant les rendus**, aucun en raisonnant :
+
+| Défaut mesuré | Cause | Parade |
+|---|---|---|
+| Grande selle pâle sur les accoudoirs | `n.z > 0,90` laisse passer 42 % du diamètre d'un tube à 16 pans | Bande d'accent calée sur la **position**, pas la normale — 0,26 m quel que soit le nombre de pans |
+| Barres claires en travers du dossier, de dos | Les coussins de dossier ressortaient de 0,014 par la face arrière du panneau (la **rotation** de « légèrement tordu » repousse les coins) | Coussins avancés de 0,065 |
+| Canapé plat, un seul aplat | La lumière vient d'en haut : un meuble n'offre à la caméra **que** des faces vers le ciel, toutes du côté éclairé | `shadow_bias_strength` **1,5** (§4 le dit : le bouton est là, pas dans l'amplitude peinte) **+ 2 ombres portées peintes** — dossier sur l'assise, accoudoirs sur ses bords |
+| Canapé délavé à taille de jeu | `#A0C8D8` plein tombe dans la plage de valeurs des lames claires du parquet | Bâti descendu à `#8FBAC9` ; la couleur de palette reste sur le coussin |
+
+Trois fabriques de style coexistent désormais, et le découpage n'est pas arbitraire :
+`cel_style.gd` (primitives sans modèle) · `cel_prop.gd` (.glb **sans squelette**) ·
+`cel_model.gd` (le chat : squelette, `rest_undo`, visage peint).
+
+> **Reste connu :** de profil strict (90°), l'accoudoir éloigné pointe au-dessus du dossier
+> comme une fine antenne. Quelques pixels au cadrage de jeu — non traité.
+
 **Prochaines priorités :**
 0. 🅿️ **Le squash du `hit`** — l'impact frame est faite, mais §7 demande aussi un
    squash/stretch franc sur le squelette quand le chat encaisse. C'est du travail
    Blender (`tools/build_animations.py`), pas du shader.
-1. Modéliser l'aspirateur, le chien et le concombre — budget géométrie **serré** (§11) :
-   ils se multiplient à l'écran et la coque inversée double le compte. C'est le seul
-   chantier restant qui change ce qu'on **joue**, et non ce qu'on regarde.
-2. 🅿️ **Liseré d'œil de profil — reporté**, yeux et cadrage conviennent en l'état. C'est
+1. **Le meuble comme terrain de jeu** — le chat saute sur le canapé, les ennemis sont
+   fortement ralentis pour le franchir. Rien n'en est écrit : ni collision, ni saut, ni
+   ralentissement n'existent aujourd'hui, le mobilier est purement visuel. C'est un
+   chantier de **gameplay**, à spécifier dans le Game Manifest avant d'être codé.
+2. Modéliser l'aspirateur, le chien et le concombre — budget géométrie **serré** (§11) :
+   ils se multiplient à l'écran et la coque inversée double le compte.
+3. Les meubles restants — table basse, plante, coussin — encore en boîtes pastel.
+   `tools/build_couch.py` et `tools/export_prop.py` donnent le moule.
+4. 🅿️ **Liseré d'œil de profil — reporté**, yeux et cadrage conviennent en l'état. C'est
    l'**œil éloigné** qui déborde, `abs()` peignant les deux yeux sur la sphère sans rien
    savoir de la caméra. Ni `face_pitch` ni `face_front_min` ne peuvent le corriger — voir
    la Todo, les deux fausses pistes y sont mesurées.
-3. Peindre 3 à 5 **dépassements de trait** — vrai travail à la main, à ne pas générer.
-4. **Redresser la queue dans Blender**, si on veut qu'elle pointe vraiment vers l'arrière.
+5. Peindre 3 à 5 **dépassements de trait** — vrai travail à la main, à ne pas générer.
+6. **Redresser la queue dans Blender**, si on veut qu'elle pointe vraiment vers l'arrière.
    Sa pose de repos est un point d'interrogation propre, mais la pointe revient vers
    l'avant ; l'ouvrir demanderait **111°** sur `queue_3`, ce que des poids dégradés ne
    supportent pas — le tube ondule en S. C'est du modèle, pas de l'animation.
