@@ -6,10 +6,24 @@ extends CharacterBody3D
 ## seules les Vector2 sont devenues des Vector3 dans le plan XZ, et les
 ## valeurs de reglage sont passees du pixel au metre (1 m ≈ 20 px d'avant).
 ## Voir "Pipeline 3D", section "2D ou 3D cote nodes Godot".
+##
+## L'attaque automatique est une GRIFFURE au corps a corps (scenes/claw_slash).
+## Le projectile n'a pas ete supprime — scene, script et `spawn_projectile` sont
+## intacts, et `_fire_at_nearest_enemy` plus bas reste pret a resservir. Il est
+## simplement debranche de l'auto-attaque.
+##
+## Trois choses distinguent la griffure du projectile, et elles vont ensemble :
+##   * elle ne vise PAS. Le projectile partait vers l'ennemi le plus proche ; la
+##     griffure part dans la direction ou le chat se deplace. Le joueur vise en
+##     marchant, ce qui donne au deplacement un second role ;
+##   * elle porte court mais frappe fort, et elle touche tout son arc ;
+##   * elle ne coute rien a l'animation du chat : c'est un decalque dessine pose
+##     devant lui, le squelette continue de jouer idle/walk sans le savoir.
 
 const UpgradeDefinitions = preload("res://scripts/systems/upgrade_definitions.gd")
 const CelStyle := preload("res://scripts/systems/cel_style.gd")
 const CelModel := preload("res://scripts/systems/cel_model.gd")
+const CLAW_SLASH_SCENE := preload("res://scenes/claw_slash.tscn")
 
 signal health_changed(current_health: int, max_health: int)
 ## Le chat vient d'encaisser un coup — pas l'inverse. C'est ce qu'ecoutent les
@@ -26,9 +40,31 @@ signal died
 @export var speed: float = 7.5
 @export var max_health: int = 6
 @export var attack_interval: float = 0.55
+
+## Degats de la griffure. TRES au-dessus du projectile (1), et c'est la
+## contrepartie assumee : la griffure ne porte qu'a 3 m et ne se dirige pas
+## toute seule. Un chaser de depart tombe donc en un coup, mais il faut aller
+## le chercher et lui faire face.
+@export var claw_damage: int = 3
+## Portee de la griffure, en metres. Le chat fait 1,86 : c'est un peu plus
+## d'une longueur de chat devant lui.
+##
+## Descendue de 3,0 a 2,6 apres lecture des frames : a 3,0 la boite de degats
+## portait visiblement plus loin que le dessin ne le laissait croire, et une
+## zone d'attaque qui ment est pire qu'une zone courte.
+@export var claw_range: float = 2.6
+## Ouverture de l'arc griffe, en degres. Large — une patte balaie, elle ne
+## pique pas — mais franchement frontal : c'est ce qui fait que la direction
+## de marche est une vraie visee.
+@export var claw_arc_degrees: float = 120.0
+
+## Le projectile, en sommeil. Conserve pour un usage futur (arme secondaire,
+## upgrade, ennemi tireur) : ses reglages continuent donc d'exister et de
+## profiter des upgrades, pour qu'il ne se reveille pas perime.
 @export var projectile_damage: int = 1
 @export var projectile_speed: float = 17.5
 @export var projectile_range: float = 10.0
+
 @export var pickup_radius: float = 2.5
 
 ## Vitesse de rotation du modele vers la direction de marche. Le chat ne
@@ -54,6 +90,10 @@ var attack_cooldown := 0.0
 var invulnerability_timer := 0.0
 ## Vers la camera au depart : on ouvre sur le visage du chat, pas sur son dos.
 var facing_direction := Vector3.BACK
+## Une patte puis l'autre. Le balayage de la griffure change de sens a chaque
+## coup — sans quoi deux griffures de suite se liraient comme un tampon
+## recycle, exactement ce que le `spin` tire au hasard evite a l'eclat.
+var claw_side := 1.0
 
 
 func _ready() -> void:
@@ -102,7 +142,7 @@ func _process(delta: float) -> void:
 
 	if attack_cooldown <= 0.0:
 		attack_cooldown = attack_interval
-		_fire_at_nearest_enemy()
+		_slash_forward()
 
 
 ## `attacker_position` est optionnelle : elle sert uniquement a placer l'eclat
@@ -162,6 +202,9 @@ func collect_xp(amount: int) -> void:
 func apply_upgrade(upgrade_id: String) -> void:
 	match upgrade_id:
 		"damage":
+			claw_damage += 1
+			# Le projectile dort, il ne doit pas se reveiller perime : il suit
+			# la meme upgrade, sans etre tire pour autant.
 			projectile_damage += 1
 		"attack_speed":
 			attack_interval = max(0.18, attack_interval * 0.85)
@@ -173,7 +216,12 @@ func apply_upgrade(upgrade_id: String) -> void:
 		"pickup_radius":
 			pickup_radius += 0.85
 			_sync_pickup_radius()
+		"claw_range":
+			# Le decalque se dimensionne sur la portee : l'upgrade SE VOIT.
+			claw_range += 0.45
 		"projectile_speed":
+			# Retiree du tirage tant que le projectile dort. Gardee ici pour
+			# qu'y revenir soit une ligne dans upgrade_definitions.gd.
 			projectile_speed += 2.5
 			projectile_range += 1.1
 
@@ -181,9 +229,10 @@ func apply_upgrade(upgrade_id: String) -> void:
 
 
 func build_stats_text() -> String:
-	return "Degats: %d  Cadence: %.2fs  Vitesse: %.1f  Pickup: %.1f" % [
-		projectile_damage,
+	return "Griffure: %d  Cadence: %.2fs  Portee: %.1f  Vitesse: %.1f  Pickup: %.1f" % [
+		claw_damage,
 		attack_interval,
+		claw_range,
 		speed,
 		pickup_radius
 	]
@@ -205,6 +254,27 @@ func _face_direction(delta: float) -> void:
 	model.rotation.y = lerp_angle(model.rotation.y, wanted, 1.0 - exp(-turn_speed * delta))
 
 
+## La griffure part dans la direction de marche — jamais vers un ennemi choisi
+## pour le joueur. C'est la difference de fond avec le projectile : ici, se
+## deplacer, c'est viser.
+##
+## Enfant du CHAT, et c'est le point : une griffure est un geste, pas un objet
+## lache dans le monde. Plantee au sol elle se detacherait du chat des la
+## premiere frame — a 7,5 m/s il avance de 1,5 m pendant les six poses.
+func _slash_forward() -> void:
+	var slash = CLAW_SLASH_SCENE.instantiate()
+	add_child(slash)
+	slash.setup(facing_direction, claw_damage, claw_range, claw_arc_degrees, claw_side)
+	# Sans ca, l'interpolation physique fait partir le decalque de l'origine du
+	# monde sur sa premiere frame — et sa premiere frame est un sixieme de sa vie.
+	slash.reset_physics_interpolation()
+	claw_side = -claw_side
+
+
+## EN SOMMEIL — le projectile n'est plus l'attaque automatique. Conserve tel
+## quel pour un usage futur : la scene, `projectile.gd` et `spawn_projectile`
+## dans main.gd n'ont pas bouge non plus. Le rebrancher tient en une ligne dans
+## `_process`.
 func _fire_at_nearest_enemy() -> void:
 	var game = _get_game()
 

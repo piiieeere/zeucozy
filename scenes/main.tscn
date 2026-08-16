@@ -103,7 +103,7 @@ far = 400.0
 [node name="HudLeftPanel" type="Panel" parent="CanvasLayer"]
 offset_left = 12.0
 offset_top = 12.0
-offset_right = 552.0
+offset_right = 672.0
 offset_bottom = 152.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_hud")
 
@@ -144,11 +144,11 @@ text = "Niveau 1  XP: 0 / 5"
 [node name="StatsLabel" type="Label" parent="CanvasLayer"]
 offset_left = 20.0
 offset_top = 104.0
-offset_right = 520.0
+offset_right = 640.0
 offset_bottom = 136.0
 theme_override_colors/font_color = Color(0.290196, 0.290196, 0.352941, 1)
 theme_override_font_sizes/font_size = 18
-text = "Degats: 1  Cadence: 0.55s  Vitesse: 7.5  Pickup: 2.5"
+text = "Griffure: 3  Cadence: 0.55s  Portee: 3.0  Vitesse: 7.5  Pickup: 2.5"
 
 [node name="ObjectiveLabel" type="Label" parent="CanvasLayer"]
 offset_left = 872.0

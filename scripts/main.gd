@@ -285,7 +285,7 @@ func _update_ui_layout() -> void:
 
 	hud_left_panel.offset_left = 12.0
 	hud_left_panel.offset_top = 12.0
-	hud_left_panel.offset_right = 552.0
+	hud_left_panel.offset_right = 672.0
 	hud_left_panel.offset_bottom = 152.0
 
 	hud_right_panel.offset_left = viewport_size.x - 428.0

@@ -1,15 +1,22 @@
 extends RefCounted
 
+## Le pool d'upgrades.
+##
+## `projectile_speed` en a ete retiree avec le passage a l'attaque de griffure :
+## le projectile dort, une upgrade qui n'ameliore rien de visible est un mensonge
+## a l'ecran. `claw_range` prend sa place. Le cas `projectile_speed` existe
+## toujours dans `player.apply_upgrade` — le rebrancher tient en une entree ici.
+
 const DEFINITIONS: Array[Dictionary] = [
 	{
 		"id": "damage",
-		"title": "Charge creuse",
-		"description": "+1 degat sur chaque projectile."
+		"title": "Griffes aiguisees",
+		"description": "+1 degat sur chaque griffure."
 	},
 	{
 		"id": "attack_speed",
-		"title": "Rafale stable",
-		"description": "Tire plus souvent."
+		"title": "Patte vive",
+		"description": "Griffe plus souvent."
 	},
 	{
 		"id": "move_speed",
@@ -27,9 +34,9 @@ const DEFINITIONS: Array[Dictionary] = [
 		"description": "Augmente le rayon de ramassage."
 	},
 	{
-		"id": "projectile_speed",
-		"title": "Munition rapide",
-		"description": "Projectiles plus rapides et plus longs."
+		"id": "claw_range",
+		"title": "Grande allonge",
+		"description": "La griffure porte plus loin et balaie plus large."
 	}
 ]
 
