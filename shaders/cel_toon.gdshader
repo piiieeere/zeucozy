@@ -56,7 +56,16 @@ group_uniforms details_peints;
 // emboitees : iris / pupille / reflet) et interieur d'oreille (1 calotte).
 // Les calottes sont peintes en aplat franc : elles ne captent pas le shading.
 // Les suivantes recouvrent les precedentes — ordre = du plus large au plus petit.
+//
+// Deux usages, et ils ne se melangent pas :
+//   * calotte PLATE (defaut) — un aplat graphique pose par-dessus le cluster,
+//     qui ne capte pas la lumiere : l'interieur d'oreille ;
+//   * calotte SHADEE (`paint_shaded`) — une autre couleur de PELAGE, qui entre
+//     dans le cluster avant lui et recoit sa propre ombre chaude : le plastron
+//     blanc du chat tuxedo. Plate, une tache de cette taille se lirait comme un
+//     trou de lumiere au milieu d'un corps ombre.
 uniform int paint_count : hint_range(0, 3) = 0;
+uniform bool paint_shaded = false;
 uniform vec3 paint_center = vec3(0.0);
 uniform vec3 paint_squash = vec3(1.0, 1.0, 1.0);
 // |x| avant le calcul : une seule calotte dessine les deux cotes (les deux
@@ -111,10 +120,38 @@ void fragment() {
 		jitter = (hash_noise(floor(v_object_pos * edge_noise_scale)) - 0.5) * edge_noise;
 	}
 
+	// Le masque des calottes se calcule AVANT le cluster : une calotte shadee a
+	// besoin d'y entrer comme couleur locale, une calotte plate attend la fin.
+	vec3 cap_color = vec3(0.0);
+	bool cap_hit = false;
+
+	if (paint_count > 0) {
+		vec3 p = v_object_pos;
+
+		if (paint_mirror_x) {
+			p.x = abs(p.x);
+		}
+
+		vec3 d = normalize((p - paint_center) * paint_squash);
+
+		for (int i = 0; i < paint_count; i++) {
+			if (dot(d, normalize(paint_dir[i])) > paint_threshold[i]) {
+				cap_color = paint_color[i].rgb;
+				cap_hit = true;
+			}
+		}
+	}
+
+	vec3 local = base_color.rgb;
+
+	if (cap_hit && paint_shaded) {
+		local = cap_color;
+	}
+
 	float lit = step(threshold - bias + jitter, ndl);
 
-	vec3 shadow_col = warm_shadow(base_color.rgb, shadow_hue_shift, shadow_saturation, shadow_value);
-	vec3 col = mix(shadow_col, base_color.rgb, lit);
+	vec3 shadow_col = warm_shadow(local, shadow_hue_shift, shadow_saturation, shadow_value);
+	vec3 col = mix(shadow_col, local, lit);
 
 	// Accent de brillance — seulement dans le ton clair : un accent pose dans
 	// l'ombre se lirait comme une erreur de cluster.
@@ -124,17 +161,8 @@ void fragment() {
 	}
 
 	// Details peints — aplats francs poses par-dessus le cluster
-	if (paint_count > 0) {
-		vec3 p = v_object_pos;
-		if (paint_mirror_x) {
-			p.x = abs(p.x);
-		}
-		vec3 d = normalize((p - paint_center) * paint_squash);
-		for (int i = 0; i < paint_count; i++) {
-			if (dot(d, normalize(paint_dir[i])) > paint_threshold[i]) {
-				col = paint_color[i].rgb;
-			}
-		}
+	if (cap_hit && !paint_shaded) {
+		col = cap_color;
 	}
 
 	ALBEDO = col;

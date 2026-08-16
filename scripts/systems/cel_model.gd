@@ -36,22 +36,88 @@ const WHISKERS := [
 	Vector4(0.16, -0.18, 0.58, -0.24),
 ]
 
+# La bavette blanche du chat tuxedo — le bas du visage, museau compris.
+#
+# Elle est DESSINEE en espace facial, comme les yeux et le nez, et pour la
+# meme raison : rien de tout ca n'est modelise (§2bis). C'est aussi le seul
+# endroit ou elle peut vivre — le bas du visage n'est pas une coque a part,
+# c'est la moitie basse de la sphere de tete.
+#
+# La frontiere n'est pas droite. Deux corrections, chacune pour une raison
+# precise :
+#   * `blaze_*` la fait remonter au centre — la liste blanche entre les yeux,
+#     sans quoi le museau blanc parait colle sous un masque noir ;
+#   * `falloff` la fait redescendre sur les cotes, pour que le blanc s'arrete
+#     de lui-meme AVANT le bord du cone facial. Sans elle, la bavette serait
+#     tranchee net par `face_front_min` et cette coupe se lirait comme un arc
+#     de cercle sur la joue.
+#
+# Repere : les yeux sont a y = 0,14 et descendent a -0,05 ; la ligne passe donc
+# sous eux partout, sauf la liste qui remonte entre les deux.
+const BIB := {
+	"line": -0.02,
+	"falloff": 0.55,
+	"blaze_height": 0.12,
+	"blaze_width": 0.14,
+}
+
 # Palette par materiau — tiree de "Visual Art Direction" §4.
 # Les materiaux du glTF ne transportent pas le look Blender (nodes custom),
 # on repique donc les couleurs locales depuis la DA.
+#
+# CHAT TUXEDO (2026-08-16) — le roux ambre a laisse place au noir et blanc.
+# Deux regles de la DA survivent au changement et le contraignent entierement :
+# jamais de #000000 (§2bis), jamais de blanc froid (§5). Le noir est donc un
+# brun tres sombre, le blanc un creme chaud — et le creme est volontairement
+# plus clair que le parquet #E8D4A8, sans quoi le chat s'y fondrait.
+const NOIR := Color("#4A4038")
+const BLANC := Color("#F7EFE0")
+
 const PALETTE := {
-	"fourrure": Color("#D89A55"),
-	"corps_peint": Color("#C88A46"),
-	"ventre": Color("#F0DCB8"),
-	"visage": Color("#E8C48C"),
-	# Pas le parchemin #F5ECD8 : trop clair, il delave son propre trait
-	# (le trait colore se melange 20 % vers la couleur locale, §5.4).
-	"museau_peint": Color("#F0DCB8"),
+	"fourrure": NOIR,
+	# Le dos reste d'un cran plus sombre que le reste du pelage, comme du temps
+	# du chat roux : c'est ce qui detache la tete du corps en vue plongeante.
+	"corps_peint": Color("#40372F"),
+	# Blanc par coherence seulement : cette surface est enfermee dans celle du
+	# dos et ne se voit nulle part (mesure en tete de PAINTED). Le plastron
+	# qu'on voit vraiment est peint sur `corps_peint`.
+	"ventre": BLANC,
+	"visage": NOIR,
+	# Museau blanc — il prolonge la bavette dessinee par cel_face.gdshader, et
+	# les deux DOIVENT partager exactement la meme couleur : le museau depasse
+	# au milieu de la bavette, une nuance d'ecart et la couture se verrait.
+	"museau_peint": BLANC,
+	# Bouts de patte et bout de queue. Surface creee dans Blender par
+	# tools/paint_tuxedo.py — voir ce script pour pourquoi un masque en shader
+	# ne pouvait pas s'en charger.
+	"fourrure_blanche": BLANC,
 	# L'oreille n'est pas rose en entier : couleur pelage dehors, rose PEINT
 	# dedans (voir PAINTED). Un chat n'a de rose que l'interieur du pavillon.
-	"oreille_peinte": Color("#D89A55"),
+	"oreille_peinte": NOIR,
 }
-const FALLBACK_COLOR := Color("#D89A55")
+const FALLBACK_COLOR := NOIR
+
+# Trait par materiau. Le trait doit rester plus sombre que l'aplat qu'il cerne,
+# ET que son ton d'ombre — sinon il se lit comme une lumiere, pas comme de
+# l'encre. Sur la fourrure noire, INK (#3D2B1A, §4) ne remplit plus cette
+# condition : l'ombre du noir descend a ~#302B23, sous le trait. On passe donc
+# a un brun plus profond pour ces surfaces-la, toujours pas un noir pur.
+const INK_SOMBRE := Color("#1A120C")
+const INKS := {
+	"fourrure": INK_SOMBRE,
+	"corps_peint": INK_SOMBRE,
+	"visage": INK_SOMBRE,
+	"oreille_peinte": INK_SOMBRE,
+}
+
+# Surfaces blanches. Elles partagent un travers que le chat roux n'avait pas :
+# le trait colore de §5.4 melange 20 % vers la couleur locale, et ce melange se
+# fait en LINEAIRE. Vers un creme a 0,93 de luminance lineaire, 20 % suffisent
+# a remonter le trait a ~#82796F — un gris delave, plus une encre. On garde
+# donc la teinte, mais a la dose qui rend le meme ecart PERCU.
+const OUTLINE_TINT := 0.2
+const OUTLINE_TINT_CLAIR := 0.06
+const MATERIAUX_BLANCS := ["ventre", "museau_peint", "fourrure_blanche"]
 
 # Details peints par calotte procedurale — la methode des yeux, appliquee ici
 # a l'interieur d'oreille. Voir "Visual Art Direction" §2bis.
@@ -66,6 +132,31 @@ const FALLBACK_COLOR := Color("#D89A55")
 # Le z Blender est passe de 1,472 a 1,592 le 2026-08-16 : les cones d'oreille
 # et leurs os ont ete remontes de 0,12 pour degager le crane (0,19 -> 0,30).
 const PAINTED := {
+	# LE PLASTRON. Il est peint sur `corps_peint` — le dos — et surtout PAS sur
+	# `ventre`, dont c'est pourtant le nom.
+	#
+	# Mesure du 2026-08-16 : la sphere `ventre` est enfermee dans celle du dos.
+	# Elle ne depasse que de 0,03 sur l'avant, et un test de visibilite (ventre
+	# peint en magenta, tour de camera 8 directions) ne lui trouve que ~0,02 %
+	# de l'image, sur trois vues de profil. La colorer ne se voit pas.
+	#
+	# La surface reellement exposee sous la tete est celle du dos. Elle tient
+	# sur UN os (`dos`), donc rest_undo suffit a l'ancrer, exactement comme le
+	# visage sur `tete`.
+	#
+	# Ellipsoide du dos, mesure sur le .glb : centre (0, 0.64, -0.05),
+	# demi-axes (0.40, 0.35, 0.56) — d'ou le squash, qui est son inverse.
+	"corps_peint": {
+		"center": Vector3(0.0, 0.64, -0.05),
+		"squash": Vector3(1.0, 1.14, 0.71),
+		"mirror_x": false,
+		# Vers l'avant, legerement vers le bas : gorge et poitrail.
+		"dirs": [Vector3(0.0, -0.45, 0.90)],
+		"thresholds": [0.22],
+		"colors": [BLANC],
+		# Une autre couleur de pelage, pas un aplat graphique : elle a son ombre.
+		"shaded": true,
+	},
 	"oreille_peinte": {
 		"center": Vector3(0.281, 1.592, 0.622),
 		# L'oreille est mince en Z : on etire cet axe pour que le masque
@@ -86,6 +177,7 @@ const PAINTED := {
 const REST_UNDO_BONES := {
 	"visage": ["tete", ""],
 	"museau_peint": ["tete", ""],
+	"corps_peint": ["dos", ""],
 	"oreille_peinte": ["oreille_L", "oreille_R"],
 }
 
@@ -121,7 +213,13 @@ const ANIM_WALK := &"walk"
 
 ## Accent de brillance sur le dessus des volumes, masque par le canal B.
 ## Le seul ecart autorise a la regle des 2 tons (§5.5).
-@export var accent_strength: float = 0.35
+##
+## Abaisse de 0,35 a 0,12 avec le pelage tuxedo : l'accent est un MELANGE vers
+## le creme, donc son effet depend de ce qu'il eclaircit. Sur l'ambre d'avant
+## il montait la valeur de 0,85 a 0,89 — un souffle. Sur le noir il la ferait
+## passer de 0,29 a 0,52, et le dessus du chat virerait au gris : un troisieme
+## ton de cluster en pleine violation de §5.5.
+@export var accent_strength: float = 0.12
 
 ## Bascule du repere facial. Compromis de cadrage sous une camera qui plonge :
 ## trop bas le visage passe sous l'horizon, trop haut il reste visible de dos.
@@ -216,7 +314,12 @@ func _apply_cel_materials() -> void:
 		var color: Color = PALETTE.get(mat_name, FALLBACK_COLOR)
 		var is_face: bool = mat_name in FACE_MATERIALS
 
-		var toon_mat := CelStyle.make_outlined(color, outline_thickness)
+		var toon_mat := CelStyle.make_outlined(
+			color,
+			outline_thickness,
+			INKS.get(mat_name, CelStyle.INK),
+			OUTLINE_TINT_CLAIR if mat_name in MATERIAUX_BLANCS else OUTLINE_TINT,
+		)
 		var caps := 0
 
 		if is_face:
@@ -224,6 +327,11 @@ func _apply_cel_materials() -> void:
 			toon_mat.set_shader_parameter("base_color", color)
 			toon_mat.set_shader_parameter("whiskers", PackedVector4Array(WHISKERS))
 			toon_mat.set_shader_parameter("face_pitch_deg", face_pitch_deg)
+			toon_mat.set_shader_parameter("bib_color", BLANC)
+			toon_mat.set_shader_parameter("bib_line", BIB["line"])
+			toon_mat.set_shader_parameter("bib_falloff", BIB["falloff"])
+			toon_mat.set_shader_parameter("bib_blaze_height", BIB["blaze_height"])
+			toon_mat.set_shader_parameter("bib_blaze_width", BIB["blaze_width"])
 			face_materials.append(toon_mat)
 		else:
 			caps = _apply_painted_caps(toon_mat, mat_name)
@@ -307,6 +415,7 @@ func _apply_painted_caps(mat: ShaderMaterial, mat_name: String) -> int:
 		colors.append(Color.MAGENTA)
 
 	mat.set_shader_parameter("paint_count", count)
+	mat.set_shader_parameter("paint_shaded", cfg.get("shaded", false))
 	mat.set_shader_parameter("paint_center", cfg["center"])
 	mat.set_shader_parameter("paint_squash", cfg["squash"])
 	mat.set_shader_parameter("paint_mirror_x", cfg["mirror_x"])

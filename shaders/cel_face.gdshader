@@ -72,9 +72,29 @@ uniform vec2 mouth_center = vec2(0.072, -0.16);
 uniform float mouth_radius : hint_range(0.0, 0.3) = 0.085;
 uniform float mouth_weight : hint_range(0.0, 0.05) = 0.016;
 
+group_uniforms bavette;
+// Le blanc du bas de visage, chez un chat tuxedo. Applique a la couleur
+// LOCALE, avant le cluster : la bavette n'est pas un aplat colle par-dessus
+// l'ombre, c'est une autre couleur de pelage — elle a donc sa propre ombre
+// chaude, derivee comme celle du noir.
+uniform vec4 bib_color : source_color = vec4(0.969, 0.937, 0.878, 1.0);
+uniform float bib_strength : hint_range(0.0, 1.0) = 1.0;
+// Hauteur de la frontiere en espace facial, et ses deux corrections :
+// la liste qui remonte au centre, le blanc qui redescend sur les cotes.
+// Reglages et justification : BIB dans cel_model.gd.
+uniform float bib_line : hint_range(-0.6, 0.4) = -0.02;
+uniform float bib_falloff : hint_range(0.0, 2.0) = 0.55;
+uniform float bib_blaze_height : hint_range(0.0, 0.4) = 0.12;
+uniform float bib_blaze_width : hint_range(0.02, 0.5) = 0.14;
+
 group_uniforms moustaches;
 // Trait secondaire brun moyen (§4) — plus fin que le contour principal.
 uniform vec4 whisker_color : source_color = vec4(0.353, 0.243, 0.157, 1.0);
+// Sur la fourrure noire, le brun moyen disparait : une moustache doit rester
+// plus claire que ce qu'elle traverse. Les trois moustaches traversent
+// justement la frontiere de la bavette — elles changent donc de couleur en
+// cours de trait, exactement comme sur un vrai chat bicolore.
+uniform vec4 whisker_color_dark : source_color = vec4(0.906, 0.855, 0.749, 1.0);
 uniform float whisker_weight : hint_range(0.0, 0.03) = 0.011;
 // Un segment par moustache : (depart.xy, arrivee.xy) en espace facial miroir.
 // Godot refuse les valeurs par defaut sur les tableaux d'uniforms : les
@@ -122,10 +142,10 @@ void fragment() {
 
 	float lit = step(threshold - bias + jitter, dot(n, normalize(light_dir)));
 
-	vec3 shadow_col = warm_shadow(base_color.rgb, shadow_hue_shift, shadow_saturation, shadow_value);
-	vec3 col = mix(shadow_col, base_color.rgb, lit);
-
 	// --- espace facial ---------------------------------------------------
+	// Calcule AVANT le cluster : la bavette change la couleur locale, et le ton
+	// d'ombre se derive de cette couleur-la. L'inverse — peindre le blanc sur
+	// une ombre deja calculee pour du noir — donnerait un aplat sans ombre.
 	vec3 dir = normalize((v_object_pos - face_center) / face_radius);
 
 	float fp = radians(face_pitch_deg);
@@ -133,14 +153,31 @@ void fragment() {
 	vec3 f_up = vec3(0.0, cos(fp), -sin(fp));
 	vec3 f_right = vec3(1.0, 0.0, 0.0);
 
-	if (dot(dir, f_fwd) > face_front_min) {
-		// |x| : les deux cotes d'un coup
-		vec2 uv = vec2(abs(dot(dir, f_right)), dot(dir, f_up));
+	bool in_face = dot(dir, f_fwd) > face_front_min;
+	// |x| : les deux cotes d'un coup
+	vec2 uv = vec2(abs(dot(dir, f_right)), dot(dir, f_up));
 
+	float bib = 0.0;
+	if (in_face) {
+		float blaze = uv.x / bib_blaze_width;
+		float limit = bib_line
+				+ bib_blaze_height * exp(-blaze * blaze)
+				- bib_falloff * uv.x * uv.x;
+		// Bornes dans l'ordre croissant : smoothstep() n'est pas defini autrement.
+		bib = (1.0 - smoothstep(limit - feature_aa, limit + feature_aa, uv.y)) * bib_strength;
+	}
+
+	vec3 local = mix(base_color.rgb, bib_color.rgb, bib);
+	vec3 shadow_col = warm_shadow(local, shadow_hue_shift, shadow_saturation, shadow_value);
+	vec3 col = mix(shadow_col, local, lit);
+
+	if (in_face) {
 		// Moustaches d'abord : tout le reste passe par-dessus.
+		vec3 whisker = mix(whisker_color_dark.rgb, whisker_color.rgb, bib);
+
 		for (int i = 0; i < 3; i++) {
 			float d = sd_segment(uv, whiskers[i].xy, whiskers[i].zw) - whisker_weight;
-			col = paint(col, d, whisker_color.rgb);
+			col = paint(col, d, whisker);
 		}
 
 		// Bouche en oméga : un arc de cercle par cote, moitie basse seulement.

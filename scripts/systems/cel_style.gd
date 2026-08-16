@@ -51,14 +51,22 @@ static func make_flat(color: Color) -> ShaderMaterial:
 ## Aplat cel + contour en coque inversee (cel_outline en next_pass).
 ## `thickness` est en unites monde : la donner proportionnelle a la taille de
 ## l'objet, sinon les petits assets paraissent sur-cernes (§11).
-static func make_outlined(color: Color, thickness: float) -> ShaderMaterial:
+##
+## `ink` se surcharge parce qu'un trait doit rester plus SOMBRE que l'aplat
+## qu'il cerne. Sur une couleur claire, INK convient partout ; sur la fourrure
+## noire du chat, il passerait au-dessus de son propre ton d'ombre et le
+## contour se lirait en clair. Voir INKS dans cel_model.gd.
+static func make_outlined(
+	color: Color, thickness: float, ink: Color = INK, tint: float = 0.2
+) -> ShaderMaterial:
 	var mat := make_flat(color)
 
 	var outline := ShaderMaterial.new()
 	outline.shader = OUTLINE_SHADER
-	outline.set_shader_parameter("ink_color", INK)
+	outline.set_shader_parameter("ink_color", ink)
 	# Trait colore : le contour tire vers la couleur qu'il cerne (§5.4).
 	outline.set_shader_parameter("tint_target", color)
+	outline.set_shader_parameter("tint_amount", tint)
 	outline.set_shader_parameter("thickness", thickness)
 
 	mat.next_pass = outline

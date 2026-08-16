@@ -97,6 +97,42 @@ contour sont reproduits en shader Godot**. Le style tient hors de Blender.
 > Effet de bord à connaître : à 45° **le décor occulte pour de bon** — un ennemi derrière un
 > meuble disparaît, ce qui n'arrivait pas à 60°.
 
+### Chat tuxedo — noir et blanc (2026-08-16)
+
+Le chat n'est plus roux ambre. **Noir et blanc**, avec le blanc aux extrémités des
+pattes, au bout de la queue, sur le poitrail et sur le bas du visage jusqu'au museau.
+Les yeux restent verts. Deux règles de la DA survivent intactes et contraignent tout :
+jamais de `#000000` (§2bis), jamais de blanc froid (§5) — le noir est donc un brun très
+sombre `#4A4038`, le blanc un crème chaud `#F7EFE0`, choisi plus clair que le parquet
+`#E8D4A8` pour que le chat ne s'y fonde pas.
+
+Le blanc arrive par **trois chemins différents**, et ce n'est pas de la dispersion :
+chaque zone est d'une nature différente et un seul chemin ne pouvait pas les couvrir.
+
+| Zone | Chemin | Pourquoi celui-là |
+|---|---|---|
+| Bouts de pattes, bout de queue | **Matériau** `fourrure_blanche`, créé dans Blender par `tools/paint_tuxedo.py` | Un masque en shader y glisserait : Godot applique le skinning avant `vertex()` (piège n°5) et `rest_undo` ne connaît que **deux** os par surface — il en faudrait cinq |
+| Bas du visage + museau | **Dessiné** par `cel_face.gdshader` en espace facial (`BIB` dans `cel_model.gd`) | Le bas du visage n'est pas une coque à part, c'est la moitié basse de la sphère de tête. Même méthode que les yeux (§2bis) |
+| Poitrail | **Calotte peinte** sur `corps_peint`, avec `paint_shaded` | Voir juste en dessous |
+
+> ⚠️ **La surface `ventre` est invisible.** Son nom promet le plastron ; en fait sa sphère
+> est enfermée dans celle du dos et ne dépasse que de **0,03** sur l'avant. Mesuré le
+> 2026-08-16 en la peignant en magenta et en faisant le tour de caméra : ~0,02 % de
+> l'image, sur trois vues de profil seulement. **Ne pas y peindre quoi que ce soit
+> d'important.** Le poitrail visible appartient à `corps_peint`, qui tient sur un seul
+> os (`dos`) — donc `rest_undo` suffit à l'ancrer, comme le visage sur `tete`.
+
+Deux réglages ont dû suivre le changement de valeur, et pour la même raison de fond —
+**un mélange se juge sur ce qu'il mélange** :
+
+- `accent_strength` **0,35 → 0,12**. L'accent est un mélange vers le crème. Sur l'ambre
+  il montait la valeur de 0,85 à 0,89 ; sur le noir il l'aurait portée de 0,29 à 0,52 et
+  le dessus du chat aurait viré au gris — un 3ᵉ ton de cluster, contre §5.5.
+- **Trait plus sombre sur le noir** (`#1A120C` au lieu de `#3D2B1A`) et **teinte réduite
+  sur le blanc** (0,06 au lieu de 0,20). Le trait doit rester plus sombre que l'aplat
+  *et* que son ombre. Sur le noir, `#3D2B1A` repassait au-dessus du ton d'ombre ; sur le
+  blanc, les 20 % de §5.4 — mélangés en **linéaire** — délavaient le trait à `#82796F`.
+
 ### Pièges connus (appris à la dure, ne pas les reperdre)
 
 1. **Le contour ne survit pas à l'export glTF.** Dans Blender il est fait en *coque inversée*
@@ -180,6 +216,10 @@ Godot n'est **pas dans le `PATH`** — toujours l'appeler par son chemin complet
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background \
   "C:/Users/tibo/Documents/zeucozy_3d/chat_style_v3.blend" \
   --python tools/build_animations.py -- --save
+# Repeindre le pelage tuxedo (sans --save : essai a blanc, rien n'est ecrit)
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background \
+  "C:/Users/tibo/Documents/zeucozy_3d/chat_style_v3.blend" \
+  --python tools/paint_tuxedo.py -- --save
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background \
   "C:/Users/tibo/Documents/zeucozy_3d/chat_style_v3.blend" --python tools/export_cat.py
 # Réimporter les assets sans ouvrir l'éditeur
@@ -257,7 +297,8 @@ zeucozy/
 │                     # cel_core + cel_floor (includes, fonctions pures)
 ├── tools/
 │   ├── export_cat.py       # ⚠️ LE SEUL chemin d'export du chat (voir piège n°6)
-│   └── build_animations.py # Construit idle/walk posées en pas, dans le .blend
+│   ├── build_animations.py # Construit idle/walk posées en pas, dans le .blend
+│   └── paint_tuxedo.py     # Pelage noir/blanc : matériau des extrémités + couleurs
 └── assets/
     └── models/       # player_cat.glb
 ```
@@ -339,7 +380,8 @@ Le rig de caméra fait exception : il bouge dans `_process`, donc son interpolat
 Toute la logique de gameplay tourne — le passage en 3D ne l'a pas touchée.
 
 **Visuels :** le **chat est dans le jeu**, cel-shadé, contour et visage peint compris, et
-il se lit à taille de jeu. Le reste est placeholder : ennemis en primitives 3D, décor en
+il se lit à taille de jeu — désormais en **tuxedo noir et blanc**, qui se détache mieux du
+parquet que l'ambre d'avant. Le reste est placeholder : ennemis en primitives 3D, décor en
 boîtes pastel, croquettes en cubes.
 
 **Passe rétro anime — faite le 2026-08-16.** `Attr_Style` peint et câblé, trait à
