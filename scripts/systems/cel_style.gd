@@ -11,9 +11,31 @@ extends RefCounted
 
 const TOON_SHADER := preload("res://shaders/cel_toon.gdshader")
 const OUTLINE_SHADER := preload("res://shaders/cel_outline.gdshader")
+const GROUND_SHADER := preload("res://shaders/cel_ground.gdshader")
+const RUG_SHADER := preload("res://shaders/cel_rug.gdshader")
 
 ## Trait principal — brun chaud. Jamais de noir pur, meme sur un contour (§4).
 const INK := Color("#3D2B1A")
+
+## Reglage de la flaque de lumiere au sol.
+##
+## UNE seule source, recopiee telle quelle dans le sol et dans les tapis. C'est
+## la meme raison que "ne jamais recopier les constantes de cel_model.gd" : deux
+## valeurs qui divergent d'un demi-pouce et le bord de la flaque saute des qu'on
+## passe sur un tapis, ce qui redessine exactement le decoupage geometrique que
+## le style existe pour cacher.
+const POOL := {
+	"pool_scale": 26.0,
+	# Au-dessus de 0,5 : la part ensoleillee est MINORITAIRE. Un sol a moitie
+	# au soleil n'a plus de rai, il a deux moities.
+	"pool_level": 0.56,
+	"pool_wobble": 0.40,
+	"sun_color": Color("#FFD6A5"),
+	"sun_strength": 0.26,
+	"shadow_hue_shift": -0.02,
+	"shadow_saturation": 1.10,
+	"shadow_value": 0.88,
+}
 
 
 ## Aplat cel sans contour. Pour le sol et les zones de couleur posees dessus :
@@ -41,6 +63,37 @@ static func make_outlined(color: Color, thickness: float) -> ShaderMaterial:
 
 	mat.next_pass = outline
 	return mat
+
+
+## Le parquet peint. Un seul plan, un seul materiau : le motif est procedural
+## et ancre au monde, pas a l'UV du plan (voir cel_ground.gdshader).
+static func make_ground() -> ShaderMaterial:
+	var mat := ShaderMaterial.new()
+	mat.shader = GROUND_SHADER
+	_apply_pool(mat)
+	return mat
+
+
+## Un tapis. `size` est son emprise nominale en metres, `plane_size` celle du
+## plan qui le porte — plus grande, pour laisser la silhouette onduler hors du
+## rectangle sans etre tranchee. Le shader a besoin des deux : la premiere pour
+## sa forme, la seconde pour convertir son UV en metres.
+static func make_rug(color: Color, size: Vector2, plane_size: Vector2) -> ShaderMaterial:
+	var mat := ShaderMaterial.new()
+	mat.shader = RUG_SHADER
+	mat.set_shader_parameter("base_color", color)
+	mat.set_shader_parameter("rug_size", size)
+	mat.set_shader_parameter("plane_size", plane_size)
+	# Le liseré interieur suit la taille du tapis, sinon un petit tapis se
+	# retrouve entierement mange par son propre liseré.
+	mat.set_shader_parameter("band_inset", clampf(minf(size.x, size.y) * 0.09, 0.25, 1.1))
+	_apply_pool(mat)
+	return mat
+
+
+static func _apply_pool(mat: ShaderMaterial) -> void:
+	for key: String in POOL:
+		mat.set_shader_parameter(key, POOL[key])
 
 
 ## Ombre de contact — la petite tache posee sous un personnage.

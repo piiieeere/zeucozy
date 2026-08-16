@@ -244,15 +244,17 @@ zeucozy/
 │   ├── enemy.gd      # Comportement ennemi de base (follow, dégâts)
 │   ├── projectile.gd # Projectile (direction, portée, collision)
 │   ├── xp_orb.gd     # Croquette d'XP (magnétisme, collecte)
-│   ├── arena.gd      # Décor : sol, carrelage, tapis, mobilier, mur de bordure
+│   ├── arena.gd      # Décor : sol, tapis, mobilier, mur de bordure
 │   ├── camera_rig.gd # Vue plongeante 45°, suit le joueur, bornée à l'arène
 │   ├── systems/
 │   │   ├── upgrade_definitions.gd  # Pool et définitions des upgrades
-│   │   ├── cel_style.gd            # Matériaux cel des primitives + ombre de contact
+│   │   ├── cel_style.gd            # Matériaux cel des primitives, du sol + ombre de contact
 │   │   └── cel_model.gd            # ⭐ Le style du chat — partagé jeu ↔ banc de test
 │   └── tests/
 │       └── cel_test.gd # Cadrage, bascules et captures du banc
-├── shaders/          # cel_toon, cel_outline, cel_face, cel_core (include), retro_post
+├── shaders/          # cel_toon, cel_outline, cel_face, retro_post
+│                     # cel_ground (parquet peint), cel_rug (tapis)
+│                     # cel_core + cel_floor (includes, fonctions pures)
 ├── tools/
 │   ├── export_cat.py       # ⚠️ LE SEUL chemin d'export du chat (voir piège n°6)
 │   └── build_animations.py # Construit idle/walk posées en pas, dans le .blend

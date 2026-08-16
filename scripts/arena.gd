@@ -1,36 +1,31 @@
 extends Node3D
 
-## Construit le decor 3D de l'arene : sol, carrelage, tapis, mobilier et mur
-## de bordure.
+## Construit le decor 3D de l'arene : sol, tapis, mobilier et mur de bordure.
 ##
-## Transposition du decor Polygon2D d'origine — memes couleurs, meme esprit.
 ## Trois differences assumees, dictees par le passage a la 3D :
 ##
-##   - AUCUNE transparence. Les zones de couleur sont pre-melangees avec le sol
-##     a la construction : la DA demande des aplats francs (§2bis), et un aplat
-##     pre-melange se lit exactement comme le calque semi-transparent d'avant
-##     sans couter de tri de transparence.
+##   - AUCUNE transparence sur le mobilier. Les zones de couleur sont
+##     pre-melangees avec le sol a la construction : la DA demande des aplats
+##     francs (§2bis), et un aplat pre-melange se lit exactement comme le
+##     calque semi-transparent d'avant sans couter de tri de transparence.
 ##   - Tout est dimensionne en METRES, pas en fraction d'arene. Un canape
 ##     proportionnel a une arene de 160 m serait un mur de 20 m ; a l'echelle
-##     du chat (1,74 unite) plus rien ne se lirait.
+##     du chat (1,86 unite) plus rien ne se lirait.
 ##   - Le decor se REPETE par cellules. Consequence de la precedente : sept
 ##     meubles a taille reelle dans 160 x 90 m, on n'en croiserait jamais un.
 ##
-## Et une addition : le carrelage au sol. En vue plongeante, un sol uni ne
-## donne aucun repere de deplacement — on se croit immobile.
+## Le sol, lui, ne se construit plus en geometrie du tout — voir plus bas.
 
 const CelStyle := preload("res://scripts/systems/cel_style.gd")
 
-const FLOOR_COLOR := Color("#F7EDE2")
+## Ton moyen du parquet. Sert de fond de melange aux aplats du mobilier, pour
+## qu'ils restent coherents avec le sol sur lequel ils sont poses.
+const FLOOR_COLOR := Color("#E8D4A8")
 const INK := Color("#2A2A3A")
 
 ## Le sol deborde largement de l'aire de jeu : la camera voit au-dela du mur
 ## de bordure, et il ne doit jamais y avoir de vide a l'ecran.
 const FLOOR_OVERSHOOT := 60.0
-
-const GRID_COLOR := Color("#E0CFB2")
-const GRID_STEP := 6.0
-const GRID_WIDTH := 0.16
 
 const WALL_HEIGHT := 1.2
 const WALL_THICKNESS := 1.0
@@ -43,23 +38,25 @@ const CELL_JITTER := Vector2(3.5, 2.5)
 ## Rayon garde libre autour du point d'apparition du chat.
 const SPAWN_CLEARANCE := 2.5
 
-# Zones de couleur au sol — centre en fraction de la cellule, emprise en metres.
-# L'ordre compte : chaque zone se pose un cran au-dessus de la precedente.
-const FLOOR_PATCHES := [
-	{"at": Vector2(0.22, 0.16), "size": Vector2(15.0, 10.0),
-		"color": Color("#FFD6A5"), "alpha": 0.45},   # flaque de lumiere
-	{"at": Vector2(0.78, 0.84), "size": Vector2(15.0, 11.0),
-		"color": Color("#FFD6A5"), "alpha": 0.34},
-	{"at": Vector2(0.10, 0.78), "size": Vector2(8.0, 8.0),
-		"color": Color("#FFC6FF"), "alpha": 0.40},
-	{"at": Vector2(0.86, 0.22), "size": Vector2(9.0, 7.0),
-		"color": Color("#CDFFBF"), "alpha": 0.45},
+# Tapis — centre en fraction de la cellule, emprise en metres.
+# L'ordre compte : chaque tapis se pose un cran au-dessus du precedent.
+#
+# La palette vient de "Visual Art Direction" §4 : les pastels de l'ancien
+# prototype 2D (#9FF6FF, #FFC6FF, #BDB2FF) n'en font pas partie et juraient
+# avec le bois. Les flaques de lumiere ont quitte cette liste — elles sont
+# desormais peintes par le shader de sol, ce qui leur donne un bord irregulier
+# et les fait traverser les tapis au lieu de s'arreter a leur bord.
+const RUGS := [
 	{"at": Vector2(0.50, 0.52), "size": Vector2(18.0, 12.0),
-		"color": Color("#9FF6FF"), "alpha": 0.32},   # tapis central
+		"color": Color("#A0C8D8")},   # grand tapis central, bleu ciel Ghibli
+	{"at": Vector2(0.10, 0.78), "size": Vector2(8.0, 8.0),
+		"color": Color("#E8B8A8")},   # rose poudre
+	{"at": Vector2(0.86, 0.22), "size": Vector2(9.0, 7.0),
+		"color": Color("#C8E4B8")},   # vert sauge
 	{"at": Vector2(0.16, 0.52), "size": Vector2(9.0, 7.0),
-		"color": Color("#BDB2FF"), "alpha": 0.26},
+		"color": Color("#C8A8D8")},   # lavande douce
 	{"at": Vector2(0.84, 0.60), "size": Vector2(10.0, 8.0),
-		"color": Color("#FFC6FF"), "alpha": 0.24},
+		"color": Color("#C8E4B8")},   # vert sauge
 ]
 
 # Mobilier — meme convention, plus une hauteur.
@@ -86,36 +83,39 @@ func build(rect: Rect2) -> void:
 	for child in get_children():
 		child.queue_free()
 
-	_add_ground_quad(rect.grow(FLOOR_OVERSHOOT), 0.0, FLOOR_COLOR)
-	_build_grid(rect)
+	_build_ground(rect)
 	_build_furnishings(rect)
 	_build_walls(rect)
 
 
 # ------------------------------------------------------------------------- sol
 
-## Carrelage. Sans lui, traverser un sol uni ne se voit pas.
-func _build_grid(rect: Rect2) -> void:
-	var area := rect.grow(FLOOR_OVERSHOOT * 0.5)
-	var color := _over_floor(GRID_COLOR, 1.0)
+## Le parquet peint. UN plan, UN materiau.
+##
+## Le prototype posait ici ~90 quads pour dessiner un quadrillage. Deux raisons
+## de tout rendre au shader :
+##
+##   - un quadrillage regulier n'est pas un fond d'anime. Le parquet a besoin de
+##     lames de valeurs differentes, de joints trembles et d'epaisseur inegale,
+##     et de depassements aux croisements — rien de tout cela ne se pose en
+##     geometrie sans exploser le nombre de nœuds (§2ter·1) ;
+##   - un trait dessine en geometrie n'a aucun moyen de savoir qu'il est devenu
+##     plus fin qu'un pixel. Au fond du cadre les joints se croisaient a
+##     quelques pixels et moiraient. Le shader les eteint proprement.
+##
+## Le motif est ancre sur les coordonnees MONDE : agrandir l'arene ne fait pas
+## glisser le parquet sous les pieds du chat.
+func _build_ground(rect: Rect2) -> void:
+	var area := rect.grow(FLOOR_OVERSHOOT)
 
-	var x := ceilf(area.position.x / GRID_STEP) * GRID_STEP
-	while x <= area.end.x:
-		_add_ground_quad(
-			Rect2(x - GRID_WIDTH * 0.5, area.position.y, GRID_WIDTH, area.size.y),
-			0.004,
-			color
-		)
-		x += GRID_STEP
+	var mesh := PlaneMesh.new()
+	mesh.size = area.size
 
-	var z := ceilf(area.position.y / GRID_STEP) * GRID_STEP
-	while z <= area.end.y:
-		_add_ground_quad(
-			Rect2(area.position.x, z - GRID_WIDTH * 0.5, area.size.x, GRID_WIDTH),
-			0.004,
-			color
-		)
-		z += GRID_STEP
+	var node := MeshInstance3D.new()
+	node.mesh = mesh
+	node.position = Vector3(area.get_center().x, 0.0, area.get_center().y)
+	node.material_override = CelStyle.make_ground()
+	add_child(node)
 
 
 # ------------------------------------------------------------------- ameublement
@@ -139,11 +139,10 @@ func _build_furnishings(rect: Rect2) -> void:
 			)
 
 			var layer := 1
-			for patch in FLOOR_PATCHES:
-				var area := _placed(origin + jitter, patch)
+			for rug in RUGS:
+				var area := _placed(origin + jitter, rug)
 				if _is_placeable(area, rect, spawn):
-					_add_ground_quad(area, float(layer) * 0.01,
-							_over_floor(patch["color"], patch["alpha"]))
+					_add_rug(area, rug["color"], float(layer) * 0.012)
 				layer += 1
 
 			for prop in PROPS:
@@ -165,6 +164,23 @@ func _is_placeable(area: Rect2, rect: Rect2, spawn: Vector2) -> bool:
 		return false
 
 	return not area.grow(SPAWN_CLEARANCE).has_point(spawn)
+
+
+## Tapis. Sans contour en coque inversee : sur une surface plane elle pousse ses
+## sommets vers le haut et ne se voit pas d'en haut. Le trait du tapis est
+## dessine dans son propre shader, qui decoupe aussi sa silhouette au `discard`
+## pour lui donner des bords un peu mous.
+func _add_rug(area: Rect2, color: Color, y: float) -> void:
+	var mesh := PlaneMesh.new()
+	# Marge : la silhouette ondule, elle doit avoir de la place pour deborder
+	# du rectangle nominal sans etre coupee au ras du plan.
+	mesh.size = area.size + Vector2(2.0, 2.0)
+
+	var node := MeshInstance3D.new()
+	node.mesh = mesh
+	node.position = Vector3(area.get_center().x, y, area.get_center().y)
+	node.material_override = CelStyle.make_rug(color, area.size, mesh.size)
+	add_child(node)
 
 
 func _add_prop(footprint: Rect2, prop: Dictionary) -> void:
@@ -208,19 +224,6 @@ func _build_walls(rect: Rect2) -> void:
 
 
 # ------------------------------------------------------------------------ outils
-
-## Quad horizontal, sans contour : une coque inversee sur une surface plane
-## pousse ses sommets vers le haut et ne se voit pas d'en haut.
-func _add_ground_quad(area: Rect2, y: float, color: Color) -> void:
-	var mesh := PlaneMesh.new()
-	mesh.size = area.size
-
-	var node := MeshInstance3D.new()
-	node.mesh = mesh
-	node.position = Vector3(area.get_center().x, y, area.get_center().y)
-	CelStyle.apply_flat(node, color)
-	add_child(node)
-
 
 ## Aplat opaque equivalent a `color` pose sur le sol avec `alpha` d'opacite.
 func _over_floor(color: Color, alpha: float) -> Color:
