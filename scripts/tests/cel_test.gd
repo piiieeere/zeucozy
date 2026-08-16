@@ -415,6 +415,23 @@ func _capture_cadence() -> void:
 	_log("           %s" % ("sur 3s, conforme a §7" if gaps.all(func(g): return g == 3)
 			else "⚠ ECART NON CONFORME — la cadence n'est pas sur 3s"))
 
+	# `idle` tourne l'essentiel d'une run : quatre instantanes repartis sur sa
+	# boucle suffisent a juger la respiration et le balancement de queue, que
+	# la mesure de cadence ci-dessus ne montre pas.
+	if player.has_animation("idle"):
+		player.play("idle")
+		player.pause()
+		var length := player.get_animation("idle").length
+
+		for quarter in 4:
+			player.seek(length * quarter / 4.0, true)
+			await RenderingServer.frame_post_draw
+			get_viewport().get_texture().get_image().save_png(
+				"%s/cel_idle_%d4.png" % [_capture_dir, quarter]
+			)
+
+		_log("idle : 4 instantanes sur %.2fs -> cel_idle_*.png" % length)
+
 	player.stop()
 
 

@@ -211,7 +211,7 @@ def swing(length: int, every: int, amplitude: float, phase: float = 0.0) -> dict
     return keys
 
 
-def sweep_channel(bone_name: str, world_dir=(1.0, 0.0, 0.0)):
+def sweep_channel(bone_name: str, world_dir=(0.0, 1.0, 0.0)):
     """Quel canal fait balayer cet os dans `world_dir` ? Rend (canal, signe).
 
     Quand on tourne un os autour de son axe local A, sa pointe part dans la
@@ -252,19 +252,47 @@ def sweep_channel(bone_name: str, world_dir=(1.0, 0.0, 0.0)):
     return best, best_sign
 
 
-def tail(length: int, every: int, amplitudes, phases) -> dict:
-    """Balayage lateral de la queue, avec overlap.
+def tail(length: int, every: int, amplitudes, phases, bias: float = 0.25) -> dict:
+    """Balancement de la queue dans le plan sagittal, avec overlap.
 
     Amplitude croissante et phase retardee de segment en segment : c'est le
     seul suivi souple que §6.3 autorise, et la queue est aussi le seul os a
     poids degrades (piege n°3).
+
+    POURQUOI EN AVANT/ARRIERE ET PAS LATERALEMENT
+    ---------------------------------------------
+    Le balayage lateral est le geste iconique du chat, mais il ne marche pas
+    sur CE modele : au repos la queue penche deja en X (la pointe est a
+    x = 0,52). La faire balayer davantage en X la couche dans l'axe de la
+    camera de profil, ou son arc se raccourcit en projection et se confond
+    avec le dos — c'est le "repliee sur le corps" qu'on voyait en marche.
+    Augmenter l'amplitude ne faisait qu'aggraver le probleme.
+
+    Dans le plan sagittal, l'arc reste de profil quel que soit le lacet, et
+    la plongee de 45° le montre toujours en entier.
+
+    `bias` decale le balancement vers l'ARRIERE : a 0, la queue passe autant
+    de temps enroulee vers l'avant que tendue vers l'arriere. Il ne faut pas
+    le pousser : les amplitudes des trois os se CUMULENT, et au-dela d'une
+    trentaine de degres vers l'arriere la queue se TEND completement — elle
+    perd sa boucle et se lit comme un fouet. Essaye a 0,6 le 2026-08-16 : a
+    la frame 6 de `walk`, ~42° cumules, queue droite et hors cadre.
+
+    ⚠️ Ne pas croire pouvoir DEPLIER la queue par la pose. Sa forme de repos
+    est un arc en point d'interrogation, et viser `queue_3` vers l'arriere
+    demande **111°** sur une jointure a poids degrades : le tube ondule en S,
+    quel que soit le chemin choisi (mesure du 2026-08-16). Redresser la queue
+    est un travail de MODELE, pas d'animation.
     """
     tracks = {}
 
     for index, (amplitude, phase) in enumerate(zip(amplitudes, phases), start=1):
         bone_name = "queue_%d" % index
         channel, sign = sweep_channel(bone_name)
-        tracks[bone_name] = {channel: wave(length, every, sign * amplitude, phase=phase)}
+        tracks[bone_name] = {channel: wave(
+            length, every, sign * amplitude, phase=phase,
+            offset=sign * amplitude * bias,
+        )}
 
     return tracks
 
@@ -300,21 +328,22 @@ def idle() -> tuple:
         "racine": {"ty": wave(IDLE_LENGTH, 12, 0.016, phase=-0.25, offset=0.016)},
         "thorax": {"rx": wave(IDLE_LENGTH, 12, 2.6, phase=-0.25)},
         "dos": {"rx": wave(IDLE_LENGTH, 12, -1.8, phase=-0.25)},
-        # La tete suit la respiration avec un temps de retard.
-        "cou": {"rx": wave(IDLE_LENGTH, 12, -2.2, phase=-0.18)},
+        # La tete suit la respiration avec un temps de retard. Amplitudes
+        # basses a dessein : c'est la queue qui doit porter le mouvement, une
+        # tete qui dodeline autant se lit comme du flottement.
+        "cou": {"rx": wave(IDLE_LENGTH, 12, -1.0, phase=-0.18)},
         # rx et rz sur les MEMES frames : voir le garde-fou dans build().
-        "tete": {"rx": wave(IDLE_LENGTH, 12, 1.6, phase=-0.12),
-                 "rz": wave(IDLE_LENGTH, 12, 3.0, cycles=0.5)},
+        "tete": {"rx": wave(IDLE_LENGTH, 12, 0.7, phase=-0.12),
+                 "rz": wave(IDLE_LENGTH, 12, 1.4, cycles=0.5)},
         # Frisson d'oreille : deux poses tenues, franches, et c'est tout.
         # §6.3 — "les objets ont une vie interieure".
         "oreille_L": {"rx": {0: 0.0, 60: -13.0, 66: 4.0, 72: 0.0}},
         "oreille_R": {"rx": {0: 0.0, 108: -10.0, 114: 3.0, 120: 0.0}},
     }
-    # Amplitudes volontairement basses : elles se CUMULENT le long de la
-    # chaine, et au-dela d'une vingtaine de degres au bout, la queue sort du
-    # plan sagittal, se raccourcit en projection et se confond avec le dos vue
-    # de profil. Elle doit balayer, pas essuyer un pare-brise.
-    tracks.update(tail(IDLE_LENGTH, 6, (4.0, 7.0, 10.0), (0.0, -0.09, -0.18)))
+    # Amplitudes larges, possibles depuis que le balancement est sagittal :
+    # elles se cumulent le long de la chaine sans jamais coucher la queue sur
+    # le dos. C'est elle qui porte l'idle.
+    tracks.update(tail(IDLE_LENGTH, 6, (5.0, 9.0, 12.0), (0.0, -0.09, -0.18)))
 
     return build("idle", tracks, IDLE_LENGTH)
 
@@ -336,12 +365,12 @@ def walk() -> tuple:
         "racine": {"ty": bounce(WALK_LENGTH, STEP, 0.075)},
         # Le tronc se souleve avec l'appui, la tete contre-bouge : sans ca la
         # tete monte et descend comme un bouchon.
-        "dos": {"rx": wave(WALK_LENGTH, STEP, 3.5, cycles=2.0)},
-        "cou": {"rx": wave(WALK_LENGTH, STEP, -3.0, cycles=2.0, phase=-0.12)},
-        "tete": {"rx": wave(WALK_LENGTH, STEP, 2.0, cycles=2.0, phase=-0.25)},
+        "dos": {"rx": wave(WALK_LENGTH, STEP, 2.5, cycles=2.0)},
+        "cou": {"rx": wave(WALK_LENGTH, STEP, -1.5, cycles=2.0, phase=-0.12)},
+        "tete": {"rx": wave(WALK_LENGTH, STEP, 1.0, cycles=2.0, phase=-0.25)},
     }
-    # Queue : un balayage par cycle, toujours avec overlap.
-    tracks.update(tail(WALK_LENGTH, STEP, (5.0, 8.0, 11.0), (0.0, -0.12, -0.24)))
+    # Queue : un balancement par cycle, toujours avec overlap.
+    tracks.update(tail(WALK_LENGTH, STEP, (6.0, 10.0, 13.0), (0.0, -0.12, -0.24)))
 
     # Les quatre membres, chacun avec son avant-bras / sa jambe en retard.
     for bone, amp, ph in (("bras_L", front, 0.0), ("bras_R", front, 0.5),

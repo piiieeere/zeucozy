@@ -368,9 +368,10 @@ l'oreille proche émerge davantage. Conséquences à connaître : le chat mesure
    chantier restant qui change ce qu'on **joue**, et non ce qu'on regarde.
 2. Corriger le **liseré d'œil de profil** — côté `cel_face.gdshader`, pas Blender.
 3. Peindre 3 à 5 **dépassements de trait** — vrai travail à la main, à ne pas générer.
-4. Juger la **queue** : son balayage est latéral, donc lisible de dessus mais raccourci en
-   projection de profil, où elle se rapproche du dos. Amplitudes dans
-   `tools/build_animations.py`, à l'œil au banc avec `[A]`.
+4. **Redresser la queue dans Blender**, si on veut qu'elle pointe vraiment vers l'arrière.
+   Sa pose de repos est un point d'interrogation propre, mais la pointe revient vers
+   l'avant ; l'ouvrir demanderait **111°** sur `queue_3`, ce que des poids dégradés ne
+   supportent pas — le tube ondule en S. C'est du modèle, pas de l'animation.
 
 **Comparer un cadrage sans rouvrir l'éditeur.** `camera_rig.gd`, `cel_model.gd` et le banc
 lisent `--pitch=`, `--face-pitch=`, `--distance=`, `--fov=` et `--out=` en arguments
