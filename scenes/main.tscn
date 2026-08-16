@@ -1,10 +1,11 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=13 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_rhi7x"]
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2_h0b1r"]
 [ext_resource type="Script" path="res://scripts/arena.gd" id="3_arena"]
 [ext_resource type="Script" path="res://scripts/camera_rig.gd" id="4_camrig"]
 [ext_resource type="PackedScene" path="res://scenes/fx/retro_post.tscn" id="5_retropost"]
+[ext_resource type="PackedScene" path="res://scenes/fx/impact_frame.tscn" id="6_impactframe"]
 
 [sub_resource type="Environment" id="Environment_arena"]
 background_mode = 1
@@ -79,6 +80,8 @@ script = ExtResource("3_arena")
 
 [node name="Pickups" type="Node3D" parent="."]
 
+[node name="Fx" type="Node3D" parent="."]
+
 [node name="Player" parent="." instance=ExtResource("2_h0b1r")]
 
 [node name="CameraRig" type="Node3D" parent="."]
@@ -90,6 +93,8 @@ transform = Transform3D(1, 0, 0, 0, 0.719226, -0.694776, 0, 0.694776, 0.719226, 
 fov = 24.0
 near = 1.0
 far = 400.0
+
+[node name="ImpactFrame" parent="." instance=ExtResource("6_impactframe")]
 
 [node name="RetroPost" parent="." instance=ExtResource("5_retropost")]
 

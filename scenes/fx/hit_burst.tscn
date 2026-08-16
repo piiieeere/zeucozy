@@ -1,0 +1,16 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Shader" path="res://shaders/hit_burst.gdshader" id="1_hitburst"]
+[ext_resource type="Script" path="res://scripts/systems/hit_burst.gd" id="2_hitburst"]
+
+[sub_resource type="QuadMesh" id="QuadMesh_hitburst"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_hitburst"]
+render_priority = 1
+shader = ExtResource("1_hitburst")
+
+[node name="HitBurst" type="MeshInstance3D"]
+cast_shadow = 0
+mesh = SubResource("QuadMesh_hitburst")
+material_override = SubResource("ShaderMaterial_hitburst")
+script = ExtResource("2_hitburst")

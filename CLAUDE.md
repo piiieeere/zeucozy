@@ -289,11 +289,15 @@ zeucozy/
 │   ├── systems/
 │   │   ├── upgrade_definitions.gd  # Pool et définitions des upgrades
 │   │   ├── cel_style.gd            # Matériaux cel des primitives, du sol + ombre de contact
-│   │   └── cel_model.gd            # ⭐ Le style du chat — partagé jeu ↔ banc de test
+│   │   ├── cel_model.gd            # ⭐ Le style du chat — partagé jeu ↔ banc de test
+│   │   ├── fx_cadence.gd           # ⭐ Les 2 durées de pose des FX (§7) — source unique
+│   │   ├── impact_frame.gd         # Flash ambré plein cadre, 2 frames
+│   │   └── hit_burst.gd            # Éclat de collision, 8 poses
 │   └── tests/
 │       └── cel_test.gd # Cadrage, bascules et captures du banc
 ├── shaders/          # cel_toon, cel_outline, cel_face, retro_post
 │                     # cel_ground (parquet peint), cel_rug (tapis)
+│                     # hit_burst (éclat de collision), impact_frame (flash)
 │                     # cel_core + cel_floor (includes, fonctions pures)
 ├── tools/
 │   ├── export_cat.py       # ⚠️ LE SEUL chemin d'export du chat (voir piège n°6)
@@ -406,7 +410,38 @@ les oreilles se lisent enfin à taille de jeu (§3) ; de profil l'amande a *gros
 l'oreille proche émerge davantage. Conséquences à connaître : le chat mesure désormais
 **1,858** (contre 1,738), et `PAINTED.center` dans `cel_model.gd` a suivi.
 
+### FX de collision — faits le 2026-08-16
+
+Le chat touché par un ennemi déclenche **deux** effets, et §8 les demande ensemble
+(*« hit → petites étoiles chaudes + flash ambre »*). Ils se partagent le travail au lieu
+de se doubler : **l'éclat dit OÙ ça a cogné, l'impact frame dit que c'était un coup.**
+
+| Effet | Portée | Durée | Couleur |
+|---|---|---|---|
+| **Éclat** `hit_burst` | local, planté au point de contact | 8 poses sur 2s (~267 ms) | rose-rouge `#D45870` + cœur crème |
+| **Impact frame** `impact_frame` | plein cadre | 2 frames, coupe franche | ambre `#D4A860` |
+
+- Déclenchés par `player.hit(contact_position)`. L'ennemi passe sa position à
+  `take_damage`, le **chat** en déduit le point de contact — l'éclat doit se lire comme
+  posé sur lui, pas sur l'agresseur.
+- L'impact frame est en **layer −1**, donc *sous* `RetroPost` : c'est une frame de
+  l'**image**, le grain et la vignette de §8bis doivent passer par-dessus. Au-dessus,
+  elle se lirait comme un calque d'UI collé sur le film.
+- **Rallonger un FX se fait en ajoutant des POSES, jamais en ralentissant la cadence** —
+  §8 veut les FX *plus rapides* que les personnages, c'est ce qui leur donne du claquant.
+  4 poses ne suffisaient pas à comprendre ce qu'on voyait ; 8 (le plafond de §7) oui.
+
+> ⚠️ Quatre pièges, tous **mesurés sur les PNG du jeu** et aucun visible en raisonnant :
+> un flash ambre en `mix` assombrit l'image (et en `screen` seul, il la *refroidit*) ;
+> une étoile à pointes arrondies se lit comme une **fleur** ; la distance radiale n'est
+> pas la distance au bord, donc l'encre ne cerne que les pointes ; et une pique plus
+> longue que `r = 1` se fait trancher par le bord du quad. Détail chiffré dans la Todo,
+> section « Pièges FX ».
+
 **Prochaines priorités :**
+0. 🅿️ **Le squash du `hit`** — l'impact frame est faite, mais §7 demande aussi un
+   squash/stretch franc sur le squelette quand le chat encaisse. C'est du travail
+   Blender (`tools/build_animations.py`), pas du shader.
 1. Modéliser l'aspirateur, le chien et le concombre — budget géométrie **serré** (§11) :
    ils se multiplient à l'écran et la coque inversée double le compte. C'est le seul
    chantier restant qui change ce qu'on **joue**, et non ce qu'on regarde.

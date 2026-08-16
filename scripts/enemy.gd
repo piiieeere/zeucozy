@@ -69,7 +69,9 @@ func _physics_process(delta: float) -> void:
 		var actor := area.get_parent()
 
 		if actor != null and actor.has_method("take_damage"):
-			actor.take_damage(contact_damage)
+			# La position sert a placer l'eclat de collision, pas a calculer le
+			# degat : c'est le chat qui decide ou tombe le point de contact.
+			actor.take_damage(contact_damage, global_position)
 			damage_cooldown = 0.7
 			break
 

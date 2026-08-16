@@ -12,6 +12,12 @@ const CelStyle := preload("res://scripts/systems/cel_style.gd")
 const CelModel := preload("res://scripts/systems/cel_model.gd")
 
 signal health_changed(current_health: int, max_health: int)
+## Le chat vient d'encaisser un coup — pas l'inverse. C'est ce qu'ecoutent les
+## FX de collision ("Visual Art Direction" §8) ; les touches sur les ennemis
+## passent par `enemy.take_damage` et ne concernent pas ce signal.
+## La position est celle du CONTACT, pas celle du chat : l'eclat se plante la
+## ou ca cogne.
+signal hit(contact_position: Vector3)
 signal xp_changed(current_xp: int, xp_required: int, level: int)
 signal level_up_requested(choices)
 signal stats_changed(stats_text: String)
@@ -31,6 +37,11 @@ signal died
 
 ## Hauteur de depart des projectiles — a hauteur de museau, pas des pattes.
 @export var muzzle_height: float = 0.7
+
+## Ou se plante l'eclat de collision : a mi-hauteur du chat (il en fait 1,86),
+## et decale vers l'agresseur pour ne pas etre a moitie cache derriere lui.
+@export var hit_height: float = 0.95
+@export var hit_offset: float = 0.55
 
 @onready var model: Node3D = $Model
 @onready var pickup_collision: CollisionShape3D = $PickupArea/CollisionShape3D
@@ -94,16 +105,41 @@ func _process(delta: float) -> void:
 		_fire_at_nearest_enemy()
 
 
-func take_damage(amount: int) -> void:
+## `attacker_position` est optionnelle : elle sert uniquement a placer l'eclat
+## de collision. Sans elle, l'eclat retombe au centre du chat — un degat qui
+## ne viendrait d'aucun corps (il n'y en a pas encore) resterait donc lisible.
+func take_damage(amount: int, attacker_position: Vector3 = Vector3.INF) -> void:
 	if invulnerability_timer > 0.0 or health <= 0:
 		return
 
 	health = max(0, health - max(1, amount))
 	invulnerability_timer = 0.45
 	health_changed.emit(health, max_health)
+	# Emis meme sur le coup fatal : un impact sur la derniere touche est
+	# precisement le moment ou on veut le voir.
+	hit.emit(_contact_point(attacker_position))
 
 	if health <= 0:
 		died.emit()
+
+
+## Le point de contact : entre le chat et ce qui le touche, a mi-hauteur de
+## corps. Pas au centre du chat — l'eclat y serait a moitie cache derriere lui
+## — et pas sur l'ennemi non plus : c'est le CHAT qui encaisse, le decalque
+## doit se lire comme pose sur lui.
+func _contact_point(attacker_position: Vector3) -> Vector3:
+	var contact := global_position + Vector3(0.0, hit_height, 0.0)
+
+	if attacker_position == Vector3.INF:
+		return contact
+
+	var to_attacker := attacker_position - global_position
+	to_attacker.y = 0.0
+
+	if to_attacker.length() < 0.001:
+		return contact
+
+	return contact + to_attacker.normalized() * hit_offset
 
 
 func collect_xp(amount: int) -> void:

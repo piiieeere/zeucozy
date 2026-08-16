@@ -1,0 +1,22 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Shader" path="res://shaders/impact_frame.gdshader" id="1_impactframe"]
+[ext_resource type="Script" path="res://scripts/systems/impact_frame.gd" id="2_impactframe"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_impactframe"]
+shader = ExtResource("1_impactframe")
+shader_parameter/flash = 0.0
+
+[node name="ImpactFrame" type="CanvasLayer"]
+layer = -1
+script = ExtResource("2_impactframe")
+
+[node name="Screen" type="ColorRect" parent="."]
+visible = false
+material = SubResource("ShaderMaterial_impactframe")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2

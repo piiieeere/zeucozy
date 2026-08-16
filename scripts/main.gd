@@ -12,6 +12,7 @@ const CHASER_SCENE := preload("res://scenes/enemies/chaser.tscn")
 const BRUTE_SCENE := preload("res://scenes/enemies/brute.tscn")
 const XP_ORB_SCENE := preload("res://scenes/xp_orb.tscn")
 const PROJECTILE_SCENE := preload("res://scenes/projectile.tscn")
+const HIT_BURST_SCENE := preload("res://scenes/fx/hit_burst.tscn")
 
 ## Aire de jeu, en metres. Environ 4 largeurs d'ecran de large — le meme
 ## rapport qu'avant entre l'arene et le cadre.
@@ -31,9 +32,11 @@ var arena_rect := Rect2(-ARENA_SIZE * 0.5, ARENA_SIZE)
 # Non types : ils portent un script et on appelle leurs methodes a eux.
 @onready var arena = $Arena
 @onready var camera_rig = $CameraRig
+@onready var impact_frame = $ImpactFrame
 @onready var enemies_container: Node3D = $Enemies
 @onready var projectiles_container: Node3D = $Projectiles
 @onready var pickups_container: Node3D = $Pickups
+@onready var fx_container: Node3D = $Fx
 @onready var hud_left_panel: Panel = $CanvasLayer/HudLeftPanel
 @onready var hud_right_panel: Panel = $CanvasLayer/HudRightPanel
 @onready var time_label: Label = $CanvasLayer/TimeLabel
@@ -63,6 +66,7 @@ func _ready() -> void:
 	player.xp_changed.connect(_on_player_xp_changed)
 	player.level_up_requested.connect(_on_player_level_up_requested)
 	player.stats_changed.connect(_on_player_stats_changed)
+	player.hit.connect(_on_player_hit)
 	player.died.connect(_on_player_died)
 
 	for index in range(upgrade_buttons.size()):
@@ -194,6 +198,22 @@ func _spawn_xp_orb(world_position: Vector3, xp_value: int) -> void:
 	orb.global_position = Vector3(world_position.x, 0.0, world_position.z)
 	orb.reset_physics_interpolation()
 	orb.xp_value = xp_value
+
+
+## Le chat encaisse — "Visual Art Direction" §8. Deux effets, et c'est voulu :
+## l'eclat DIT ou ca a cogne, l'impact frame dit que c'etait un coup. §8 les
+## demande ensemble ("hit → petites etoiles chaudes + flash ambre"), et ils se
+## repartissent le travail au lieu de se doubler — l'un est local et tient
+## 8 frames, l'autre est plein cadre et n'en tient que 2.
+func _on_player_hit(contact_position: Vector3) -> void:
+	impact_frame.flash()
+
+	var burst = HIT_BURST_SCENE.instantiate()
+	fx_container.add_child(burst)
+	burst.global_position = contact_position
+	# Sans ca, l'interpolation physique fait partir l'eclat de l'origine du
+	# monde sur sa premiere frame — et sa premiere frame est un quart de sa vie.
+	burst.reset_physics_interpolation()
 
 
 func _on_player_health_changed(current_health: int, max_health: int) -> void:
