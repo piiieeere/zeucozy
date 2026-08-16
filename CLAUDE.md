@@ -115,7 +115,7 @@ chaque zone est d'une nature différente et un seul chemin ne pouvait pas les co
 
 | Zone | Chemin | Pourquoi celui-là |
 |---|---|---|
-| Bouts de pattes, bout de queue | **Matériau** `fourrure_blanche`, créé dans Blender par `tools/paint_tuxedo.py` | Un masque en shader y glisserait : Godot applique le skinning avant `vertex()` (piège n°5) et `rest_undo` ne connaît que **deux** os par surface — il en faudrait cinq |
+| Bouts de pattes, bout de queue | **Matériau** `fourrure_blanche`, créé dans Blender par `tools/paint_tuxedo.py` | Un masque en shader y glissait : Godot applique le skinning avant `vertex()` (piège n°5), et `rest_undo` ne savait défaire que **deux** os par surface — il en faut cinq ici. ⚠️ **Cette limite est tombée le 2026-08-16** (voir « Les griffes ») ; le blanc reste néanmoins un matériau, il n'y a aucune raison de le refaire |
 | Bas du visage + museau | **Dessiné** par `cel_face.gdshader` en espace facial (`BIB` dans `cel_model.gd`) | Le bas du visage n'est pas une coque à part, c'est la moitié basse de la sphère de tête. Même méthode que les yeux (§2bis) |
 | Poitrail | **Calotte peinte** sur `corps_peint`, avec `paint_shaded` | Voir juste en dessous |
 
@@ -174,6 +174,11 @@ Deux réglages ont dû suivre le changement de valeur, et pour la même raison d
    l'os porteur, remis à jour chaque frame. **Exact grâce aux poids rigides du piège n°3.**
    Pour une paire symétrique sur deux os (les oreilles), deux matrices, choisies par le
    signe de `x`. Ne jamais laisser une `mat4` d'uniform à sa valeur par défaut.
+   ✅ **Le « choisi par le signe de `x` » n'est plus la seule voie** *(2026-08-16)* :
+   `BONE_INDICES` et `BONE_WEIGHTS` **sont lisibles** dans le vertex shader de Godot 4
+   (vérifié en compilant sur 4.7.1). On peut donc choisir la matrice **par sommet, d'après
+   son os porteur** — c'est ce que font les griffes, sur une surface à cinq os. Le signe de
+   coordonnée reste bon pour deux coques qui ne se croisent jamais ; au-delà, il devine.
 6. **L'exporteur glTF ne sait pas sortir `Attr_Style`** *(2026-08-16)*. Sur ce maillage les
    trois modes échouent : `MATERIAL` n'exporte **rien** (la détection d'usage ne suit que
    les chemins PBR, pas notre `Shader to RGB` → `Color Ramp`) ; `ACTIVE` et `NAME` ne
@@ -321,7 +326,8 @@ zeucozy/
 │   └── tests/
 │       ├── cel_test.gd  # Cadrage, bascules et captures du banc du chat
 │       └── prop_test.gd # Banc des meubles : 8 directions + rapport de taille au chat
-├── shaders/          # cel_toon, cel_outline, cel_face, retro_post
+├── shaders/          # cel_toon, cel_outline, cel_face, cel_paws, retro_post
+│                     # cel_paws (bouts de pattes + les 3 griffes dessinées)
 │                     # cel_ground (parquet peint), cel_rug (tapis)
 │                     # hit_burst (éclat de collision), impact_frame (flash)
 │                     # claw_slash (la griffure — 3 traits cernés, billboard dirigé)
@@ -332,13 +338,15 @@ zeucozy/
 │   ├── paint_tuxedo.py     # Pelage noir/blanc : matériau des extrémités + couleurs
 │   ├── build_outline.py    # Contour Blender : épaisseur × Attr_Style.R, 1 encre / surface
 │   ├── build_couch.py      # Canapé : géométrie ET Attr_Style, dans un .blend neuf
-│   └── export_prop.py      # Export générique d'un meuble, même réinjection COLOR_0
+│   ├── export_prop.py      # Export générique d'un meuble, même réinjection COLOR_0
+│   └── dump_paws.gd        # Relève os porteurs + boîtes de repos — source des PAWS
 └── assets/
     └── models/       # player_cat.glb, prop_canape.glb
 ```
 
 > **`cel_model.gd` est le point d'entrée du style.** Palette par matériau, visage peint,
-> calottes, `rest_undo` : tout ce que le glTF ne transporte pas y est reconstruit, une fois.
+> calottes, griffes, `rest_undo` : tout ce que le glTF ne transporte pas y est reconstruit,
+> une fois.
 > Ne jamais recopier ces constantes ailleurs — c'est ce qui ferait diverger jeu et banc,
 > exactement comme Blender et Godot ont divergé.
 
@@ -385,6 +393,35 @@ suivent toujours l'upgrade de dégâts. Il est **débranché de `_process`**, ri
 > décalage monde vers l'avant se fait écraser par la plongée à 45°** : le décalque est donc
 > ancré au centre du chat, c'est son rayon d'arc *dans le plan de l'écran* qui le place
 > devant. Les deux ont été trouvés en **regardant les frames**, pas en raisonnant.
+
+### Les griffes — 3 traits par patte (2026-08-16)
+
+Trois traits de griffe **dessinés** sur chaque bout de patte, dans le registre exact des
+moustaches : segments SDF dans un espace local projeté, rien de modélisé (§2bis).
+`shaders/cel_paws.gdshader` + `CLAWS` / `PAWS` dans `cel_model.gd`.
+
+- **Ce qui bloquait n'était pas le dessin, c'était l'ancrage.** Le visage tient sur **un**
+  os, les oreilles sur deux que le signe de `x` sépare. Les extrémités crème en portent
+  **cinq** (4 pattes + bout de queue) — c'est exactement ce qui avait fait renoncer à
+  peindre le blanc en shader.
+- ✅ **La sortie : `BONE_INDICES` est lisible dans le vertex shader** (piège n°5). On choisit
+  la matrice **par sommet, d'après son os porteur**, au lieu de la deviner d'après un signe
+  de coordonnée. Le bout de queue ne trouve pas son os dans la liste et ressort sans
+  griffes — voulu, pas oublié.
+- **Une matrice fait tout le trajet d'un coup** : défaire l'os, recentrer sur la patte,
+  diviser par ses demi-axes. Le shader reçoit une position déjà normalisée. Les mesures
+  restent dans `cel_model.gd`, relevées par `tools/dump_paws.gd` — **jamais estimées**.
+- **Sonde permanente au banc** (`cel_paw_probe.png`) : une patte tordue à 45°, l'autre
+  témoin. Le glissement est un défaut *silencieux*, et les griffes sont le premier masque
+  ancré par os — une erreur d'appariement mettrait les griffes d'une patte sur une autre,
+  ce qui reste plausible à l'œil.
+
+> ⚠️ **Elles ne se voient pas à taille de jeu, et aucun réglage n'y changera rien.**
+> Mesuré : **5 pixels** de griffe sur l'image entière. La patte visible fait ~6 × 4 px sous
+> la plongée à 45°, et le corps cache les deux pattes arrière. Doubler l'épaisseur ne
+> monte qu'à **9 px** tout en cassant le registre du trait secondaire (§5.4) — la limite
+> est la taille de la patte à l'écran, pas le trait. Elles vivent donc au banc, et dans
+> tout cadrage rapproché à venir (portrait, menu, écran de mort).
 
 ### La visée — dissociée du déplacement (2026-08-16)
 
@@ -487,8 +524,9 @@ Elle était portée par la direction de marche ; elle est désormais à la **sou
 ouvre le jeu de jambes que le survivor demande : reculer en frappant devant soi. La manette
 reste à faire, et sa place est déjà prévue (`aim_source`).
 
-**Visuels :** le **chat est dans le jeu**, cel-shadé, contour et visage peint compris, et
-il se lit à taille de jeu — désormais en **tuxedo noir et blanc**, qui se détache mieux du
+**Visuels :** le **chat est dans le jeu**, cel-shadé, contour, visage peint et **griffes
+dessinées** compris, et il se lit à taille de jeu — désormais en **tuxedo noir et blanc**,
+qui se détache mieux du
 parquet que l'ambre d'avant. Les **canapés sont modélisés** et posés dans l'arène en deux
 variantes (bleu ciel, vert sauge). Le reste est placeholder : ennemis en primitives 3D,
 tables / plantes / coussins en boîtes pastel, croquettes en cubes.

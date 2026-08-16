@@ -15,6 +15,7 @@ extends Node3D
 ##   - rest_undo, qui empeche les masques de glisser des qu'un os bouge.
 
 const FACE_SHADER := preload("res://shaders/cel_face.gdshader")
+const PAWS_SHADER := preload("res://shaders/cel_paws.gdshader")
 const CelStyle := preload("res://scripts/systems/cel_style.gd")
 
 # Le visage porte un shader dedie : yeux, nez, bouche et moustaches y sont
@@ -34,6 +35,62 @@ const WHISKERS := [
 	Vector4(0.16, -0.08, 0.60, 0.06),
 	Vector4(0.17, -0.13, 0.63, -0.09),
 	Vector4(0.16, -0.18, 0.58, -0.24),
+]
+
+# LES GRIFFES (2026-08-16) — trois traits par patte, DESSINES.
+#
+# Meme methode que les moustaches : des segments SDF dans un espace local
+# projete, rien de modelise (§2bis). Ce qui change, c'est l'ancrage.
+#
+# Le visage tient sur UN os (`tete`), les oreilles sur deux que le signe de x
+# separe. Les extremites creme en portent CINQ, et c'est ce qui avait fait
+# renoncer a les peindre en shader (voir tools/paint_tuxedo.py). La sortie :
+# `BONE_INDICES` est lisible dans le vertex shader de Godot 4 — verifie sur
+# 4.7.1 — donc on choisit la matrice PAR SOMMET d'apres son os porteur, au lieu
+# de la deviner d'apres un signe de coordonnee.
+#
+# Boites de repos relevees sur le .glb par tools/dump_paws.gd, jamais estimees.
+# Le bout de queue (`queue_3`) partage le materiau mais n'est pas dans la liste :
+# il n'a pas de griffes, et il sort du shader sans en recevoir.
+const PAW_MATERIAL := "fourrure_blanche"
+const PAWS := [
+	{
+		"bone": "pattavant_L",
+		"center": Vector3(-0.255, 0.075, 0.373),
+		"radius": Vector3(0.087, 0.109, 0.106),
+	},
+	{
+		"bone": "pattavant_R",
+		"center": Vector3(0.255, 0.075, 0.373),
+		"radius": Vector3(0.087, 0.109, 0.106),
+	},
+	{
+		"bone": "piedar_L",
+		"center": Vector3(-0.285, 0.060, -0.415),
+		"radius": Vector3(0.081, 0.088, 0.117),
+	},
+	{
+		"bone": "piedar_R",
+		"center": Vector3(0.285, 0.060, -0.415),
+		"radius": Vector3(0.081, 0.088, 0.117),
+	},
+]
+
+# Trois griffes par patte : (depart.xy, arrivee.xy) en espace patte, comme
+# WHISKERS l'est en espace facial. Le repere est deja normalise par les
+# demi-axes de la patte, donc ces valeurs sont des fractions de patte.
+#
+# Elles s'evasent vers le bas et celle du MILIEU porte le plus loin — trois
+# traits egaux et paralleles se liraient comme une fourchette, exactement le
+# defaut evite sur la griffure de l'attaque (`claw_slash.gdshader`).
+#
+# Portee volontairement bornee a ~0,55 du centre : au-dela le trait atteint le
+# bord du cone avant (`claw_front_min`) et se ferait trancher net en plein
+# milieu, comme les moustaches trop longues sur le visage.
+const CLAWS := [
+	Vector4(-0.40, 0.22, -0.27, -0.36),
+	Vector4(0.00, 0.30, 0.00, -0.44),
+	Vector4(0.40, 0.22, 0.27, -0.36),
 ]
 
 # La bavette blanche du chat tuxedo — le bas du visage, museau compris.
@@ -234,6 +291,10 @@ var outline_materials: Array[ShaderMaterial] = []
 var face_materials: Array[ShaderMaterial] = []
 var paint_counts: Array[int] = []
 
+# Le materiau des extremites creme, celui qui porte les griffes. Une seule
+# surface le porte — d'ou un champ et non un tableau.
+var paw_material: ShaderMaterial
+
 # ShaderMaterial -> [nom d'os gauche/unique, nom d'os droit ou ""]
 var _skinned_paint := {}
 
@@ -255,6 +316,7 @@ func _ready() -> void:
 
 	skeleton = mesh_instance.get_parent() as Skeleton3D
 	_apply_cel_materials()
+	_setup_claws()
 	_setup_animations()
 
 	# rest_undo doit se calculer sur la pose de la frame COURANTE, donc APRES
@@ -267,7 +329,7 @@ func _ready() -> void:
 
 	# Sans surface peinte ni squelette, rest_undo reste l'identite pour
 	# toujours : inutile de le recalculer a chaque frame.
-	set_process(skeleton != null and not _skinned_paint.is_empty())
+	set_process(skeleton != null and (not _skinned_paint.is_empty() or paw_material != null))
 
 
 ## Recalcule, pour chaque surface peinte, la transformation qui ramene un
@@ -321,6 +383,14 @@ func _apply_cel_materials() -> void:
 			OUTLINE_TINT_CLAIR if mat_name in MATERIAUX_BLANCS else OUTLINE_TINT,
 		)
 		var caps := 0
+
+		if mat_name == PAW_MATERIAL:
+			# Meme base cel, plus les griffes. Le shader dedie existe pour une
+			# raison de skinning, pas de style : voir son en-tete.
+			toon_mat.shader = PAWS_SHADER
+			toon_mat.set_shader_parameter("base_color", color)
+			toon_mat.set_shader_parameter("claws", PackedVector4Array(CLAWS))
+			paw_material = toon_mat
 
 		if is_face:
 			toon_mat.shader = FACE_SHADER
@@ -426,6 +496,32 @@ func _apply_painted_caps(mat: ShaderMaterial, mat_name: String) -> int:
 	return count
 
 
+## Apparie chaque patte a son os. Fait UNE fois : les identifiants d'os ne
+## bougent pas, seules leurs matrices changent d'une frame a l'autre.
+##
+## Si un os manque a l'appel, on n'en dessine aucun plutot que quelques-uns :
+## trois griffes sur deux pattes se liraient comme un bug d'affichage, pas
+## comme un choix.
+func _setup_claws() -> void:
+	if paw_material == null or skeleton == null:
+		return
+
+	var ids := PackedInt32Array()
+
+	for paw in PAWS:
+		var id := skeleton.find_bone(paw["bone"])
+
+		if id == -1:
+			push_warning("cel_model : os de patte introuvable (%s) — griffes desactivees"
+					% paw["bone"])
+			return
+
+		ids.append(id)
+
+	paw_material.set_shader_parameter("claw_bone", ids)
+	paw_material.set_shader_parameter("claw_paws", ids.size())
+
+
 # ----------------------------------------------------------------------- reglages
 
 func update_rest_undo() -> void:
@@ -438,6 +534,31 @@ func update_rest_undo() -> void:
 
 		if bones[1] != "":
 			mat.set_shader_parameter("rest_undo_right", _bone_undo(bones[1]))
+
+	_update_paws()
+
+
+## Une matrice par patte, refaite a chaque frame comme rest_undo — et pour la
+## meme raison : sans elle les griffes glisseraient sur le chausson des que la
+## patte bouge.
+##
+## Elle fait tout le trajet d'un coup : defaire l'os, recentrer sur la patte,
+## diviser par ses demi-axes. Le shader recoit donc une position deja normalisee
+## et n'a plus qu'a la projeter — les mesures restent ici, en un seul endroit.
+func _update_paws() -> void:
+	if paw_material == null:
+		return
+
+	var matrices := []
+
+	for paw in PAWS:
+		var r: Vector3 = paw["radius"]
+		var into_paw := Transform3D(
+			Basis.from_scale(Vector3(1.0 / r.x, 1.0 / r.y, 1.0 / r.z)), Vector3.ZERO
+		) * Transform3D(Basis.IDENTITY, -paw["center"])
+		matrices.append(into_paw * _bone_undo(paw["bone"]))
+
+	paw_material.set_shader_parameter("paw_undo", matrices)
 
 
 ## Inverse du delta repos -> pose de l'os. Identite quand l'os est au repos.
@@ -592,3 +713,9 @@ func set_paint_enabled(enabled: bool) -> void:
 	# Le visage se coupe autrement : un seuil d'orientation inatteignable.
 	for mat in face_materials:
 		mat.set_shader_parameter("face_front_min", 0.12 if enabled else 2.0)
+
+	# Les griffes sont un detail peint comme les autres : la bascule du banc
+	# doit les emporter, sinon on croit comparer une silhouette nue alors qu'il
+	# reste du dessin dessus.
+	if paw_material != null:
+		paw_material.set_shader_parameter("claw_paws", PAWS.size() if enabled else 0)

@@ -359,6 +359,38 @@ func _capture_skinning_probe() -> void:
 	get_viewport().get_texture().get_image().save_png(ear_path)
 	_log("sonde calotte (os 'oreille_L' a 70°, oreille_R temoin) -> %s" % ear_path)
 
+	# Troisieme sonde, pour les GRIFFES. Meme dispositif que l'oreille — une
+	# patte tordue, l'autre temoin — et meme raison d'exister : un masque qui
+	# glisse ne casse rien et ne previent pas, il derape simplement pendant
+	# l'animation. C'est le piege n°4 de "Pipeline 3D".
+	#
+	# Les griffes le meritent plus que tout le reste : elles sont les premieres
+	# a etre ancrees PAR OS PORTEUR (BONE_INDICES) et non par signe de
+	# coordonnee. Une erreur d'appariement mettrait les griffes d'une patte sur
+	# une autre, ce qui reste plausible a l'oeil.
+	#
+	# La plongee de jeu cache les pattes derriere le corps : on descend la
+	# camera pour cette sonde seulement, puis on la remet.
+	_pose_bone("oreille_L", Vector3.RIGHT, 0.0)
+	_pose_bone("pattavant_L", Vector3.RIGHT, 45.0)
+	_model.update_rest_undo()
+
+	var kept_pitch := _pitch
+	_pitch = 8.0
+	_update_camera()
+
+	await RenderingServer.frame_post_draw
+	await RenderingServer.frame_post_draw
+
+	var paw_path := "%s/cel_paw_probe.png" % _capture_dir
+	get_viewport().get_texture().get_image().save_png(paw_path)
+	_log("sonde griffes (os 'pattavant_L' a 45°, pattavant_R temoin) -> %s" % paw_path)
+
+	_pose_bone("pattavant_L", Vector3.RIGHT, 0.0)
+	_model.update_rest_undo()
+	_pitch = kept_pitch
+	_update_camera()
+
 
 ## Mesure la cadence en pas la ou elle se decide vraiment : sur la POSE
 ## appliquee a l'os, frame par frame.
