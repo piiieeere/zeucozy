@@ -22,7 +22,8 @@ Le projet **abandonne les sprites 2D** au profit de **modèles Blender 3D cel-sh
 
 - Tous les assets sprites et l'outillage de découpe ont été **supprimés** du dépôt le 2026-08-16.
   Ils restent récupérables dans l'historique git (`git show dcc3fff:assets/sprites/...`).
-- Le joueur et les ennemis sont désormais **tous** des `Polygon2D` placeholders.
+- Le joueur est le chat cel-shadé ; les ennemis restent des **primitives 3D** placeholders
+  (capsule, sphère) en attendant l'aspirateur, le chien et le concombre.
 - **Rien de 3D n'est encore dans le dépôt.** Le modèle en cours vit hors projet :
   `C:\Users\tibo\Documents\zeucozy_3d\chat_style_v1.blend`
 - **Style arrêté :** variante **A** — 2 tons de cluster, contour épais (×1,75).
@@ -92,11 +93,30 @@ contour sont reproduits en shader Godot**. Le style tient hors de Blender.
    Pour une paire symétrique sur deux os (les oreilles), deux matrices, choisies par le
    signe de `x`. Ne jamais laisser une `mat4` d'uniform à sa valeur par défaut.
 
-### Décision ouverte
+### ✅ Décision tranchée : nœuds 3D (2026-08-16)
 
-§2bis décrit de la **3D temps réel** (caméra top-down 3/4 ~60°). Or tout le code actuel est
-en nœuds 2D (`CharacterBody2D`, `Camera2D`, `Polygon2D`). La migration des scènes vers des
-nœuds 3D **n'est pas tranchée** — à décider une fois le shader validé.
+L'alternative — pré-rendre les modèles en sprites pour garder le code 2D — est **écartée**.
+Tout le gameplay est passé en nœuds 3D (`CharacterBody3D`, `Camera3D`, `MeshInstance3D`),
+conformément à la 3D temps réel de §2bis. Le chat est branché dans `scenes/main.tscn`.
+
+**Ce que la migration a changé, et rien d'autre :** les `Vector2` sont devenues des
+`Vector3` dans le plan **XZ** (`y` 2D → `z` 3D), et les réglages sont passés du pixel au
+mètre (**1 m ≈ 20 px** d'avant). La logique de run — vagues, difficulté, XP, upgrades,
+Game Over — n'a pas bougé d'une ligne.
+
+Deux ajouts qu'impose la vue plongeante, et qui n'existaient pas en 2D :
+
+- **un carrelage au sol** — sans lui, traverser un sol uni ne se voit pas, on se croit
+  immobile ;
+- **une ombre de contact** sous chaque personnage — sinon tout flotte. C'est le **seul
+  matériau non-cel du jeu**, et c'est assumé : c'est la seule chose qui doit se *mélanger*
+  au sol, dont la couleur change d'un tapis à l'autre.
+
+⚠️ **Le décor se dimensionne en mètres, jamais en fraction d'arène.** Un canapé
+proportionnel à une arène de 160 m serait un mur de 20 m : à l'échelle du chat
+(1,74 unité) plus rien ne se lirait. Le motif de décor se **répète par cellules** de
+40 × 28 m — corollaire du même constat : sept meubles à taille réelle dans 160 × 90 m, on
+n'en croiserait jamais un.
 
 ---
 
@@ -117,10 +137,15 @@ Godot n'est **pas dans le `PATH`** — toujours l'appeler par son chemin complet
 "C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64.exe" --path . res://scenes/tests/cel_test.tscn
 # Banc de test — mode capture : 8 directions + sondes de skinning, puis quitte
 "C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64.exe" --path . res://scenes/tests/cel_test.tscn -- --capture
+# Le jeu, en enregistrant des PNG puis en quittant — pour juger le rendu sans y jouer
+"C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --path . \
+  --write-movie <dossier>/game.png --fixed-fps 30 --quit-after 200
 ```
 
-> ⚠️ **Lancer le jeu (`scenes/main.tscn`) ne montre rien du travail 3D** : le gameplay est
-> toujours en `Polygon2D` 2D, le chat n'y est pas branché. Tout le 3D vit dans le banc de test.
+> Le banc de test **et** le jeu partagent le même rendu, via `scripts/systems/cel_model.gd` :
+> un réglage corrigé d'un côté profite à l'autre sans recopie. Le banc reste l'endroit où
+> **juger** le chat (tour de caméra, bascules, sondes de skinning) ; le jeu, l'endroit où le
+> voir **à taille de jeu**, ce que demande §16.
 
 ---
 
@@ -152,25 +177,39 @@ Lire ces fichiers avant toute tâche concernant le domaine correspondant :
 
 ```
 zeucozy/
-├── scenes/           # Scènes Godot (.tscn)
-│   ├── main.tscn     # Scène principale (arène, UI, game manager)
-│   ├── player.tscn   # Placeholder Polygon2D (ambre + contour brun)
+├── scenes/           # Scènes Godot (.tscn) — tout en nœuds 3D
+│   ├── main.tscn     # Scène principale (environnement, arène, caméra, UI, game manager)
+│   ├── player.tscn   # CharacterBody3D + CelModel (le chat) + ombre de contact
 │   ├── projectile.tscn
 │   ├── xp_orb.tscn
-│   └── enemies/
-│       ├── chaser.tscn   # Ennemi rapide (spawn dès le début)
-│       └── brute.tscn    # Ennemi costaud (spawn après 22s)
+│   ├── enemies/
+│   │   ├── chaser.tscn   # Ennemi rapide (spawn dès le début) — capsule placeholder
+│   │   └── brute.tscn    # Ennemi costaud (spawn après 22s) — sphère placeholder
+│   └── tests/
+│       └── cel_test.tscn # Banc de test du cel-shading, isolé du gameplay
 ├── scripts/          # Logique GDScript
 │   ├── main.gd       # Directeur de jeu, spawn, difficulté, UI
 │   ├── player.gd     # Mouvement, attaque auto, upgrades, XP
 │   ├── enemy.gd      # Comportement ennemi de base (follow, dégâts)
 │   ├── projectile.gd # Projectile (direction, portée, collision)
-│   ├── xp_orb.gd     # Orbe XP (magnétisme, collecte)
-│   └── systems/
-│       └── upgrade_definitions.gd  # Pool et définitions des upgrades
+│   ├── xp_orb.gd     # Croquette d'XP (magnétisme, collecte)
+│   ├── arena.gd      # Décor : sol, carrelage, tapis, mobilier, mur de bordure
+│   ├── camera_rig.gd # Vue plongeante 60°, suit le joueur, bornée à l'arène
+│   ├── systems/
+│   │   ├── upgrade_definitions.gd  # Pool et définitions des upgrades
+│   │   ├── cel_style.gd            # Matériaux cel des primitives + ombre de contact
+│   │   └── cel_model.gd            # ⭐ Le style du chat — partagé jeu ↔ banc de test
+│   └── tests/
+│       └── cel_test.gd # Cadrage, bascules et captures du banc
+├── shaders/          # cel_toon, cel_outline, cel_face, cel_core (include)
 └── assets/
-    └── models/       # Modèles 3D (glTF) — vide pour l'instant
+    └── models/       # player_cat.glb
 ```
+
+> **`cel_model.gd` est le point d'entrée du style.** Palette par matériau, visage peint,
+> calottes, `rest_undo` : tout ce que le glTF ne transporte pas y est reconstruit, une fois.
+> Ne jamais recopier ces constantes ailleurs — c'est ce qui ferait diverger jeu et banc,
+> exactement comme Blender et Godot ont divergé.
 
 ---
 
@@ -181,18 +220,35 @@ zeucozy/
 - Intervalle de spawn : 0.95–1.35s, décroissant avec le temps
 - Nombre d'ennemis par vague : 1 au début → 5 vers 140s
 
+### Échelle du monde
+**1 mètre ≈ 20 px** de l'ancienne version 2D. Le chat mesure **1,74 unité**. L'arène fait
+**160 × 90 m**, le cadre en montre ~29 × 16 — soit un chat à ~11 % de la hauteur d'écran.
+Le réglage à bouger en premier si le chat paraît trop petit est `distance` dans
+`camera_rig.gd` (38 m), pas le FOV.
+
 ### Joueur — stats de base (player.gd)
-- Speed 240 px/s | Health 6 | Attack interval 0.55s
-- Projectile damage 1 | Speed 560 px/s | Range 360 px
-- Pickup radius 72 px
+- Speed 7,5 m/s | Health 6 | Attack interval 0.55s
+- Projectile damage 1 | Speed 17,5 m/s | Range 10 m
+- Pickup radius 2,5 m
 
 ### Upgrades (upgrade_definitions.gd)
 6 types : `damage`, `attack_speed`, `move_speed`, `max_health`, `pickup_radius`, `projectile_speed`
 3 choix aléatoires par level-up, sans doublons.
 
 ### XP (xp_orb.gd)
-- Magnétisme déclenché à < 170 px du joueur
+- Magnétisme déclenché à < 5 m du joueur
 - Vitesse d'attraction proportionnelle à la proximité
+
+### Interpolation physique
+`common/physics_interpolation=true` dans `project.godot`. Deux conséquences à ne pas
+reperdre :
+- ce qui bouge doit bouger **dans `_physics_process`** — projectiles et croquettes ont été
+  déplacés de `_process` pour cette raison ;
+- après avoir placé un nœud fraîchement instancié, appeler **`reset_physics_interpolation()`**,
+  sinon il part en traînée depuis l'origine du monde sur sa première frame.
+
+Le rig de caméra fait exception : il bouge dans `_process`, donc son interpolation est
+**désactivée** et il lit la position du joueur via `get_global_transform_interpolated()`.
 
 ---
 
@@ -223,10 +279,16 @@ zeucozy/
 
 **Systèmes en place :** mouvement 8 directions, spawn ennemis, attaque auto, XP/niveaux,
 6 upgrades, scaling difficulté, HUD complet, Game Over/restart, arène large.
-Toute la logique de gameplay tourne — elle n'est pas affectée par le pivot graphique.
+Toute la logique de gameplay tourne — le passage en 3D ne l'a pas touchée.
 
-**Visuels :** **tout est placeholder.** Joueur et ennemis en `Polygon2D` vectoriel.
-Aucun asset graphique final dans le dépôt.
+**Visuels :** le **chat est dans le jeu**, cel-shadé, contour et visage peint compris, et
+il se lit à taille de jeu. Le reste est placeholder : ennemis en primitives 3D, décor en
+boîtes pastel, croquettes en cubes.
 
-**Prochaine priorité :** valider le pipeline glTF + shader cel-shading/contour dans Godot
-avec le chat, avant toute autre modélisation.
+**Prochaines priorités :**
+1. Reconsidérer la **plongée à 60°** en DA — cause racine de trois problèmes distincts
+   (lecture de face, oreille éloignée, bascule du visage).
+2. Modéliser l'aspirateur, le chien et le concombre — budget géométrie **serré** (§11) :
+   ils se multiplient à l'écran et la coque inversée double le compte.
+3. Animer le chat (marche), avec la **cadence en pas** — et vérifier au premier export que
+   *Always Sample Animations* est bien décoché (piège n°4).

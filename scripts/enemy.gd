@@ -1,25 +1,42 @@
-extends CharacterBody2D
+extends CharacterBody3D
 
-signal defeated(world_position: Vector2, xp_value: int)
+## Ennemi de base — suit le joueur et lui fait mal au contact.
+##
+## Le modele reste un placeholder : l'aspirateur, le chien et le concombre ne
+## sont pas modelises ("Pipeline 3D"). La forme est une primitive cel-shadee,
+## histoire que la scene se lise dans le meme registre que le chat.
 
-@export var base_speed: float = 110.0
+signal defeated(world_position: Vector3, xp_value: int)
+
+@export var base_speed: float = 3.7
 @export var max_health: int = 3
 @export var contact_damage: int = 1
 @export var xp_drop: int = 1
 
-@onready var damage_area: Area2D = $DamageArea
+@export var body_color: Color = Color("#FFADAD")
+## Epaisseur du contour, en unites monde — proportionnelle a la taille de la
+## forme, sinon le placeholder parait sur-cerne ("Visual Art Direction" §11).
+@export var outline_thickness: float = 0.03
+
+const CelStyle := preload("res://scripts/systems/cel_style.gd")
+
+@onready var damage_area: Area3D = $DamageArea
+@onready var body: MeshInstance3D = $Body
+@onready var shadow: MeshInstance3D = $Shadow
 
 var current_health := 0
-var target: Node2D
+var target: Node3D
 var damage_cooldown := 0.0
 
 
 func _ready() -> void:
 	add_to_group("enemies")
 	current_health = max_health
+	CelStyle.apply_outlined(body, body_color, outline_thickness)
+	CelStyle.apply_contact_shadow(shadow)
 
 
-func setup(new_target: Node2D, difficulty_scale: float) -> void:
+func setup(new_target: Node3D, difficulty_scale: float) -> void:
 	target = new_target
 	max_health = max(1, int(round(max_health * difficulty_scale)))
 	current_health = max_health
@@ -29,16 +46,19 @@ func setup(new_target: Node2D, difficulty_scale: float) -> void:
 
 func _physics_process(delta: float) -> void:
 	if _is_run_paused():
-		velocity = Vector2.ZERO
+		velocity = Vector3.ZERO
 		return
 
 	if damage_cooldown > 0.0:
 		damage_cooldown -= delta
 
 	if is_instance_valid(target):
-		velocity = global_position.direction_to(target.global_position) * base_speed
+		# Poursuite a plat : tout le jeu vit dans le plan XZ.
+		var to_target := target.global_position - global_position
+		to_target.y = 0.0
+		velocity = to_target.normalized() * base_speed
 	else:
-		velocity = Vector2.ZERO
+		velocity = Vector3.ZERO
 
 	move_and_slide()
 

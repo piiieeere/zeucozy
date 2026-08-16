@@ -1,10 +1,14 @@
 extends Node3D
 
-## Banc de test du pivot 3D — isole du gameplay 2D.
+## Banc de test du pivot 3D — isole du gameplay.
 ##
-## But : verifier que le cel-shading, le contour en coque inversee et les
-## details peints sont reproductibles dans Godot a partir de player_cat.glb.
-## Voir "Pipeline 3D" — c'est l'etape qui decide si le style tient hors de Blender.
+## But : juger le cel-shading, le contour en coque inversee et les details
+## peints sur player_cat.glb, hors de toute logique de jeu.
+##
+## Le style lui-meme n'est PLUS ecrit ici : il vit dans
+## scripts/systems/cel_model.gd, partage avec le jeu. Le banc n'apporte que le
+## cadrage, les bascules et les captures — un reglage corrige ici profite
+## directement a la scene principale.
 ##
 ## DEUX MODES
 ##
@@ -16,77 +20,15 @@ extends Node3D
 ## 2. Capture — tour de camera 8 directions + sondes de skinning, puis quitte.
 ##      ... res://scenes/tests/cel_test.tscn -- --capture
 
-const MODEL_PATH := "res://assets/models/player_cat.glb"
-const TOON_SHADER := "res://shaders/cel_toon.gdshader"
-const OUTLINE_SHADER := "res://shaders/cel_outline.gdshader"
-const FACE_SHADER := "res://shaders/cel_face.gdshader"
-
-# Le visage porte un shader dedie : yeux, nez, bouche et moustaches y sont
-# DESSINES, jamais modelises. Voir "Visual Art Direction" §2bis.
-#
-# DEUX surfaces le portent. Le masque etant calcule en espace objet, il coule
-# d'une surface a l'autre sans couture : le nez et la bouche atterrissent sur
-# le museau qui depasse, pas sur le crane derriere lui.
-const FACE_MATERIALS := ["visage", "museau_peint"]
-
-# Moustaches : (depart.xy, arrivee.xy) en espace facial, cote droit seulement
-# — le shader passe par |x| et dessine les deux cotes.
-# Godot n'accepte pas de valeur par defaut sur un tableau d'uniforms.
-# Portee volontairement limitee : au-dela de ~0,62 la moustache atteint le bord
-# du cone facial et se ferait couper net par face_front_min.
-const WHISKERS := [
-	Vector4(0.16, -0.08, 0.60, 0.06),
-	Vector4(0.17, -0.13, 0.63, -0.09),
-	Vector4(0.16, -0.18, 0.58, -0.24),
-]
+const CelModel := preload("res://scripts/systems/cel_model.gd")
 
 const CAPTURE_DIR := "C:/Users/tibo/AppData/Local/Temp/claude/c--Users-tibo-Games-zeucozy/e5b98d13-5f39-461b-a336-1f8fdf50a087/scratchpad"
 const CAPTURE_SIZE := Vector2i(720, 720)
 const WINDOW_SIZE := Vector2i(1100, 820)
 
-# Palette par materiau — tiree de "Visual Art Direction" §4.
-# Les materiaux du glTF ne transportent pas le look Blender (nodes custom),
-# on repique donc les couleurs locales depuis la DA.
-const PALETTE := {
-	"fourrure": Color("#D89A55"),
-	"corps_peint": Color("#C88A46"),
-	"ventre": Color("#F0DCB8"),
-	"visage": Color("#E8C48C"),
-	# Pas le parchemin #F5ECD8 : trop clair, il delave son propre trait
-	# (le trait colore se melange 20 % vers la couleur locale, §5.4).
-	"museau_peint": Color("#F0DCB8"),
-	# L'oreille n'est plus rose en entier : couleur pelage dehors, rose PEINT
-	# dedans (voir PAINTED). Un chat n'a de rose que l'interieur du pavillon.
-	"oreille_peinte": Color("#D89A55"),
-}
-const FALLBACK_COLOR := Color("#D89A55")
-
-# Details peints par calotte procedurale — la methode des yeux, appliquee ici
-# a l'interieur d'oreille. Voir "Visual Art Direction" §2bis.
-#
-# Le cone d'oreille est CONSERVE : contrairement aux yeux, la geometrie de
-# l'oreille EST la silhouette (§3, "oreilles tres visibles et pointues").
-# Ce qui disparait, c'est la surface rose separee qui produisait une tache
-# plate sans contour sur le crane.
-#
-# Reperes en espace objet Godot (glTF Y-up) : Blender (x, y, z) -> (x, z, -y).
-# Oreille Blender (0.281, -0.622, 1.472) -> Godot (0.281, 1.472, 0.622).
-const PAINTED := {
-	"oreille_peinte": {
-		"center": Vector3(0.281, 1.472, 0.622),
-		# L'oreille est mince en Z : on etire cet axe pour que le masque
-		# soit pilote par l'avant/arriere et non par la hauteur.
-		"squash": Vector3(1.0, 0.6, 3.0),
-		"mirror_x": true,
-		# Interieur du pavillon : vers l'avant (+Z), legerement ecarte (+X),
-		# l'oreille etant lacet de ~23° vers l'exterieur dans Blender.
-		"dirs": [Vector3(0.3, 0.0, 0.95)],
-		"thresholds": [0.02],
-		"colors": [Color("#E8B8A8")],
-	},
-}
-
 # Tour de camera obligatoire avant validation — "Visual Art Direction" §16.
+# 0° = de face : le banc garde l'orientation brute du glTF (le chat regarde
+# +Z), la ou le jeu applique yaw_offset_deg = 180 pour que -Z soit l'avant.
 const ANGLES := [0, 45, 90, 135, 180, 225, 270, 315]
 
 # Cadrage de reference — "Visual Art Direction" §11.
@@ -101,6 +43,7 @@ const PITCH_LIMITS := Vector2(-10.0, 89.0)
 
 var _camera: Camera3D
 var _pivot: Node3D
+var _model: Node3D
 var _skeleton: Skeleton3D
 var _hud: Label
 
@@ -109,16 +52,8 @@ var _pitch := CAM_PITCH_DEG
 var _distance := CAM_DISTANCE
 var _dragging := false
 
-var _toon_mats: Array[ShaderMaterial] = []
-var _outline_mats: Array[ShaderMaterial] = []
-var _paint_counts: Array[int] = []
-var _face_mats: Array[ShaderMaterial] = []
-# ShaderMaterial -> [nom d'os gauche/unique, nom d'os droit ou ""]
-var _skinned_paint := {}
-
 var _show_outline := true
 var _show_paint := true
-var _face_pitch := 26.0
 var _animate := false
 var _time := 0.0
 
@@ -133,16 +68,13 @@ func _ready() -> void:
 
 	_setup_environment()
 	_setup_camera()
+	_setup_model()
 
-	var mesh_instance := _spawn_model()
-	if mesh_instance == null:
-		_log("ECHEC : aucun MeshInstance3D trouve dans %s" % MODEL_PATH)
+	if _model.mesh_instance == null:
+		_log("ECHEC : aucun MeshInstance3D trouve dans %s" % _model.model_path)
 		if _capture_mode:
 			_finish()
 		return
-
-	_skeleton = mesh_instance.get_parent() as Skeleton3D
-	_apply_cel_materials(mesh_instance)
 
 	if _capture_mode:
 		await _capture_turntable()
@@ -179,6 +111,19 @@ func _setup_camera() -> void:
 	_pivot.add_child(_camera)
 
 	_update_camera()
+
+
+func _setup_model() -> void:
+	_model = CelModel.new()
+	_model.name = "CelModel"
+	add_child(_model)
+
+	if _model.mesh_instance != null:
+		_skeleton = _model.skeleton
+		_log("Maillage : %s — %d surfaces" % [
+			_model.mesh_instance.name,
+			_model.mesh_instance.mesh.get_surface_count(),
+		])
 
 
 func _update_camera() -> void:
@@ -222,7 +167,7 @@ func _refresh_hud() -> void:
 		"[O]  contour ............. %s" % _on_off(_show_outline),
 		"[P]  visage + oreilles ... %s" % _on_off(_show_paint),
 		"[A]  animation de test ... %s" % _on_off(_animate),
-		"[Haut/Bas]  bascule du visage ... %d°" % int(_face_pitch),
+		"[Haut/Bas]  bascule du visage ... %d°" % int(_model.face_pitch_deg),
 		"[R]  recadrer     [1-8]  vues fixes     [Echap]  quitter",
 		"",
 		"vue %d°   plongee %d°   distance %.1f" % [int(_yaw) % 360, int(_pitch), _distance],
@@ -231,109 +176,6 @@ func _refresh_hud() -> void:
 
 func _on_off(v: bool) -> String:
 	return "ON" if v else "off"
-
-
-# ------------------------------------------------------------------- materiaux
-
-func _spawn_model() -> MeshInstance3D:
-	var packed: PackedScene = load(MODEL_PATH)
-	if packed == null:
-		return null
-	var model := packed.instantiate()
-	add_child(model)
-	return _find_mesh_instance(model)
-
-
-func _find_mesh_instance(node: Node) -> MeshInstance3D:
-	if node is MeshInstance3D:
-		return node
-	for child in node.get_children():
-		var found := _find_mesh_instance(child)
-		if found != null:
-			return found
-	return null
-
-
-func _apply_cel_materials(mi: MeshInstance3D) -> void:
-	var toon: Shader = load(TOON_SHADER)
-	var outline: Shader = load(OUTLINE_SHADER)
-	var face: Shader = load(FACE_SHADER)
-	var mesh := mi.mesh
-
-	_log("Maillage : %s — %d surfaces" % [mi.name, mesh.get_surface_count()])
-
-	for i in mesh.get_surface_count():
-		var source := mesh.surface_get_material(i)
-		var mat_name := source.resource_name if source else "<sans nom>"
-		var color: Color = PALETTE.get(mat_name, FALLBACK_COLOR)
-		var is_face: bool = mat_name in FACE_MATERIALS
-
-		var toon_mat := ShaderMaterial.new()
-		toon_mat.shader = face if is_face else toon
-		toon_mat.set_shader_parameter("base_color", color)
-		var caps := 0
-		if is_face:
-			toon_mat.set_shader_parameter("whiskers", PackedVector4Array(WHISKERS))
-			_log("  -> visage peint (yeux, nez, bouche, %d moustaches/cote)" % WHISKERS.size())
-		else:
-			caps = _apply_painted_caps(toon_mat, mat_name)
-
-		var outline_mat := ShaderMaterial.new()
-		outline_mat.shader = outline
-		outline_mat.set_shader_parameter("tint_target", color)
-		# Equivalent du Solidify Blender le plus courant : thickness 0.035
-		outline_mat.set_shader_parameter("thickness", 0.035)
-
-		toon_mat.next_pass = outline_mat
-		mi.set_surface_override_material(i, toon_mat)
-
-		_toon_mats.append(toon_mat)
-		_outline_mats.append(outline_mat)
-		_paint_counts.append(caps)
-		if is_face:
-			_face_mats.append(toon_mat)
-		# Chaque surface peinte doit savoir quel os defaire pour retrouver sa
-		# position de repos. Les deux oreilles vivent sur deux os distincts.
-		# Ne jamais laisser une mat4 a sa valeur par defaut : une matrice nulle
-		# ferait s'effondrer tout le masque.
-		toon_mat.set_shader_parameter("rest_undo", Transform3D.IDENTITY)
-		toon_mat.set_shader_parameter("rest_undo_right", Transform3D.IDENTITY)
-
-		if mat_name in ["visage", "museau_peint"]:
-			_skinned_paint[toon_mat] = ["tete", ""]
-		elif mat_name == "oreille_peinte":
-			_skinned_paint[toon_mat] = ["oreille_L", "oreille_R"]
-			toon_mat.set_shader_parameter("rest_undo_split", true)
-
-		_log("  surface %d : %s -> %s" % [i, mat_name, color.to_html(false)])
-
-
-func _apply_painted_caps(mat: ShaderMaterial, mat_name: String) -> int:
-	if not PAINTED.has(mat_name):
-		return 0
-	var cfg: Dictionary = PAINTED[mat_name]
-
-	var dirs := PackedVector3Array(cfg["dirs"])
-	var thresholds := PackedFloat32Array(cfg["thresholds"])
-	var colors := PackedColorArray(cfg["colors"])
-	var count: int = cfg["dirs"].size()
-
-	# Les tableaux du shader ont une taille fixe de 3 : on complete.
-	while dirs.size() < 3:
-		dirs.append(Vector3.FORWARD)
-		thresholds.append(2.0)  # seuil inatteignable = calotte inactive
-		colors.append(Color.MAGENTA)
-
-	mat.set_shader_parameter("paint_count", count)
-	mat.set_shader_parameter("paint_center", cfg["center"])
-	mat.set_shader_parameter("paint_squash", cfg["squash"])
-	mat.set_shader_parameter("paint_mirror_x", cfg["mirror_x"])
-	mat.set_shader_parameter("paint_dir", dirs)
-	mat.set_shader_parameter("paint_threshold", thresholds)
-	mat.set_shader_parameter("paint_color", colors)
-
-	_log("  -> %d calotte(s) peinte(s) sur %s" % [count, mat_name])
-	return count
 
 
 # ------------------------------------------------------------------ interactif
@@ -366,9 +208,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_ESCAPE:
 				get_tree().quit()
 			KEY_O:
-				_toggle_outline()
+				_show_outline = not _show_outline
+				_model.set_outline_enabled(_show_outline)
+				_refresh_hud()
 			KEY_P:
-				_toggle_paint()
+				_show_paint = not _show_paint
+				_model.set_paint_enabled(_show_paint)
+				_refresh_hud()
 			KEY_A:
 				_animate = not _animate
 				if not _animate:
@@ -385,73 +231,34 @@ func _unhandled_input(event: InputEvent) -> void:
 				_update_camera()
 				_refresh_hud()
 			KEY_UP:
-				_set_face_pitch(_face_pitch + 2.0)
+				_set_face_pitch(_model.face_pitch_deg + 2.0)
 			KEY_DOWN:
-				_set_face_pitch(_face_pitch - 2.0)
+				_set_face_pitch(_model.face_pitch_deg - 2.0)
 
 
 ## Bascule du visage sur la tete. Compromis a arbitrer a l'oeil : trop bas, le
 ## visage passe sous l'horizon sous une camera qui plonge a 60° ; trop haut, il
 ## reste visible de dos. Voir "Pipeline 3D".
 func _set_face_pitch(value: float) -> void:
-	_face_pitch = clampf(value, 0.0, 60.0)
-	for mat in _face_mats:
-		mat.set_shader_parameter("face_pitch_deg", _face_pitch)
-	_refresh_hud()
-
-
-func _toggle_outline() -> void:
-	_show_outline = not _show_outline
-	for i in _toon_mats.size():
-		_toon_mats[i].next_pass = _outline_mats[i] if _show_outline else null
-	_refresh_hud()
-
-
-func _toggle_paint() -> void:
-	_show_paint = not _show_paint
-	for i in _toon_mats.size():
-		_toon_mats[i].set_shader_parameter(
-			"paint_count", _paint_counts[i] if _show_paint else 0
-		)
-	# Le visage se coupe autrement : un seuil d'orientation inatteignable.
-	for mat in _face_mats:
-		mat.set_shader_parameter("face_front_min", 0.12 if _show_paint else 2.0)
+	_model.set_face_pitch(value)
 	_refresh_hud()
 
 
 ## Balancement lent de la tete + frisson d'oreille. Sert a juger deux choses
 ## que le rendu fixe ne montre pas : le contour tient-il sous deformation, et
 ## la peinture reste-t-elle accrochee a l'oreille ?
+##
+## L'ordre compte : ce _process pose les os, celui de CelModel (enfant, donc
+## traite apres) rafraichit rest_undo sur la pose qu'on vient d'ecrire.
 func _process(delta: float) -> void:
-	if _capture_mode or _skeleton == null:
+	if _capture_mode or _skeleton == null or not _animate:
 		return
-	if _animate:
-		_time += delta
-		_pose_bone("tete", Vector3.RIGHT, sin(_time * 1.2) * 18.0)
-		_pose_bone("cou", Vector3.UP, sin(_time * 0.8) * 14.0)
-		_pose_bone("oreille_L", Vector3.RIGHT, (sin(_time * 3.1) * 0.5 + 0.5) * 40.0)
-		_pose_bone("queue_2", Vector3.FORWARD, sin(_time * 1.6) * 20.0)
-	_update_rest_undo()
 
-
-## Recalcule, pour chaque surface peinte, la transformation qui ramene un
-## sommet deforme a sa position de repos. Sans ca, tout ce qui est peint
-## (visage, interieur d'oreille) glisse sur la geometrie des qu'un os bouge.
-func _update_rest_undo() -> void:
-	for mat in _skinned_paint:
-		var bones: Array = _skinned_paint[mat]
-		mat.set_shader_parameter("rest_undo", _bone_undo(bones[0]))
-		if bones[1] != "":
-			mat.set_shader_parameter("rest_undo_right", _bone_undo(bones[1]))
-
-
-## Inverse du delta repos -> pose de l'os. Identite quand l'os est au repos.
-func _bone_undo(bone_name: String) -> Transform3D:
-	var b := _skeleton.find_bone(bone_name)
-	if b == -1:
-		return Transform3D.IDENTITY
-	var deform := _skeleton.get_bone_global_pose(b) * _skeleton.get_bone_global_rest(b).affine_inverse()
-	return deform.affine_inverse()
+	_time += delta
+	_pose_bone("tete", Vector3.RIGHT, sin(_time * 1.2) * 18.0)
+	_pose_bone("cou", Vector3.UP, sin(_time * 0.8) * 14.0)
+	_pose_bone("oreille_L", Vector3.RIGHT, (sin(_time * 3.1) * 0.5 + 0.5) * 40.0)
+	_pose_bone("queue_2", Vector3.FORWARD, sin(_time * 1.6) * 20.0)
 
 
 func _pose_bone(bone_name: String, axis: Vector3, degrees: float) -> void:
@@ -491,8 +298,7 @@ func _capture_turntable() -> void:
 ##  2. les calottes peintes suivent-elles, ou la peinture glisse-t-elle ?
 ##
 ## Les deux dependent de la meme question : Godot applique-t-il le skinning
-## AVANT ou APRES vertex() ? Si c'est avant, VERTEX est deja deforme, donc
-## v_object_pos aussi, et le masque en espace objet derape.
+## AVANT ou APRES vertex() ? C'est AVANT — d'ou rest_undo dans cel_model.gd.
 func _capture_skinning_probe() -> void:
 	if _skeleton == null:
 		_log("sonde skinning : pas de Skeleton3D, ignoree")
@@ -501,7 +307,7 @@ func _capture_skinning_probe() -> void:
 	_yaw = 0.0
 	_update_camera()
 	_pose_bone("tete", Vector3.RIGHT, 35.0)
-	_update_rest_undo()
+	_model.update_rest_undo()
 
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
@@ -515,7 +321,7 @@ func _capture_skinning_probe() -> void:
 	# le temoin, c'est que le masque se calcule sur la position deformee.
 	_pose_bone("tete", Vector3.RIGHT, 0.0)
 	_pose_bone("oreille_L", Vector3.RIGHT, 70.0)
-	_update_rest_undo()
+	_model.update_rest_undo()
 
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
