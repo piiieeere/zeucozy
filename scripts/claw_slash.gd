@@ -6,8 +6,9 @@ extends Area3D
 ## avec lui, et elles vont ensemble :
 ##
 ##   * elle ne cherche personne. Le projectile visait l'ennemi le plus proche ;
-##     la griffure part dans la direction ou le chat SE DEPLACE. C'est le
-##     joueur qui vise, en marchant ;
+##     la griffure part dans la direction que le JOUEUR pointe — a la souris,
+##     independamment de la marche depuis le 2026-08-16. Reculer en griffant
+##     devant soi est donc un mouvement possible ;
 ##   * elle porte court (~3 m) mais frappe fort, et elle touche TOUT ce qui est
 ##     dans son arc, pas une seule cible ;
 ##   * elle est enfant du chat. Un projectile est plante dans le monde et le

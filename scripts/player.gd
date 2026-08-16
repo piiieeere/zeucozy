@@ -13,12 +13,17 @@ extends CharacterBody3D
 ## simplement debranche de l'auto-attaque.
 ##
 ## Trois choses distinguent la griffure du projectile, et elles vont ensemble :
-##   * elle ne vise PAS. Le projectile partait vers l'ennemi le plus proche ; la
-##     griffure part dans la direction ou le chat se deplace. Le joueur vise en
-##     marchant, ce qui donne au deplacement un second role ;
+##   * elle ne cherche personne toute seule. Le projectile partait vers l'ennemi
+##     le plus proche ; la griffure part la ou le JOUEUR vise — a la souris
+##     depuis le 2026-08-16, au deplacement tant que la souris n'a pas bouge ;
 ##   * elle porte court mais frappe fort, et elle touche tout son arc ;
 ##   * elle ne coute rien a l'animation du chat : c'est un decalque dessine pose
 ##     devant lui, le squelette continue de jouer idle/walk sans le savoir.
+##
+## LA VISEE EST DISSOCIEE DU DEPLACEMENT (2026-08-16). Marcher vers le bas en
+## griffant vers le haut est desormais possible, et c'est tout l'interet : la
+## fuite cesse d'etre passive. Le modele regarde la VISEE, pas la marche —
+## sinon la griffure partirait de cote, et une griffure est un geste du corps.
 
 const UpgradeDefinitions = preload("res://scripts/systems/upgrade_definitions.gd")
 const CelStyle := preload("res://scripts/systems/cel_style.gd")
@@ -39,24 +44,44 @@ signal died
 
 @export var speed: float = 7.5
 @export var max_health: int = 6
-@export var attack_interval: float = 0.55
+## Une griffure toutes les 1,1 s — la cadence a ete DIVISEE PAR DEUX en meme
+## temps que la portee doublait (2026-08-16). Les deux vont ensemble : un arc
+## de 5,2 m qui balaie deux fois par seconde nettoierait l'ecran sans que le
+## joueur ait a se placer, et le placement est tout ce que la griffure a
+## apporte.
+@export var attack_interval: float = 1.1
 
 ## Degats de la griffure. TRES au-dessus du projectile (1), et c'est la
 ## contrepartie assumee : la griffure ne porte qu'a 3 m et ne se dirige pas
 ## toute seule. Un chaser de depart tombe donc en un coup, mais il faut aller
 ## le chercher et lui faire face.
 @export var claw_damage: int = 3
-## Portee de la griffure, en metres. Le chat fait 1,86 : c'est un peu plus
-## d'une longueur de chat devant lui.
+## Portee de la griffure, en metres. Le chat fait 1,86 : c'est presque trois
+## longueurs de chat devant lui.
 ##
-## Descendue de 3,0 a 2,6 apres lecture des frames : a 3,0 la boite de degats
-## portait visiblement plus loin que le dessin ne le laissait croire, et une
-## zone d'attaque qui ment est pire qu'une zone courte.
-@export var claw_range: float = 2.6
+## DOUBLEE de 2,6 a 5,2 le 2026-08-16. Le dessin suit tout seul — `claw_slash`
+## dimensionne son decalque sur cette valeur (voir DRAW_SIZE), justement pour
+## que la portee et ce qu'on en voit ne puissent pas diverger.
+@export var claw_range: float = 5.2
 ## Ouverture de l'arc griffe, en degres. Large — une patte balaie, elle ne
-## pique pas — mais franchement frontal : c'est ce qui fait que la direction
-## de marche est une vraie visee.
+## pique pas — mais franchement frontal : c'est ce qui fait de la direction
+## visee une vraie visee, et non une decoration.
 @export var claw_arc_degrees: float = 120.0
+
+## Hauteur du plan de visee, en metres au-dessus des pattes du chat.
+##
+## Le curseur est un point 2D : pour en tirer un point du MONDE il faut un
+## plan a intersecter. Ce n'est pas le sol — sous 45° de plongee, un metre de
+## hauteur decale le point d'un bon demi-metre a l'ecran. On prend la hauteur
+## ou la griffure MORD (`claw_slash.HIT_HEIGHT`, 0,7), qui est aussi celle des
+## hurtbox ennemies (0,65 sur le chaser, 0,80 sur la brute) : poser le curseur
+## sur le corps d'un ennemi donne donc la direction qui le touche vraiment.
+@export var aim_height: float = 0.7
+
+## En deca de cette distance, le curseur est POSE SUR le chat : la direction y
+## bascule d'un cap a l'autre au moindre pixel de souris. On garde alors la
+## derniere visee valable, plutot que de faire pivoter le chat au hasard.
+@export var aim_dead_zone: float = 0.8
 
 ## Le projectile, en sommeil. Conserve pour un usage futur (arme secondaire,
 ## upgrade, ennemi tireur) : ses reglages continuent donc d'exister et de
@@ -67,8 +92,9 @@ signal died
 
 @export var pickup_radius: float = 2.5
 
-## Vitesse de rotation du modele vers la direction de marche. Le chat ne
-## claque pas d'un cap a l'autre, il tourne.
+## Vitesse de rotation du modele vers la direction VISEE. Le chat ne claque
+## pas d'un cap a l'autre, il tourne — d'autant plus necessaire depuis que la
+## souris peut retourner la visee de 180° en une frame.
 @export var turn_speed: float = 12.0
 
 ## Hauteur de depart des projectiles — a hauteur de museau, pas des pattes.
@@ -88,8 +114,22 @@ var current_xp := 0
 var xp_to_next := 5
 var attack_cooldown := 0.0
 var invulnerability_timer := 0.0
+
+## D'ou vient la visee. La MANETTE viendra s'ajouter ici : une source de plus,
+## qui prend la main tant que le stick droit est pousse, exactement comme la
+## souris prend la main des qu'elle bouge.
+enum AimSource { MOVEMENT, MOUSE }
+
+## On demarre au deplacement, PAS a la souris, et ce n'est pas un detail : le
+## curseur est quelque part au lancement sans que le joueur l'y ait mis, et
+## dans les captures `--write-movie` il ne bougera jamais. Sans cette bascule,
+## le chat prendrait un cap arbitraire des la premiere frame. La souris prend
+## la visee au premier mouvement reel — voir `_input`.
+var aim_source := AimSource.MOVEMENT
+
+## La direction visee : celle de la griffure, et celle que le modele regarde.
 ## Vers la camera au depart : on ouvre sur le visage du chat, pas sur son dos.
-var facing_direction := Vector3.BACK
+var aim_direction := Vector3.BACK
 ## Une patte puis l'autre. Le balayage de la griffure change de sens a chaque
 ## coup — sans quoi deux griffures de suite se liraient comme un tampon
 ## recycle, exactement ce que le `spin` tire au hasard evite a l'eclat.
@@ -116,9 +156,6 @@ func _physics_process(delta: float) -> void:
 	var input := Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
 	var input_direction := Vector3(input.x, 0.0, input.y)
 
-	if input_direction != Vector3.ZERO:
-		facing_direction = input_direction.normalized()
-
 	velocity = input_direction * speed
 	move_and_slide()
 	_sync_animation(input_direction != Vector3.ZERO)
@@ -128,10 +165,27 @@ func _physics_process(delta: float) -> void:
 	if game != null:
 		global_position = game.clamp_to_arena(global_position)
 
+	# La visee se lit APRES le deplacement : le curseur designe un point du
+	# monde, et c'est depuis la position d'arrivee du chat qu'on regarde vers
+	# lui. La lire avant ferait viser depuis la case d'avant.
+	aim_direction = _read_aim_direction(input_direction)
 	_face_direction(delta)
 
 	if invulnerability_timer > 0.0:
 		invulnerability_timer -= delta
+
+
+## La souris prend la visee des qu'elle BOUGE, jamais avant — et ne la rend
+## plus. Un simple booleen suffirait aujourd'hui ; l'enum existe parce que la
+## manette sera une troisieme source et qu'elle, elle rend la main (stick
+## relache = plus de visee au stick).
+##
+## `_input` et non `_unhandled_input` : un Control en MOUSE_FILTER_STOP — le
+## panneau d'upgrade, le HUD — avale les mouvements de souris qui le survolent,
+## et le joueur perdrait la visee pour avoir passe le curseur sur son ATH.
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion:
+		aim_source = AimSource.MOUSE
 
 
 func _process(delta: float) -> void:
@@ -247,16 +301,84 @@ func _sync_animation(moving: bool) -> void:
 	model.play(CelModel.ANIM_WALK if moving else CelModel.ANIM_IDLE)
 
 
-## Oriente le modele vers la marche. Un objet Godot tourne de rotation.y regarde
-## (-sin y, 0, -cos y) : d'ou l'atan2 sur les composantes negatives.
+## La visee de la frame. Deux sources aujourd'hui, et l'ordre entre elles n'est
+## pas negociable : des que la souris a servi, elle garde la visee meme quand
+## le chat marche. L'inverse — le deplacement reprenant la main des qu'on
+## marche — annulerait exactement la mecanique qu'on vient d'ajouter.
+##
+## Toute source qui ne sait pas repondre rend la DERNIERE visee, jamais zero :
+## une visee qui s'annule ferait pivoter le chat vers un cap arbitraire pendant
+## une frame, et la griffure part sur cette frame-la.
+func _read_aim_direction(move_direction: Vector3) -> Vector3:
+	if aim_source == AimSource.MOUSE:
+		var pointed := _mouse_aim_direction()
+		return pointed if pointed != Vector3.ZERO else aim_direction
+
+	if move_direction != Vector3.ZERO:
+		return move_direction.normalized()
+
+	return aim_direction
+
+
+## Le curseur -> une direction dans le monde. On tire le rayon de la camera qui
+## passe par le pixel du curseur, et on l'intersecte avec le plan horizontal de
+## visee (voir `aim_height`).
+##
+## La camera est prise au viewport et non au rig : le joueur n'a pas a savoir
+## qui le filme. Rend ZERO — "je ne sais pas viser cette frame" — dans les
+## trois cas ou la reponse ne voudrait rien dire : pas de camera, rayon
+## parallele au plan, curseur pose sur le chat.
+func _mouse_aim_direction() -> Vector3:
+	var camera := get_viewport().get_camera_3d()
+
+	if camera == null:
+		return Vector3.ZERO
+
+	# `get_mouse_position` rend des coordonnees de viewport, et
+	# `project_ray_*` les attend : l'etirement "canvas_items" du projet est
+	# defait des deux cotes par Godot, il n'y a rien a compenser ici.
+	var screen := get_viewport().get_mouse_position()
+	var ray_origin := camera.project_ray_origin(screen)
+	var ray := camera.project_ray_normal(screen)
+
+	if absf(ray.y) < 0.0001:
+		return Vector3.ZERO
+
+	var travel := (global_position.y + aim_height - ray_origin.y) / ray.y
+
+	# Le plan est DERRIERE la camera : elle regarde le ciel, ou le curseur est
+	# au-dessus de la ligne d'horizon. Le point d'intersection existe encore
+	# mathematiquement, mais il est dans le dos du joueur.
+	if travel <= 0.0:
+		return Vector3.ZERO
+
+	var to_target := ray_origin + ray * travel - global_position
+	to_target.y = 0.0
+
+	if to_target.length() < aim_dead_zone:
+		return Vector3.ZERO
+
+	return to_target.normalized()
+
+
+## Oriente le modele vers la VISEE, pas vers la marche. C'est ce qui permet au
+## chat de reculer en griffant devant lui, et c'est aussi ce qui garde la
+## griffure devant son corps : une patte qui partirait de cote pendant que le
+## chat regarde ailleurs ne se lirait plus comme un geste.
+##
+## Contrepartie assumee : le chat peut desormais marcher a reculons, et il n'a
+## qu'un `walk` — le cycle de pattes se lit alors a l'envers.
+##
+## Un objet Godot tourne de rotation.y regarde (-sin y, 0, -cos y) : d'ou
+## l'atan2 sur les composantes negatives.
 func _face_direction(delta: float) -> void:
-	var wanted := atan2(-facing_direction.x, -facing_direction.z)
+	var wanted := atan2(-aim_direction.x, -aim_direction.z)
 	model.rotation.y = lerp_angle(model.rotation.y, wanted, 1.0 - exp(-turn_speed * delta))
 
 
-## La griffure part dans la direction de marche — jamais vers un ennemi choisi
-## pour le joueur. C'est la difference de fond avec le projectile : ici, se
-## deplacer, c'est viser.
+## La griffure part dans la direction VISEE — jamais vers un ennemi choisi pour
+## le joueur. C'est la difference de fond avec le projectile : ici, c'est le
+## joueur qui pointe.
 ##
 ## Enfant du CHAT, et c'est le point : une griffure est un geste, pas un objet
 ## lache dans le monde. Plantee au sol elle se detacherait du chat des la
@@ -264,7 +386,7 @@ func _face_direction(delta: float) -> void:
 func _slash_forward() -> void:
 	var slash = CLAW_SLASH_SCENE.instantiate()
 	add_child(slash)
-	slash.setup(facing_direction, claw_damage, claw_range, claw_arc_degrees, claw_side)
+	slash.setup(aim_direction, claw_damage, claw_range, claw_arc_degrees, claw_side)
 	# Sans ca, l'interpolation physique fait partir le decalque de l'origine du
 	# monde sur sa premiere frame — et sa premiere frame est un sixieme de sa vie.
 	slash.reset_physics_interpolation()
@@ -282,7 +404,7 @@ func _fire_at_nearest_enemy() -> void:
 		return
 
 	var origin := global_position + Vector3(0.0, muzzle_height, 0.0)
-	var direction := facing_direction
+	var direction := aim_direction
 	var best_distance := INF
 
 	for node in get_tree().get_nodes_in_group("enemies"):

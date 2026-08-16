@@ -288,7 +288,8 @@ zeucozy/
 ├── scenes/           # Scènes Godot (.tscn) — tout en nœuds 3D
 │   ├── main.tscn     # Scène principale (environnement, arène, caméra, UI, game manager)
 │   ├── player.tscn   # CharacterBody3D + CelModel (le chat) + ombre de contact
-│   ├── projectile.tscn
+│   ├── claw_slash.tscn # ⚔️ La griffure — l'attaque auto (Area3D + décalque dessiné)
+│   ├── projectile.tscn # 💤 En sommeil — gardé entier pour un usage futur
 │   ├── xp_orb.tscn
 │   ├── enemies/
 │   │   ├── chaser.tscn   # Ennemi rapide (spawn dès le début) — capsule placeholder
@@ -300,7 +301,8 @@ zeucozy/
 │   ├── main.gd       # Directeur de jeu, spawn, difficulté, UI
 │   ├── player.gd     # Mouvement, attaque auto, upgrades, XP
 │   ├── enemy.gd      # Comportement ennemi de base (follow, dégâts)
-│   ├── projectile.gd # Projectile (direction, portée, collision)
+│   ├── claw_slash.gd # ⚔️ Griffure : 6 poses + dégâts sur les 3 premières
+│   ├── projectile.gd # 💤 Projectile (direction, portée, collision) — débranché
 │   ├── xp_orb.gd     # Croquette d'XP (magnétisme, collecte)
 │   ├── arena.gd      # Décor : sol, tapis, mobilier, mur de bordure
 │   ├── camera_rig.gd # Vue plongeante 45°, suit le joueur, bornée à l'arène
@@ -318,6 +320,7 @@ zeucozy/
 ├── shaders/          # cel_toon, cel_outline, cel_face, retro_post
 │                     # cel_ground (parquet peint), cel_rug (tapis)
 │                     # hit_burst (éclat de collision), impact_frame (flash)
+│                     # claw_slash (la griffure — 3 traits cernés, billboard dirigé)
 │                     # cel_core + cel_floor (includes, fonctions pures)
 ├── tools/
 │   ├── export_cat.py       # ⚠️ LE SEUL chemin d'export du chat (voir piège n°6)
@@ -352,13 +355,75 @@ Le réglage à bouger en premier si le chat paraît trop petit est `distance` da
 `camera_rig.gd` (38 m), pas le FOV.
 
 ### Joueur — stats de base (player.gd)
-- Speed 7,5 m/s | Health 6 | Attack interval 0.55s
-- Projectile damage 1 | Speed 17,5 m/s | Range 10 m
+- Speed 7,5 m/s | Health 6 | Attack interval **1,1 s**
+- **Griffure** : damage 3 | range 5,2 m | arc frontal 120° | **visée à la souris**
+- Projectile *(en sommeil)* : damage 1 | Speed 17,5 m/s | Range 10 m
 - Pickup radius 2,5 m
 
+### L'attaque — la griffure (2026-08-16)
+L'auto-attaque est passée du **projectile** au **corps à corps**. Le projectile n'est pas
+supprimé : scène, script, `spawn_projectile` et `_fire_at_nearest_enemy` sont intacts et
+suivent toujours l'upgrade de dégâts. Il est **débranché de `_process`**, rien de plus.
+
+- **Elle part sur `aim_direction`** — la visée, plus la marche depuis le 2026-08-16.
+  Voir « La visée » juste en dessous.
+- **La sphère donne la portée, l'angle donne le camp.** Sans le test d'angle, l'attaque
+  toucherait aussi derrière et la direction ne servirait plus qu'à décorer.
+- **Elle est enfant du chat**, et c'est le point : une griffure est un *geste*. Plantée
+  dans le monde, elle s'en détacherait — à 7,5 m/s il avance de 1,5 m pendant ses 6 poses.
+- **Portée et dessin ne peuvent pas diverger** : `claw_slash` dimensionne son décalque sur
+  `claw_range` (`DRAW_SIZE`). Doubler la portée double le dessin, sans rien toucher d'autre.
+- ⚠️ **Rien de tout ça ne touche à l'animation du chat.** Le squelette continue idle/walk ;
+  la griffure est un décalque posé devant lui.
+
+> ⚠️ **Le Y de l'UV d'un `QuadMesh` descend quand son Y local monte.** Le `UV * 2 - 1`
+> habituel **retourne le dessin** — la griffure partait en arrière du chat. Et **un
+> décalage monde vers l'avant se fait écraser par la plongée à 45°** : le décalque est donc
+> ancré au centre du chat, c'est son rayon d'arc *dans le plan de l'écran* qui le place
+> devant. Les deux ont été trouvés en **regardant les frames**, pas en raisonnant.
+
+### La visée — dissociée du déplacement (2026-08-16)
+
+La griffure partait dans la direction de marche. Elle part désormais **là où le joueur
+pointe**, à la souris. Marcher vers le bas en griffant vers le haut est un mouvement
+possible, et c'est tout l'objet du changement : **la fuite cesse d'être passive.**
+
+- **Le curseur est un point 2D, il faut un plan pour en faire un point du monde.**
+  Pas le sol : sous 45° de plongée, un mètre de hauteur décale le point d'un bon demi-mètre
+  à l'écran. Le plan est à `aim_height` = **0,7 m**, la hauteur où la griffure *mord*
+  (`claw_slash.HIT_HEIGHT`) et celle des hurtbox ennemies (0,65 chaser, 0,80 brute) — poser
+  le curseur sur le corps d'un ennemi donne donc la direction qui le touche vraiment.
+- ✅ **Projection vérifiée, pas supposée** : aller-retour sur 16 directions
+  (direction → `unproject_position` → rayon → plan → direction), écart max **0,0000°**.
+- **Il n'y a rien à compenser pour l'étirement `canvas_items`.** `get_mouse_position()`
+  rend des coordonnées de viewport et `project_ray_*` les attend : Godot défait le stretch
+  des deux côtés. (`unproject_position` est dans le même espace — c'est ce qui rend
+  l'aller-retour ci-dessus valable.)
+- **Le modèle regarde la VISÉE, pas la marche.** Sinon la griffure partirait de côté
+  pendant que le chat regarde ailleurs, et une griffure est un *geste du corps*.
+  ⚠️ Contrepartie assumée : le chat peut marcher à reculons et il n'a qu'un `walk` — le
+  cycle de pattes se lit alors à l'envers.
+- **La souris prend la visée quand elle BOUGE, jamais avant** (`aim_source`, qui démarre
+  sur `MOVEMENT`). Sans cette bascule, un curseur posé au hasard au lancement — ou immobile
+  dans une capture `--write-movie`, où il ne bougera **jamais** — imposerait un cap au chat
+  dès la première frame. Le clavier seul garde donc l'ancien comportement.
+- **Toute source qui ne sait pas répondre rend la DERNIÈRE visée, jamais zéro.** Trois cas
+  la rendent muette : pas de caméra, rayon parallèle au plan, curseur posé *sur* le chat
+  (`aim_dead_zone` 0,8 m — en deçà, la direction bascule d'un cap à l'autre au pixel près).
+  Une visée qui s'annulerait ferait pivoter le chat au hasard pendant une frame, **et la
+  griffure part sur cette frame-là**.
+- **La visée se lit APRÈS `move_and_slide`** : le curseur désigne un point du monde, on
+  regarde vers lui depuis la position d'arrivée.
+- 🅿️ **La manette viendra s'ajouter dans `aim_source`** — une source de plus, prioritaire
+  tant que le stick droit est poussé. À la différence de la souris, elle **rend** la main
+  quand le stick revient au centre.
+
 ### Upgrades (upgrade_definitions.gd)
-6 types : `damage`, `attack_speed`, `move_speed`, `max_health`, `pickup_radius`, `projectile_speed`
+6 types : `damage`, `attack_speed`, `move_speed`, `max_health`, `pickup_radius`, `claw_range`
 3 choix aléatoires par level-up, sans doublons.
+`projectile_speed` est sortie du pool avec le passage à la griffure — une upgrade qui
+n'améliore plus rien de visible est un mensonge à l'écran. Son cas reste dans
+`apply_upgrade` : la rebrancher tient à une entrée ici.
 
 ### XP (xp_orb.gd)
 - Magnétisme déclenché à < 5 m du joueur
@@ -403,9 +468,20 @@ Le rig de caméra fait exception : il bouge dans `_process`, donc son interpolat
 
 ## État actuel
 
-**Systèmes en place :** mouvement 8 directions, spawn ennemis, attaque auto, XP/niveaux,
-6 upgrades, scaling difficulté, HUD complet, Game Over/restart, arène large.
-Toute la logique de gameplay tourne — le passage en 3D ne l'a pas touchée.
+**Systèmes en place :** mouvement 8 directions, **visée souris indépendante**, spawn
+ennemis, **attaque de griffure au corps à corps**, XP/niveaux, 6 upgrades, scaling
+difficulté, HUD complet, Game Over/restart, arène large. Toute la logique de gameplay
+tourne — le passage en 3D ne l'a pas touchée.
+
+**L'attaque a changé de nature le 2026-08-16** — voir « L'attaque » plus haut. Le projectile
+auto-visé cède la place à une griffure dirigée par le joueur : c'est la première fois
+que le jeu demande au joueur autre chose que d'esquiver. On peut désormais se faire toucher
+dans le dos, et c'est la contrepartie assumée de dégâts trois fois plus élevés.
+
+**La visée s'est détachée du déplacement le même jour** — voir « La visée » plus haut.
+Elle était portée par la direction de marche ; elle est désormais à la **souris**, ce qui
+ouvre le jeu de jambes que le survivor demande : reculer en frappant devant soi. La manette
+reste à faire, et sa place est déjà prévue (`aim_source`).
 
 **Visuels :** le **chat est dans le jeu**, cel-shadé, contour et visage peint compris, et
 il se lit à taille de jeu — désormais en **tuxedo noir et blanc**, qui se détache mieux du
