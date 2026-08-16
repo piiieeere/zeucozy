@@ -124,6 +124,9 @@ func _setup_model() -> void:
 			_model.mesh_instance.name,
 			_model.mesh_instance.mesh.get_surface_count(),
 		])
+		_log("Attr_Style (min/moy/max) — neutre attendu : R 1.0, G 0.5, B 0.0")
+		for line in _model.style_report():
+			_log(line)
 
 
 func _update_camera() -> void:

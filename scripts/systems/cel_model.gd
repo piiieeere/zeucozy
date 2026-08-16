@@ -97,7 +97,25 @@ const REST_UNDO_BONES := {
 
 ## Epaisseur du contour, en unites monde. A garder proportionnelle a la
 ## taille du modele (§11).
-@export var outline_thickness: float = 0.035
+##
+## Relevee de 0,035 a 0,041 avec l'arrivee d'`Attr_Style` : le canal R module
+## desormais l'epaisseur et vaut ~0,85 en moyenne, la valeur d'avant donnait
+## donc un trait globalement plus maigre qu'avant. 0,041 x 0,85 ≈ 0,035.
+@export var outline_thickness: float = 0.041
+
+## Attr_Style existe dans le `.glb` depuis le 2026-08-16 : R module le trait,
+## G porte les ombres peintes, B autorise les accents. Voir `tools/export_cat.py`
+## — l'exporteur glTF ne sait pas sortir cet attribut tout seul.
+@export var use_vertex_style: bool = true
+
+## Bord de cluster legerement irregulier — un bord de pinceau, pas une courbe
+## mathematique (§2ter·2). Le shader en prend la moitie de part et d'autre :
+## 0,06 donne le ±0,03 que demande Convention Blender §5.3.
+@export var edge_noise: float = 0.06
+
+## Accent de brillance sur le dessus des volumes, masque par le canal B.
+## Le seul ecart autorise a la regle des 2 tons (§5.5).
+@export var accent_strength: float = 0.35
 
 ## Bascule du repere facial. Compromis de cadrage sous une camera qui plonge :
 ## trop bas le visage passe sous l'horizon, trop haut il reste visible de dos.
@@ -185,6 +203,16 @@ func _apply_cel_materials() -> void:
 			face_materials.append(toon_mat)
 		else:
 			caps = _apply_painted_caps(toon_mat, mat_name)
+			toon_mat.set_shader_parameter("accent_strength", accent_strength)
+
+		# Attr_Style : le chat est le seul maillage a le porter. Le reste du
+		# jeu garde use_vertex_style a false, sinon COLOR y vaudrait 1.0 et
+		# tout partirait en pleine lumiere avec le trait le plus epais.
+		toon_mat.set_shader_parameter("use_vertex_style", use_vertex_style)
+		toon_mat.set_shader_parameter("edge_noise", edge_noise)
+		(toon_mat.next_pass as ShaderMaterial).set_shader_parameter(
+			"use_vertex_style", use_vertex_style
+		)
 
 		# Ne jamais laisser une mat4 d'uniform a sa valeur par defaut : une
 		# matrice nulle ferait s'effondrer tout le masque.
@@ -256,6 +284,50 @@ func _bone_undo(bone_name: String) -> Transform3D:
 
 	var deform := skeleton.get_bone_global_pose(bone) * skeleton.get_bone_global_rest(bone).affine_inverse()
 	return deform.affine_inverse()
+
+
+## Etat de `Attr_Style` tel que Godot le voit reellement, par surface.
+##
+## Diagnostic, pas decoration : l'attribut a deja traverse le pont a moitie
+## (l'exporteur glTF ne remplissait qu'une primitive sur six, voir
+## `tools/export_cat.py`). C'est aussi ce qui prouve qu'aucune conversion
+## sRGB ne s'applique au passage — un G peint a 0,47 doit arriver a 0,47.
+func style_report() -> Array[String]:
+	var lines: Array[String] = []
+
+	if mesh_instance == null:
+		return lines
+
+	var mesh := mesh_instance.mesh
+
+	for i in mesh.get_surface_count():
+		var source := mesh.surface_get_material(i)
+		var mat_name := source.resource_name if source else "<sans nom>"
+		var colors: PackedColorArray = mesh.surface_get_arrays(i)[Mesh.ARRAY_COLOR]
+
+		if colors.is_empty():
+			lines.append("  %-15s COLOR_0 ABSENT" % mat_name)
+			continue
+
+		var lo := Vector3(2.0, 2.0, 2.0)
+		var hi := Vector3(-1.0, -1.0, -1.0)
+		var sum := Vector3.ZERO
+
+		for c in colors:
+			var v := Vector3(c.r, c.g, c.b)
+			lo = lo.min(v)
+			hi = hi.max(v)
+			sum += v
+
+		var mean := sum / float(colors.size())
+		lines.append("  %-15s R %.2f/%.2f/%.2f  G %.2f/%.2f/%.2f  B %.2f/%.2f/%.2f" % [
+			mat_name,
+			lo.x, mean.x, hi.x,
+			lo.y, mean.y, hi.y,
+			lo.z, mean.z, hi.z,
+		])
+
+	return lines
 
 
 func set_face_pitch(value: float) -> void:

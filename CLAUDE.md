@@ -45,8 +45,12 @@ technique. L'univers sci-fi d'*Orbitals* n'est **pas** repris.
   vignette. Pas de tremblement d'image ni de saignement chroma (écartés)
 
 > Toute la donnée de style traverse le glTF via **un seul attribut de couleur de sommet
-> `Attr_Style`** (R/G/B). C'est à peu près la seule chose stylistique qui survit à l'export.
-> Détail dans `Convention Blender.md`.
+> `Attr_Style`** (R = épaisseur du trait, G = biais d'ombre peinte, B = masque d'accent).
+> ✅ Peint et opérationnel depuis le 2026-08-16. Détail dans `Convention Blender.md`.
+
+> ⚠️ **Le chat ne s'exporte QUE par `tools/export_cat.py`.** L'exporteur glTF de
+> Blender 5.2 ne sait pas sortir `Attr_Style` sur ce maillage — voir le piège n°6 plus bas.
+> Un export par le menu Fichier → Export produit un asset silencieusement cassé.
 
 ### ✅ Le risque principal est levé (2026-08-16)
 
@@ -71,7 +75,7 @@ contour sont reproduits en shader Godot**. Le style tient hors de Blender.
 > problèmes distincts : le personnage se lit mal de face, l'oreille éloignée se projette dans
 > le crâne, et le visage doit être relevé — ce qui le rend visible de dos.
 
-### Trois pièges connus (appris à la dure, ne pas les reperdre)
+### Pièges connus (appris à la dure, ne pas les reperdre)
 
 1. **Le contour ne survit pas à l'export glTF.** Dans Blender il est fait en *coque inversée*
    (solidify + normales retournées + backface culling) — c'est du setup Blender, pas de la
@@ -92,6 +96,14 @@ contour sont reproduits en shader Godot**. Le style tient hors de Blender.
    l'os porteur, remis à jour chaque frame. **Exact grâce aux poids rigides du piège n°3.**
    Pour une paire symétrique sur deux os (les oreilles), deux matrices, choisies par le
    signe de `x`. Ne jamais laisser une `mat4` d'uniform à sa valeur par défaut.
+6. **L'exporteur glTF ne sait pas sortir `Attr_Style`** *(2026-08-16)*. Sur ce maillage les
+   trois modes échouent : `MATERIAL` n'exporte **rien** (la détection d'usage ne suit que
+   les chemins PBR, pas notre `Shader to RGB` → `Color Ramp`) ; `ACTIVE` et `NAME` ne
+   remplissent que **la 1ʳᵉ primitive sur 6** — les cinq autres sortent en blanc pur, donc
+   G = 1,0, donc en pleine lumière permanente. Le domaine (POINT/CORNER) n'y change rien.
+   Parade : `tools/export_cat.py` réinjecte `COLOR_0` **par position** après export
+   (7 867 sommets, 100 % exacts). ✅ *Aucune conversion sRGB sur le trajet — vérifié bout
+   en bout, un G peint à 0,47 arrive à 0,47 dans le shader.*
 
 ### ✅ Décision tranchée : nœuds 3D (2026-08-16)
 
@@ -201,7 +213,9 @@ zeucozy/
 │   │   └── cel_model.gd            # ⭐ Le style du chat — partagé jeu ↔ banc de test
 │   └── tests/
 │       └── cel_test.gd # Cadrage, bascules et captures du banc
-├── shaders/          # cel_toon, cel_outline, cel_face, cel_core (include)
+├── shaders/          # cel_toon, cel_outline, cel_face, cel_core (include), retro_post
+├── tools/
+│   └── export_cat.py # ⚠️ LE SEUL chemin d'export du chat (voir piège n°6)
 └── assets/
     └── models/       # player_cat.glb
 ```
@@ -285,10 +299,15 @@ Toute la logique de gameplay tourne — le passage en 3D ne l'a pas touchée.
 il se lit à taille de jeu. Le reste est placeholder : ennemis en primitives 3D, décor en
 boîtes pastel, croquettes en cubes.
 
+**Passe rétro anime — faite le 2026-08-16.** `Attr_Style` peint et câblé, trait à
+épaisseur variable, ombres peintes, bord de cluster irrégulier, accent de brillance, et le
+post-process §8bis (grain sur 3s, halation, vignette) dans `shaders/retro_post.gdshader`.
+
 **Prochaines priorités :**
 1. Reconsidérer la **plongée à 60°** en DA — cause racine de trois problèmes distincts
    (lecture de face, oreille éloignée, bascule du visage).
-2. Modéliser l'aspirateur, le chien et le concombre — budget géométrie **serré** (§11) :
+2. Animer le chat (idle, marche) avec la **cadence en pas** — c'est ce qui débloque les
+   trois derniers items de la passe rétro anime, tous non testables sans animation.
+3. Modéliser l'aspirateur, le chien et le concombre — budget géométrie **serré** (§11) :
    ils se multiplient à l'écran et la coque inversée double le compte.
-3. Animer le chat (marche), avec la **cadence en pas** — et vérifier au premier export que
-   *Always Sample Animations* est bien décoché (piège n°4).
+4. Peindre 3 à 5 **dépassements de trait** — vrai travail à la main, à ne pas générer.

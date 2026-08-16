@@ -25,6 +25,15 @@ group_uniforms lumiere;
 uniform vec3 light_dir = vec3(-0.35, 0.85, 0.4);
 uniform float threshold : hint_range(-1.0, 1.0) = 0.05;
 
+group_uniforms attr_style;
+// Meme biais peint que cel_toon : sans lui, le terminateur du visage serait
+// une courbe mathematique propre pendant que celui du corps ondule — et la
+// frontiere entre les deux coques se verrait.
+uniform bool use_vertex_style = false;
+uniform float shadow_bias_strength : hint_range(0.0, 2.0) = 1.0;
+uniform float edge_noise : hint_range(0.0, 0.3) = 0.0;
+uniform float edge_noise_scale : hint_range(1.0, 200.0) = 35.0;
+
 group_uniforms repere_visage;
 // Centre et demi-axes de la tete, en espace objet.
 uniform vec3 face_center = vec3(0.0, 1.1, 0.64);
@@ -84,6 +93,7 @@ group_uniforms skinning;
 uniform mat4 rest_undo;
 
 varying vec3 v_object_pos;
+varying vec3 v_style;
 
 #include "res://shaders/cel_core.gdshaderinc"
 
@@ -93,12 +103,24 @@ vec3 paint(vec3 under, float dist, vec3 col) {
 }
 
 void vertex() {
+	v_style = COLOR.rgb;
 	v_object_pos = (rest_undo * vec4(VERTEX, 1.0)).xyz;
 }
 
 void fragment() {
 	vec3 n = normalize((INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);
-	float lit = step(threshold, dot(n, normalize(light_dir)));
+
+	float bias = 0.0;
+	if (use_vertex_style) {
+		bias = (v_style.g - 0.5) * 2.0 * shadow_bias_strength;
+	}
+
+	float jitter = 0.0;
+	if (edge_noise > 0.0) {
+		jitter = (hash_noise(floor(v_object_pos * edge_noise_scale)) - 0.5) * edge_noise;
+	}
+
+	float lit = step(threshold - bias + jitter, dot(n, normalize(light_dir)));
 
 	vec3 shadow_col = warm_shadow(base_color.rgb, shadow_hue_shift, shadow_saturation, shadow_value);
 	vec3 col = mix(shadow_col, base_color.rgb, lit);

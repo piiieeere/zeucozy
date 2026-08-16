@@ -1,9 +1,10 @@
-[gd_scene load_steps=11 format=3]
+[gd_scene load_steps=12 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_rhi7x"]
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2_h0b1r"]
 [ext_resource type="Script" path="res://scripts/arena.gd" id="3_arena"]
 [ext_resource type="Script" path="res://scripts/camera_rig.gd" id="4_camrig"]
+[ext_resource type="PackedScene" path="res://scenes/fx/retro_post.tscn" id="5_retropost"]
 
 [sub_resource type="Environment" id="Environment_arena"]
 background_mode = 1
@@ -89,6 +90,8 @@ transform = Transform3D(1, 0, 0, 0, 0.504967, -0.863139, 0, 0.863139, 0.504967, 
 fov = 24.0
 near = 1.0
 far = 400.0
+
+[node name="RetroPost" parent="." instance=ExtResource("5_retropost")]
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 

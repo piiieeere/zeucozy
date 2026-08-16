@@ -25,7 +25,10 @@ uniform float thickness : hint_range(0.0, 0.2) = 0.02;
 uniform bool constant_screen_width = false;
 
 group_uniforms attr_style;
-// Passe a true une fois Attr_Style cree : le canal R module l'epaisseur.
+// Le canal R module l'epaisseur : un trait d'encre s'alourdit vers le bas des
+// formes et aux jointures, s'allege sur les aretes exposees (§2ter·1).
+// A laisser false sur la geometrie sans Attr_Style — COLOR y vaut 1.0, ce qui
+// donnerait le trait le plus epais partout.
 uniform bool use_vertex_style = false;
 
 void vertex() {

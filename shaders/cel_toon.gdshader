@@ -26,10 +26,21 @@ uniform vec3 light_dir = vec3(-0.35, 0.85, 0.4);
 uniform float threshold : hint_range(-1.0, 1.0) = 0.05;
 
 group_uniforms attr_style;
-// Passe a true une fois l'attribut Attr_Style cree dans Blender.
-// Tant qu'il n'existe pas, COLOR vaut (1,1,1,1) et le biais serait faux.
+// Attr_Style existe depuis le 2026-08-16 : R = epaisseur du trait,
+// G = biais d'ombre peinte, B = masque d'accent (Convention Blender §4).
+// A laisser false sur toute geometrie qui n'a PAS l'attribut : COLOR vaut
+// alors (1,1,1,1), et un G a 1.0 forcerait la surface en pleine lumiere.
 uniform bool use_vertex_style = false;
 uniform float shadow_bias_strength : hint_range(0.0, 2.0) = 1.0;
+
+group_uniforms accent;
+// Bande claire creme sur le dessus des volumes, autorisee UNIQUEMENT la ou
+// Attr_Style.B depasse le seuil. C'est un accent graphique DESSINE, pas une
+// reponse a la lumiere : il ne bouge pas quand la lampe bouge, et il ne
+// compte pas comme un 3e ton de cluster (Convention Blender §5.5).
+uniform vec4 accent_color : source_color = vec4(0.961, 0.925, 0.847, 1.0);
+uniform float accent_threshold : hint_range(0.0, 1.0) = 0.55;
+uniform float accent_strength : hint_range(0.0, 1.0) = 0.0;
 
 group_uniforms grain;
 uniform float edge_noise : hint_range(0.0, 0.3) = 0.0;
@@ -104,6 +115,13 @@ void fragment() {
 
 	vec3 shadow_col = warm_shadow(base_color.rgb, shadow_hue_shift, shadow_saturation, shadow_value);
 	vec3 col = mix(shadow_col, base_color.rgb, lit);
+
+	// Accent de brillance — seulement dans le ton clair : un accent pose dans
+	// l'ombre se lirait comme une erreur de cluster.
+	if (use_vertex_style && accent_strength > 0.0) {
+		float accent = step(accent_threshold, v_style.b) * lit;
+		col = mix(col, accent_color.rgb, accent * accent_strength);
+	}
 
 	// Details peints — aplats francs poses par-dessus le cluster
 	if (paint_count > 0) {
