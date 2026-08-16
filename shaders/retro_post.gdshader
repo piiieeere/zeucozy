@@ -27,11 +27,30 @@ uniform sampler2D screen_tex : hint_screen_texture, filter_linear;
 
 group_uniforms grain;
 uniform float grain_amount : hint_range(0.0, 0.15) = 0.04;
-// Le grain doit BOUILLIR A LA CADENCE DE L'ANIMATION, pas a 60 (§7).
-// Sur 3s a 60 fps = 20 motifs par seconde. A 60, il se lit comme un bruit
-// numerique et trahit tout le travail de cellulo.
+// Le grain BOUILLE A LA CADENCE DE L'ANIMATION, pas a 60 (§7). Sur 3s a
+// 60 fps = 20 motifs par seconde. A 60, il se lit comme un bruit numerique et
+// trahit tout le travail de cellulo.
 uniform float grain_hz = 20.0;
 uniform float grain_size : hint_range(1.0, 4.0) = 1.5;
+
+// ⚠️ MAIS LES CELLULES NE TOURNENT PAS ENSEMBLE — voir `grain_stagger`.
+//
+// Mesure du 2026-08-16, sur les frames du jeu : avec un `floor(TIME * hz)`
+// global, TOUS les pixels changeaient au meme instant. L'ecart moyen d'une
+// frame a l'autre, sur l'image entiere, faisait un pic de x1,85 toutes les
+// 3 frames ; grain coupe, la meme mesure etait PLATE. Autrement dit le grain
+// etait la seule chose de l'image a battre a 20 Hz, et il y faisait battre
+// tout le reste avec lui : le jeu paraissait tourner a 20 fps alors que le
+// temps de frame ne bougeait pas d'un dixieme de milliseconde.
+//
+// La parade ne touche pas a la cadence : chaque cellule garde ses 20 motifs
+// par seconde, mais elles ne les changent plus au meme moment. Localement le
+// grain bout toujours sur 3s — ce que §7 demande ; globalement plus rien ne
+// clignote d'un bloc. C'est d'ailleurs ce que fait la pellicule : le dessin
+// est sur 3s, le grain du support, lui, est neuf a chaque photogramme.
+//
+// A 0 on retrouve exactement l'ancien comportement, pour comparer.
+uniform float grain_stagger : hint_range(0.0, 1.0) = 1.0;
 
 group_uniforms vignette;
 uniform float vignette_strength : hint_range(0.0, 1.0) = 0.30;
@@ -51,7 +70,11 @@ void fragment() {
 
 	// --- grain argentique ----------------------------------------------------
 	vec2 cell = floor(SCREEN_UV / SCREEN_PIXEL_SIZE / grain_size);
-	float step_time = floor(TIME * grain_hz);
+	// Le dephasage est tire de la CELLULE, donc fixe dans le temps : une
+	// cellule donnee change a intervalle regulier, jamais en avance ni en
+	// retard sur elle-meme. Ce sont les cellules entre elles qui sont decalees.
+	float phase = hash21(cell + 19.7) * grain_stagger;
+	float step_time = floor(TIME * grain_hz + phase);
 	col += (hash21(cell + vec2(step_time, step_time * 1.7)) - 0.5) * grain_amount;
 
 	COLOR = vec4(col, 1.0);

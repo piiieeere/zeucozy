@@ -148,7 +148,9 @@ func _setup_model() -> void:
 		_log("Attr_Style (min/moy/max) — neutre attendu : R 1.0, G 0.5, B 0.0")
 		for line in _model.style_report():
 			_log(line)
-		_log("Animations — attendu : NEAREST partout (la cadence en pas, §7)")
+		_log("Animations — attendu : NEAREST sur les ROTATIONS (la cadence en pas, §7),")
+		_log("                 et la translation de `racine` LISSE, elle seule (§7 encore :")
+		_log("                 elle deplace tout le chat, donc c'est une position)")
 		for line in _model.animation_report():
 			_log(line)
 

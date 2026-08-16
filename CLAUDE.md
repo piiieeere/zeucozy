@@ -40,7 +40,8 @@ technique. L'univers sci-fi d'*Orbitals* n'est **pas** repris.
   vers la couleur locale, dépassements peints
 - **Ombre = forme dessinée** — biais peint (canal G) ajouté au seuil, pas subi de l'éclairage
 - **Animation en pas** — squelette sur 3s (~20 fps), **position et caméra lisses à 60**.
-  Rien à changer dans `player.gd` / `enemy.gd` : la cadence vit dans les fichiers d'animation
+  Rien à changer dans `player.gd` / `enemy.gd` : la cadence vit dans les fichiers d'animation.
+  ⚠️ *« Position »* inclut le **rebond de marche** : voir « La fluidité » plus bas
 - **Post-process léger et permanent** — grain 3–5 % *rafraîchi sur 3s* et vignette chaude.
   Pas de tremblement d'image ni de saignement chroma (écartés).
   ⚠️ **La halation a été retirée le 2026-08-16** — elle marchait, mais elle chargeait
@@ -136,6 +137,60 @@ Deux réglages ont dû suivre le changement de valeur, et pour la même raison d
   sur le blanc** (0,06 au lieu de 0,20). Le trait doit rester plus sombre que l'aplat
   *et* que son ombre. Sur le noir, `#3D2B1A` repassait au-dessus du ton d'ombre ; sur le
   blanc, les 20 % de §5.4 — mélangés en **linéaire** — délavaient le trait à `#82796F`.
+
+### La fluidité — pourquoi le jeu paraissait à 20 fps (2026-08-16)
+
+Le déplacement donnait des à-coups et l'image entière semblait tourner à 20 fps.
+**Elle tenait 60,0 fps sans un dixième de milliseconde d'écart** — mesuré sur 70 frames,
+`dt` min = moy = max = 16,67 ms. Ce n'était pas une question de performance, et aucun
+profileur ne l'aurait montré.
+
+C'est le défaut le plus traître du style : **la cadence en pas est voulue, donc on ne peut
+pas la juger à l'œil** — on ne sait pas dire si ce qu'on voit est le style ou un accident.
+D'où `scenes/tests/motion_probe.tscn`, qui mesure le **battement** : de combien l'image
+change d'une frame à la suivante, regroupé par phase modulo 3. À 1,0 rien ne saccade.
+
+Deux causes, aucune des deux devinable, toutes deux corrigées :
+
+| Cause | Avant | Après |
+|---|---|---|
+| **Le grain battait en bloc.** `floor(TIME * 20.0)` était global : *tous* les pixels changeaient au même instant, 20 fois par seconde. Le grain était la seule chose de l'image à battre — et il y faisait battre tout le reste avec lui | `img` **×1,87** | `img` **×1,04** |
+| **Le rebond de marche sautait.** `racine.ty` est une translation de tout le corps, mais il vivait côté squelette, donc en pas : la silhouette montait de 2,5 px d'un coup toutes les 3 frames et restait figée entre — pendant que le sol défilait à chaque frame | `chat` **×6,52** | `chat` **×3,02** |
+
+- **Le grain garde ses 20 Hz**, ce que demande §7 : c'est la **phase** qui est tirée de la
+  cellule (`grain_stagger`). Localement il bout toujours sur 3s, globalement plus rien ne
+  clignote d'un bloc. C'est d'ailleurs ce que fait la pellicule — le dessin est sur 3s, le
+  grain du support est neuf à chaque photogramme.
+- **Le rebond suit la règle que §7 posait déjà** : *« la position du personnage dans
+  l'arène n'est pas en pas »*. Il y échappait par accident d'implémentation, pas par
+  décision. Corrigé côté Godot dans `cel_model.gd`, sans toucher au `.blend`.
+  ⚠️ **Changer l'interpolation ne suffit pas** : l'importateur réechantillonne à 60 fps,
+  donc interpoler entre deux clés égales rend la même valeur et la courbe reste clouée à
+  son escalier. Il faut **dédoublonner d'abord**. Et **LINEAR, pas CUBIC** — sur quatre
+  échantillons par rebond la cubique passe *sous* zéro (mesuré : −0,0125) et le chat
+  s'enfonce dans le parquet.
+- **Les rotations n'ont pas bougé** : `bras_L` change toujours de pose aux frames
+  0, 3, 6 … 24. La cadence en pas est intacte, et `animation_report()` la surveille —
+  il surveille désormais **aussi l'inverse** sur la racine (une translation revenue en pas
+  est une régression).
+
+> 🔍 **Deux méthodes de mesure fausses, gardées ici parce qu'elles rendaient des chiffres
+> parfaitement plausibles :**
+> - **Caler la boîte de mesure avec `unproject_position` sans corriger l'échelle.** Elle
+>   rend des coordonnées de *viewport*, l'image est à la résolution de la *fenêtre*, et le
+>   stretch `canvas_items` les sépare. La boîte s'est posée sur l'ATH : on a mesuré pendant
+>   trois runs la cadence du **texte du HUD**.
+> - **Comparer les frames de pose aux autres.** Le grain battait sur 3 frames *lui aussi*,
+>   mais décalé d'une frame : comparé aux poses il ressortait à **×0,72**, le chiffre le
+>   plus rassurant de toute l'enquête, sur le pire cas mesuré. **Un battement se cherche
+>   par sa période, jamais par un alignement supposé.**
+
+> 🅿️ **Reste connu, mesuré, non traité : les pattes patinent d'un facteur 8,3.** La patte
+> avant parcourt **0,36 m** par cycle quand le chat en couvre **3,0** (7,5 m/s × 0,4 s).
+> Aucune cadence ne rattrape ça — il faudrait un cycle de 0,05 s. C'est l'**amplitude** de
+> balancement qu'il faut ouvrir, dans Blender. Piste conforme à §7 (4 à 8 poses) : un
+> **galop de 4 poses sur 12 frames** (0,2 s), soit 1,5 m par cycle — l'ordre de grandeur
+> de la foulée réelle d'un chat lancé. À décider avant de rouvrir le `.blend`.
 
 ### Pièges connus (appris à la dure, ne pas les reperdre)
 
@@ -254,6 +309,11 @@ Godot n'est **pas dans le `PATH`** — toujours l'appeler par son chemin complet
   --python tools/export_prop.py -- --mesh MSH_canape --out prop_canape.glb
 # Banc des meubles — 8 directions + le chat a cote et sur l'assise, au cadrage de jeu
 "C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64.exe" --path . res://scenes/tests/prop_test.tscn -- --capture
+# Banc de FLUIDITE — le chat marche, on mesure le battement de l'image sur 3 frames
+"C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --path . --fixed-fps 60 \
+  res://scenes/tests/motion_probe.tscn -- --frames=64
+#   --nograin   grain coupe          --oldgrain  grain en phase (l'etat d'avant)
+#   --root-step rebond en escalier   --shots     vignettes du chat, frame par frame
 # Le jeu, en enregistrant des PNG puis en quittant — pour juger le rendu sans y jouer
 "C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --path . \
   --write-movie <dossier>/game.png --fixed-fps 30 --quit-after 200
@@ -305,7 +365,8 @@ zeucozy/
 │   │   └── brute.tscn    # Ennemi costaud (spawn après 22s) — sphère placeholder
 │   └── tests/
 │       ├── cel_test.tscn  # Banc de test du cel-shading du chat, isolé du gameplay
-│       └── prop_test.tscn # Banc de test du mobilier
+│       ├── prop_test.tscn # Banc de test du mobilier
+│       └── motion_probe.tscn # ⏱️ Banc de fluidité — mesure le battement de l'image
 ├── scripts/          # Logique GDScript
 │   ├── main.gd       # Directeur de jeu, spawn, difficulté, UI
 │   ├── player.gd     # Mouvement, attaque auto, upgrades, XP
@@ -325,7 +386,8 @@ zeucozy/
 │   │   └── hit_burst.gd            # Éclat de collision, 8 poses
 │   └── tests/
 │       ├── cel_test.gd  # Cadrage, bascules et captures du banc du chat
-│       └── prop_test.gd # Banc des meubles : 8 directions + rapport de taille au chat
+│       ├── prop_test.gd # Banc des meubles : 8 directions + rapport de taille au chat
+│       └── motion_probe.gd # ⏱️ Fluidité : temps de frame + battement sur 3 frames
 ├── shaders/          # cel_toon, cel_outline, cel_face, cel_paws, retro_post
 │                     # cel_paws (bouts de pattes + les 3 griffes dessinées)
 │                     # cel_ground (parquet peint), cel_rug (tapis)

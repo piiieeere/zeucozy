@@ -242,6 +242,10 @@ const REST_UNDO_BONES := {
 const ANIM_IDLE := &"idle"
 const ANIM_WALK := &"walk"
 
+# L'os racine — le seul dont la TRANSLATION deplace tout le personnage.
+# Voir _smooth_root_translation().
+const ROOT_BONE := &"racine"
+
 @export_file("*.glb") var model_path: String = "res://assets/models/player_cat.glb"
 
 ## Le chat regarde +Z apres la conversion Y-up du glTF, alors que l'avant de
@@ -282,6 +286,13 @@ const ANIM_WALK := &"walk"
 ## trop bas le visage passe sous l'horizon, trop haut il reste visible de dos.
 @export var face_pitch_deg: float = 26.0
 
+## Sortir la translation de l'os racine de la cadence en pas — voir
+## _smooth_root_translation(). A false, le chat retrouve le rebond en escalier
+## d'avant le 2026-08-16 : c'est ce qui permet de MESURER ce que le lissage
+## apporte, au lieu de le supposer. Se coupe aussi en ligne de commande, par
+## `--root-step`, comme les autres reglages comparables.
+@export var smooth_root: bool = true
+
 var mesh_instance: MeshInstance3D
 var skeleton: Skeleton3D
 var animation_player: AnimationPlayer
@@ -306,6 +317,8 @@ func _ready() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--face-pitch="):
 			face_pitch_deg = float(arg.trim_prefix("--face-pitch="))
+		elif arg == "--root-step":
+			smooth_root = false
 
 	mesh_instance = _spawn_model()
 
@@ -447,6 +460,10 @@ func _setup_animations() -> void:
 		if anim.loop_mode == Animation.LOOP_NONE:
 			anim.loop_mode = Animation.LOOP_LINEAR
 
+		# Le mode de boucle d'abord : l'interpolation a besoin de savoir que la
+		# piste se referme, sinon elle rate le raccord de fin de cycle.
+		_smooth_root_translation(anim)
+
 	# Aucun fondu entre clips. Un fondu interpole les deux poses pendant sa
 	# duree — soit exactement le glissement que la cadence en pas existe pour
 	# supprimer. "Pose a pose, jamais de flux continu" ("Convention Blender"
@@ -454,6 +471,89 @@ func _setup_animations() -> void:
 	animation_player.playback_default_blend_time = 0.0
 
 	play(ANIM_IDLE)
+
+
+## Sort la TRANSLATION de l'os racine de la cadence en pas. Les rotations,
+## elles, n'y touchent pas : elles restent en NEAREST, et c'est tout le style.
+##
+## POURQUOI CETTE EXCEPTION, ET POURQUOI ELLE SEULE
+## ------------------------------------------------
+## "Visual Art Direction" §7 pose deja la regle, et elle est categorique :
+## *"Seule l'animation du squelette est en pas ; la position du personnage
+## dans l'arene ne l'est pas."* Le rebond de marche est une POSITION — il
+## souleve le chat tout entier — mais il vivait du cote squelette par simple
+## accident d'implementation (`racine.ty` dans tools/build_animations.py). Il
+## echappait donc a la regle sans que personne l'ait decide.
+##
+## Ce que ca donnait, mesure sur les frames du jeu le 2026-08-16 : le centroide
+## vertical de la silhouette sautait jusqu'a 2,5 px d'un coup toutes les
+## 3 frames, et restait parfaitement fige entre deux. Pendant ce temps le sol,
+## lui, defilait a chaque frame. C'est cette contradiction qui se lit comme un
+## a-coup — l'oeil SUIT le chat, donc il lit chaque saut de sa position, alors
+## qu'il ne lit pas la cadence d'une patte qui pivote.
+##
+## D'ou l'exception, bornee a l'os racine : lui seul deplace tout le monde.
+##
+## ⚠️ CHANGER L'INTERPOLATION NE SUFFIT PAS, ET L'ESSAYER SEUL NE PREVIENT PAS.
+## L'importateur reechantillonne a `animation/fps` (60, voir le `.import`), donc
+## la piste arrive avec UNE CLE PAR FRAME : huit poses reelles noyees dans 25
+## cles, les redondantes reprenant la valeur de la precedente. En NEAREST elles
+## sont inoffensives — c'est ecrit dans _on_step_grid() — mais interpoler entre
+## deux cles egales rend cette meme valeur : la courbe reste clouee a son
+## escalier. Mesure : la silhouette sautait toujours, avec seulement quelques
+## valeurs intermediaires egarees entre deux marches. Il faut donc DEDOUBLONNER
+## d'abord, et interpoler ensuite.
+##
+## LINEAR et non CUBIC. Sur quatre echantillons par rebond, la cubique passe
+## SOUS zero dans les creux (mesure : -0,0125) — le chat s'enfonce dans le
+## parquet, quand `bounce()` dit en toutes lettres "jamais sous zero". Et le
+## creux d'un rebond est un CHOC : un bas anguleux et un haut arrondi sont plus
+## justes que l'inverse.
+##
+## ⚠️ Ne pas etendre aux autres os. Une patte, une oreille, la queue : leur
+## deplacement est local, il se lit comme une pose, et c'est precisement ce que
+## §7 veut voir claquer.
+func _smooth_root_translation(anim: Animation) -> void:
+	if not smooth_root:
+		return
+
+	for track in anim.get_track_count():
+		if anim.track_get_type(track) != Animation.TYPE_POSITION_3D:
+			continue
+
+		if anim.track_get_path(track).get_subname(0) != ROOT_BONE:
+			continue
+
+		_keep_only_real_poses(anim, track)
+		anim.track_set_interpolation_type(track, Animation.INTERPOLATION_LINEAR)
+
+
+## Retire d'une piste les cles qui repetent la precedente — celles que
+## l'importateur a fabriquees en reechantillonnant a 60 fps. Ne reste que les
+## poses reellement posees dans Blender, aux instants ou la valeur CHANGE.
+func _keep_only_real_poses(anim: Animation, track: int) -> void:
+	var kept := []
+	var previous = null
+
+	for key in anim.track_get_key_count(track):
+		var value = anim.track_get_key_value(track, key)
+
+		if previous != null and value.is_equal_approx(previous):
+			continue
+
+		kept.append([anim.track_get_key_time(track, key), value])
+		previous = value
+
+	# Rien a gagner, et surtout rien a casser : une piste deja propre (ou qui
+	# ne bouge pas du tout) sort d'ici intacte.
+	if kept.size() == anim.track_get_key_count(track):
+		return
+
+	for key in range(anim.track_get_key_count(track) - 1, -1, -1):
+		anim.track_remove_key(track, key)
+
+	for entry in kept:
+		anim.track_insert_key(track, entry[0], entry[1])
 
 
 ## Bascule de clip. Sans effet si le clip demande tourne deja — sinon chaque
@@ -639,6 +739,7 @@ func animation_report() -> Array[String]:
 		var changes := 0
 		var off_grid := 0
 		var lisses: Array[String] = []
+		var racine_en_pas: Array[String] = []
 
 		for track in anim.get_track_count():
 			var count := anim.track_get_key_count(track)
@@ -655,11 +756,33 @@ func animation_report() -> Array[String]:
 				if not _on_step_grid(anim.track_get_key_time(track, key)):
 					off_grid += 1
 
-			# Seule une piste qui BOUGE et qui n'est pas en NEAREST casse la
-			# cadence. Godot en fabrique beaucoup d'autres (position et echelle
-			# par os) qui restent a leur valeur de repos : elles sont en LINEAR
-			# et parfaitement inoffensives, les compter alarmerait pour rien.
-			if moves and anim.track_get_interpolation_type(track) != Animation.INTERPOLATION_NEAREST:
+			if not moves:
+				continue
+
+			var interpolation := anim.track_get_interpolation_type(track)
+			var is_root_translation := (
+				anim.track_get_type(track) == Animation.TYPE_POSITION_3D
+				and anim.track_get_path(track).get_subname(0) == ROOT_BONE
+			)
+
+			# LA TRANSLATION DE L'OS RACINE EST L'EXCEPTION, et elle se
+			# surveille a l'envers des autres : c'est la seule piste qui doit
+			# etre LISSE, parce qu'elle deplace le chat tout entier (§7, et
+			# _smooth_root_translation() pour le detail). La retrouver en pas
+			# signifie que la passe de lissage n'a pas tourne — et le chat
+			# recommencerait a sauter de 2,5 px toutes les 3 frames.
+			if is_root_translation:
+				if interpolation == Animation.INTERPOLATION_NEAREST:
+					racine_en_pas.append(String(anim.track_get_path(track)))
+
+				continue
+
+			# Partout ailleurs, seule une piste qui BOUGE et qui n'est pas en
+			# NEAREST casse la cadence. Godot en fabrique beaucoup d'autres
+			# (position et echelle par os) qui restent a leur valeur de repos :
+			# elles sont en LINEAR et parfaitement inoffensives, les compter
+			# alarmerait pour rien.
+			if interpolation != Animation.INTERPOLATION_NEAREST:
 				lisses.append(String(anim.track_get_path(track)))
 
 		lines.append("  %-10s %5.2fs  %2d pistes  %3d cles  %3d changements dont %d hors grille  boucle %s" % [
@@ -672,6 +795,10 @@ func animation_report() -> Array[String]:
 		else:
 			lines.append("             ⚠ %d piste(s) mobile(s) NON en pas : %s"
 					% [lisses.size(), ", ".join(lisses)])
+
+		if not racine_en_pas.is_empty():
+			lines.append("             ⚠ translation de `%s` restee EN PAS : %s"
+					% [ROOT_BONE, ", ".join(racine_en_pas)])
 
 	return lines
 
