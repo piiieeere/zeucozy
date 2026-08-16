@@ -47,30 +47,80 @@ technique. L'univers sci-fi d'*Orbitals* n'est **pas** repris.
 > `Attr_Style`** (R/G/B). C'est à peu près la seule chose stylistique qui survit à l'export.
 > Détail dans `Convention Blender.md`.
 
-### Prochaine étape — attaquer par le plus risqué
+### ✅ Le risque principal est levé (2026-08-16)
 
-Exporter le chat en **glTF**, l'importer dans Godot, et reproduire **cel-shading + contour
-en shader Godot**. Si le style ne tient pas, il faut le savoir *avant* de modéliser
-l'aspirateur, le chien et le concombre.
+Le chat est exporté (`assets/models/player_cat.glb`), importé, et **le cel-shading + le
+contour sont reproduits en shader Godot**. Le style tient hors de Blender.
+
+- `shaders/cel_toon.gdshader` — cluster 2 tons, `unshaded`, ombre dérivée en **TSV**
+  depuis la couleur locale (le gris multiplié est structurellement impossible)
+- `shaders/cel_outline.gdshader` — coque inversée, à brancher en **`next_pass`**
+  avec `render_mode cull_front`
+- `shaders/cel_face.gdshader` — **visage peint** : yeux, nez, bouche en ω, moustaches.
+  Espace facial projeté + SDF, appliqué aux surfaces `visage` et `museau_peint`.
+  Rien n'est modelisé (§2bis)
+- `shaders/cel_core.gdshaderinc` — fonctions partagées (TSV, SDF 2D)
+- `scenes/tests/cel_test.tscn` — banc de test isolé du gameplay 2D : instancie le `.glb`,
+  applique les shaders, fait le tour de caméra 8 directions et enregistre 8 PNG
+
+**Restes connus :** liseré d'œil qui dépasse de profil ; Blender et Godot ont divergé
+(le `.blend` ignore le visage peint et l'oreille peinte).
+
+> ⚠️ **La plongée caméra à 60° est à reconsidérer en DA.** Elle est la cause racine de trois
+> problèmes distincts : le personnage se lit mal de face, l'oreille éloignée se projette dans
+> le crâne, et le visage doit être relevé — ce qui le rend visible de dos.
 
 ### Trois pièges connus (appris à la dure, ne pas les reperdre)
 
 1. **Le contour ne survit pas à l'export glTF.** Dans Blender il est fait en *coque inversée*
    (solidify + normales retournées + backface culling) — c'est du setup Blender, pas de la
-   géométrie exportable. **C'est le risque principal du pivot**, à refaire en shader Godot.
+   géométrie exportable. ✅ *Résolu le 2026-08-16* : refait dans `cel_outline.gdshader`.
 2. **Deux objets qui s'interpénètrent produisent un trait parasite** à leur intersection.
-   Parade : fusionner les maillages et unifier les normales.
+   ⚠️ *La parade documentée est insuffisante* : fusionner 21 objets en un seul **objet** ne
+   fusionne pas la **géométrie** — le maillage garde 21 coques fermées, chacune génère sa
+   propre coque inversée. En pratique les traits restants sont discrets et se lisent comme
+   des traits dessinés : **on les garde**.
 3. **Les poids automatiques déchirent ce modèle.** Le rig utilise des **poids rigides**
    (1 objet = 1 os), sauf la **queue** qui a un dégradé sur 3 os.
 4. *(anticipé, pas encore vérifié)* **L'export glTF détruit la cadence en pas** si l'option
    *Always Sample Animations* reste cochée — elle rebake tout en LINEAR. À décocher, et à
    contrôler au premier export. Parade : forcer `Animation.INTERPOLATION_NEAREST` à l'import.
+5. **Godot applique le skinning AVANT `vertex()`** *(vérifié le 2026-08-16, en animation)*.
+   `VERTEX` arrive déformé : tout masque peint calculé dessus **glisse sur la géométrie** dès
+   qu'un os bouge. Parade dans les shaders : `rest_undo`, l'inverse du delta repos→pose de
+   l'os porteur, remis à jour chaque frame. **Exact grâce aux poids rigides du piège n°3.**
+   Pour une paire symétrique sur deux os (les oreilles), deux matrices, choisies par le
+   signe de `x`. Ne jamais laisser une `mat4` d'uniform à sa valeur par défaut.
 
 ### Décision ouverte
 
 §2bis décrit de la **3D temps réel** (caméra top-down 3/4 ~60°). Or tout le code actuel est
 en nœuds 2D (`CharacterBody2D`, `Camera2D`, `Polygon2D`). La migration des scènes vers des
 nœuds 3D **n'est pas tranchée** — à décider une fois le shader validé.
+
+---
+
+## Outils locaux
+
+| Outil | Chemin |
+|---|---|
+| **Godot 4.7.1** | `C:\Users\tibo\Games\Godot\Godot_v4.7.1-stable_win64.exe` (+ `..._console.exe`) |
+| Blender | 5.2.0 LTS — fichiers de travail dans `C:\Users\tibo\Documents\zeucozy_3d\` |
+| Vault Obsidian | `C:\Users\tibo\ThibsVault\02 — Projets\jeu-video-godot\` |
+
+Godot n'est **pas dans le `PATH`** — toujours l'appeler par son chemin complet.
+
+```bash
+# Réimporter les assets sans ouvrir l'éditeur
+"C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64.exe" --headless --import --path .
+# Banc de test du cel-shading — mode interactif (orbite souris, touches O/P/A)
+"C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64.exe" --path . res://scenes/tests/cel_test.tscn
+# Banc de test — mode capture : 8 directions + sondes de skinning, puis quitte
+"C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64.exe" --path . res://scenes/tests/cel_test.tscn -- --capture
+```
+
+> ⚠️ **Lancer le jeu (`scenes/main.tscn`) ne montre rien du travail 3D** : le gameplay est
+> toujours en `Polygon2D` 2D, le chat n'y est pas branché. Tout le 3D vit dans le banc de test.
 
 ---
 
