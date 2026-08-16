@@ -366,7 +366,10 @@ l'oreille proche émerge davantage. Conséquences à connaître : le chat mesure
 1. Modéliser l'aspirateur, le chien et le concombre — budget géométrie **serré** (§11) :
    ils se multiplient à l'écran et la coque inversée double le compte. C'est le seul
    chantier restant qui change ce qu'on **joue**, et non ce qu'on regarde.
-2. Corriger le **liseré d'œil de profil** — côté `cel_face.gdshader`, pas Blender.
+2. 🅿️ **Liseré d'œil de profil — reporté**, yeux et cadrage conviennent en l'état. C'est
+   l'**œil éloigné** qui déborde, `abs()` peignant les deux yeux sur la sphère sans rien
+   savoir de la caméra. Ni `face_pitch` ni `face_front_min` ne peuvent le corriger — voir
+   la Todo, les deux fausses pistes y sont mesurées.
 3. Peindre 3 à 5 **dépassements de trait** — vrai travail à la main, à ne pas générer.
 4. **Redresser la queue dans Blender**, si on veut qu'elle pointe vraiment vers l'arrière.
    Sa pose de repos est un point d'interrogation propre, mais la pointe revient vers
