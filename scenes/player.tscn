@@ -1,51 +1,59 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=7 format=3]
 
-[ext_resource type="Script" path="res://scripts/player.gd" id="1_gjffe"]
+[ext_resource type="Script" path="res://scripts/player.gd" id="1_player"]
+[ext_resource type="Script" path="res://scripts/systems/cel_model.gd" id="2_celmodel"]
 
-[sub_resource type="CircleShape2D" id="CircleShape2D_body"]
-radius = 14.0
+[sub_resource type="CylinderMesh" id="CylinderMesh_shadow"]
+top_radius = 0.85
+bottom_radius = 0.85
+height = 0.02
+radial_segments = 20
+rings = 0
 
-[sub_resource type="CircleShape2D" id="CircleShape2D_hurtbox"]
-radius = 16.0
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_body"]
+height = 1.4
+radius = 0.7
 
-[sub_resource type="CircleShape2D" id="CircleShape2D_pickup"]
-radius = 72.0
+[sub_resource type="SphereShape3D" id="SphereShape3D_hurtbox"]
+radius = 0.8
 
-[node name="Player" type="CharacterBody2D"]
+[sub_resource type="SphereShape3D" id="SphereShape3D_pickup"]
+radius = 2.5
+
+[node name="Player" type="CharacterBody3D"]
 collision_layer = 1
 collision_mask = 0
-script = ExtResource("1_gjffe")
+motion_mode = 1
+script = ExtResource("1_player")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-shape = SubResource("CircleShape2D_body")
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+shape = SubResource("CylinderShape3D_body")
 
-[node name="Outline" type="Polygon2D" parent="."]
-color = Color(0.164706, 0.164706, 0.227451, 0.95)
-polygon = PackedVector2Array(0, -21, 18, 0, 0, 21, -18, 0)
+[node name="Shadow" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)
+mesh = SubResource("CylinderMesh_shadow")
 
-[node name="Body" type="Polygon2D" parent="."]
-color = Color(0.623529, 0.964706, 1, 1)
-polygon = PackedVector2Array(0, -18, 15, 0, 0, 18, -15, 0)
+[node name="Model" type="Node3D" parent="."]
+script = ExtResource("2_celmodel")
+yaw_offset_deg = 180.0
 
-[node name="Hurtbox" type="Area2D" parent="."]
+[node name="Hurtbox" type="Area3D" parent="."]
 collision_layer = 8
 collision_mask = 16
 monitoring = true
 monitorable = true
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox"]
-shape = SubResource("CircleShape2D_hurtbox")
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Hurtbox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
+shape = SubResource("SphereShape3D_hurtbox")
 
-[node name="PickupArea" type="Area2D" parent="."]
+[node name="PickupArea" type="Area3D" parent="."]
 collision_layer = 256
 collision_mask = 128
 monitoring = true
 monitorable = true
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="PickupArea"]
-shape = SubResource("CircleShape2D_pickup")
-
-[node name="Camera2D" type="Camera2D" parent="."]
-enabled = true
-position_smoothing_enabled = true
-position_smoothing_speed = 8.0
+[node name="CollisionShape3D" type="CollisionShape3D" parent="PickupArea"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
+shape = SubResource("SphereShape3D_pickup")

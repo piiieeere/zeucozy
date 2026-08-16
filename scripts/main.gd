@@ -1,42 +1,39 @@
-extends Node2D
+extends Node3D
+
+## Directeur de jeu — spawn, difficulte, UI.
+##
+## Passe en nodes 3D avec le pivot graphique. La logique de run n'a pas bouge :
+## le plan de jeu est XZ, et les reglages sont passes du pixel au metre
+## (1 m ≈ 20 px d'avant). L'arene a une taille FIXE : elle n'a plus de raison
+## de dependre de la taille de fenetre maintenant que la camera est une focale
+## et non un cadre en pixels.
 
 const CHASER_SCENE := preload("res://scenes/enemies/chaser.tscn")
 const BRUTE_SCENE := preload("res://scenes/enemies/brute.tscn")
 const XP_ORB_SCENE := preload("res://scenes/xp_orb.tscn")
 const PROJECTILE_SCENE := preload("res://scenes/projectile.tscn")
-const MIN_ARENA_SIZE := Vector2(5760.0, 3240.0)
-const ARENA_SCALE := 10.0
+
+## Aire de jeu, en metres. Environ 4 largeurs d'ecran de large — le meme
+## rapport qu'avant entre l'arene et le cadre.
+const ARENA_SIZE := Vector2(160.0, 90.0)
+
+## Les ennemis apparaissent juste au-dela du cadre (~16 m de haut, ~29 de large).
+const SPAWN_DISTANCE := Vector2(11.0, 17.0)
 
 var elapsed_time := 0.0
 var spawn_timer := 0.0
 var run_paused := false
 var game_over := false
 var current_upgrade_choices: Array[Dictionary] = []
-var arena_rect := Rect2(Vector2.ZERO, Vector2(1152.0, 648.0))
+var arena_rect := Rect2(-ARENA_SIZE * 0.5, ARENA_SIZE)
 
 @onready var player = $Player
-@onready var player_camera: Camera2D = $Player/Camera2D
-@onready var arena: Polygon2D = $Arena
-@onready var rug: Polygon2D = $Rug
-@onready var rug_secondary: Polygon2D = $RugSecondary
-@onready var rug_corner: Polygon2D = $RugCorner
-@onready var warm_light: Polygon2D = $WarmLight
-@onready var warm_light_secondary: Polygon2D = $WarmLightSecondary
-@onready var accent_blob_left: Polygon2D = $AccentBlobLeft
-@onready var accent_blob_right: Polygon2D = $AccentBlobRight
-@onready var couch_left: Polygon2D = $CouchLeft
-@onready var couch_right: Polygon2D = $CouchRight
-@onready var coffee_table: Polygon2D = $CoffeeTable
-@onready var plant_top: Polygon2D = $PlantTop
-@onready var plant_bottom: Polygon2D = $PlantBottom
-@onready var cushion_left: Polygon2D = $CushionLeft
-@onready var cushion_right: Polygon2D = $CushionRight
-@onready var path_line_horizontal: Line2D = $PathLineHorizontal
-@onready var path_line_vertical: Line2D = $PathLineVertical
-@onready var arena_border: Line2D = $ArenaBorder
-@onready var enemies_container: Node2D = $Enemies
-@onready var projectiles_container: Node2D = $Projectiles
-@onready var pickups_container: Node2D = $Pickups
+# Non types : ils portent un script et on appelle leurs methodes a eux.
+@onready var arena = $Arena
+@onready var camera_rig = $CameraRig
+@onready var enemies_container: Node3D = $Enemies
+@onready var projectiles_container: Node3D = $Projectiles
+@onready var pickups_container: Node3D = $Pickups
 @onready var hud_left_panel: Panel = $CanvasLayer/HudLeftPanel
 @onready var hud_right_panel: Panel = $CanvasLayer/HudRightPanel
 @onready var time_label: Label = $CanvasLayer/TimeLabel
@@ -60,7 +57,7 @@ var arena_rect := Rect2(Vector2.ZERO, Vector2(1152.0, 648.0))
 func _ready() -> void:
 	randomize()
 	add_to_group("game_root")
-	get_window().size_changed.connect(_update_layout)
+	get_window().size_changed.connect(_update_ui_layout)
 
 	player.health_changed.connect(_on_player_health_changed)
 	player.xp_changed.connect(_on_player_xp_changed)
@@ -73,7 +70,14 @@ func _ready() -> void:
 
 	restart_button.pressed.connect(_on_restart_button_pressed)
 
-	_update_layout()
+	arena.build(arena_rect)
+	player.global_position = Vector3(arena_rect.get_center().x, 0.0, arena_rect.get_center().y)
+	player.reset_physics_interpolation()
+	# Le rectangle de jeu n'existe qu'ici : la camera ne pouvait pas se cadrer
+	# toute seule dans son propre _ready.
+	camera_rig.snap_to_target()
+
+	_update_ui_layout()
 	_on_player_health_changed(player.health, player.max_health)
 	_on_player_xp_changed(player.current_xp, player.xp_to_next, player.level)
 	_on_player_stats_changed(player.build_stats_text())
@@ -104,22 +108,26 @@ func is_run_paused() -> bool:
 	return run_paused or game_over
 
 
+## Rectangle de jeu dans le plan XZ : x -> x, y -> z.
 func get_arena_rect() -> Rect2:
 	return arena_rect
 
 
-func clamp_to_arena(world_position: Vector2, padding: Vector2 = Vector2(20.0, 20.0)) -> Vector2:
-	var arena_rect := get_arena_rect()
-	return Vector2(
+func clamp_to_arena(world_position: Vector3, padding: Vector2 = Vector2(1.0, 1.0)) -> Vector3:
+	return Vector3(
 		clamp(world_position.x, arena_rect.position.x + padding.x, arena_rect.end.x - padding.x),
-		clamp(world_position.y, arena_rect.position.y + padding.y, arena_rect.end.y - padding.y)
+		world_position.y,
+		clamp(world_position.z, arena_rect.position.y + padding.y, arena_rect.end.y - padding.y)
 	)
 
 
-func spawn_projectile(origin: Vector2, direction: Vector2, damage: int, speed: float, max_distance: float) -> void:
+func spawn_projectile(origin: Vector3, direction: Vector3, damage: int, speed: float, max_distance: float) -> void:
 	var projectile = PROJECTILE_SCENE.instantiate()
 	projectiles_container.add_child(projectile)
 	projectile.global_position = origin
+	# Sans ca, l'interpolation physique fait partir la croquette de l'origine
+	# du monde sur sa premiere frame.
+	projectile.reset_physics_interpolation()
 	projectile.setup(direction, damage, speed, max_distance)
 
 
@@ -137,6 +145,7 @@ func _spawn_wave() -> void:
 
 		enemies_container.add_child(enemy)
 		enemy.global_position = _get_enemy_spawn_position()
+		enemy.reset_physics_interpolation()
 		enemy.setup(player, difficulty_scale)
 		enemy.defeated.connect(_on_enemy_defeated)
 
@@ -163,23 +172,27 @@ func _pick_enemy_scene() -> PackedScene:
 	return BRUTE_SCENE
 
 
-func _get_enemy_spawn_position() -> Vector2:
-	if player != null:
-		var direction := Vector2.from_angle(randf() * TAU)
-		var distance := randf_range(260.0, 420.0)
-		return clamp_to_arena(player.global_position + direction * distance, Vector2(72.0, 72.0))
+func _get_enemy_spawn_position() -> Vector3:
+	var center := Vector3(arena_rect.get_center().x, 0.0, arena_rect.get_center().y)
 
-	return get_arena_rect().get_center()
+	if player == null:
+		return center
+
+	var angle := randf() * TAU
+	var distance := randf_range(SPAWN_DISTANCE.x, SPAWN_DISTANCE.y)
+	var offset := Vector3(cos(angle), 0.0, sin(angle)) * distance
+	return clamp_to_arena(player.global_position + offset, Vector2(2.5, 2.5))
 
 
-func _on_enemy_defeated(world_position: Vector2, xp_value: int) -> void:
+func _on_enemy_defeated(world_position: Vector3, xp_value: int) -> void:
 	call_deferred("_spawn_xp_orb", world_position, xp_value)
 
 
-func _spawn_xp_orb(world_position: Vector2, xp_value: int) -> void:
+func _spawn_xp_orb(world_position: Vector3, xp_value: int) -> void:
 	var orb = XP_ORB_SCENE.instantiate()
 	pickups_container.add_child(orb)
-	orb.global_position = world_position
+	orb.global_position = Vector3(world_position.x, 0.0, world_position.z)
+	orb.reset_physics_interpolation()
 	orb.xp_value = xp_value
 
 
@@ -244,129 +257,12 @@ func _update_objective_text() -> void:
 	objective_label.text = "%s\nEnnemis actifs: %d" % [next_enemy_text, enemies_container.get_child_count()]
 
 
-func _update_layout() -> void:
-	var viewport_size := get_viewport_rect().size
+func _update_ui_layout() -> void:
+	var viewport_size := get_viewport().get_visible_rect().size
 
 	if viewport_size == Vector2.ZERO:
 		return
 
-	var world_size := Vector2(
-		max(MIN_ARENA_SIZE.x, viewport_size.x * ARENA_SCALE),
-		max(MIN_ARENA_SIZE.y, viewport_size.y * ARENA_SCALE)
-	)
-	arena_rect = Rect2(-world_size * 0.5, world_size)
-	_update_arena_visuals()
-	_update_ui_layout(viewport_size)
-	_update_camera_limits()
-
-	if player != null and player.global_position == Vector2.ZERO:
-		player.global_position = arena_rect.get_center()
-
-
-func _update_arena_visuals() -> void:
-	var points := PackedVector2Array([
-		arena_rect.position,
-		Vector2(arena_rect.end.x, arena_rect.position.y),
-		arena_rect.end,
-		Vector2(arena_rect.position.x, arena_rect.end.y),
-	])
-	arena.polygon = points
-	arena_border.points = points
-	rug.polygon = PackedVector2Array([
-		arena_rect.get_center() + Vector2(-arena_rect.size.x * 0.28, -arena_rect.size.y * 0.18),
-		arena_rect.get_center() + Vector2(arena_rect.size.x * 0.28, -arena_rect.size.y * 0.16),
-		arena_rect.get_center() + Vector2(arena_rect.size.x * 0.24, arena_rect.size.y * 0.22),
-		arena_rect.get_center() + Vector2(-arena_rect.size.x * 0.30, arena_rect.size.y * 0.20),
-	])
-	rug_secondary.polygon = PackedVector2Array([
-		arena_rect.position + Vector2(arena_rect.size.x * 0.10, arena_rect.size.y * 0.54),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.29, arena_rect.size.y * 0.52),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.27, arena_rect.size.y * 0.68),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.08, arena_rect.size.y * 0.70),
-	])
-	rug_corner.polygon = PackedVector2Array([
-		arena_rect.position + Vector2(arena_rect.size.x * 0.68, arena_rect.size.y * 0.66),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.90, arena_rect.size.y * 0.64),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.88, arena_rect.size.y * 0.84),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.66, arena_rect.size.y * 0.86),
-	])
-	warm_light.polygon = PackedVector2Array([
-		arena_rect.position + Vector2(arena_rect.size.x * 0.08, arena_rect.size.y * 0.04),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.42, arena_rect.size.y * 0.02),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.36, arena_rect.size.y * 0.26),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.10, arena_rect.size.y * 0.24),
-	])
-	warm_light_secondary.polygon = PackedVector2Array([
-		arena_rect.position + Vector2(arena_rect.size.x * 0.62, arena_rect.size.y * 0.70),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.92, arena_rect.size.y * 0.66),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.88, arena_rect.size.y * 0.92),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.58, arena_rect.size.y * 0.88),
-	])
-	accent_blob_left.polygon = PackedVector2Array([
-		arena_rect.position + Vector2(arena_rect.size.x * 0.06, arena_rect.size.y * 0.76),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.22, arena_rect.size.y * 0.70),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.18, arena_rect.size.y * 0.88),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.04, arena_rect.size.y * 0.90),
-	])
-	accent_blob_right.polygon = PackedVector2Array([
-		arena_rect.position + Vector2(arena_rect.size.x * 0.76, arena_rect.size.y * 0.18),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.92, arena_rect.size.y * 0.14),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.90, arena_rect.size.y * 0.32),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.72, arena_rect.size.y * 0.30),
-	])
-	couch_left.polygon = PackedVector2Array([
-		arena_rect.position + Vector2(arena_rect.size.x * 0.12, arena_rect.size.y * 0.18),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.23, arena_rect.size.y * 0.18),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.24, arena_rect.size.y * 0.29),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.11, arena_rect.size.y * 0.30),
-	])
-	couch_right.polygon = PackedVector2Array([
-		arena_rect.position + Vector2(arena_rect.size.x * 0.74, arena_rect.size.y * 0.42),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.86, arena_rect.size.y * 0.41),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.87, arena_rect.size.y * 0.53),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.73, arena_rect.size.y * 0.54),
-	])
-	coffee_table.polygon = PackedVector2Array([
-		arena_rect.get_center() + Vector2(-arena_rect.size.x * 0.04, -arena_rect.size.y * 0.04),
-		arena_rect.get_center() + Vector2(arena_rect.size.x * 0.05, -arena_rect.size.y * 0.05),
-		arena_rect.get_center() + Vector2(arena_rect.size.x * 0.04, arena_rect.size.y * 0.05),
-		arena_rect.get_center() + Vector2(-arena_rect.size.x * 0.05, arena_rect.size.y * 0.04),
-	])
-	plant_top.polygon = PackedVector2Array([
-		arena_rect.position + Vector2(arena_rect.size.x * 0.84, arena_rect.size.y * 0.08),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.89, arena_rect.size.y * 0.07),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.90, arena_rect.size.y * 0.13),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.83, arena_rect.size.y * 0.14),
-	])
-	plant_bottom.polygon = PackedVector2Array([
-		arena_rect.position + Vector2(arena_rect.size.x * 0.18, arena_rect.size.y * 0.82),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.24, arena_rect.size.y * 0.81),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.25, arena_rect.size.y * 0.89),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.17, arena_rect.size.y * 0.90),
-	])
-	cushion_left.polygon = PackedVector2Array([
-		arena_rect.position + Vector2(arena_rect.size.x * 0.40, arena_rect.size.y * 0.78),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.45, arena_rect.size.y * 0.77),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.46, arena_rect.size.y * 0.82),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.39, arena_rect.size.y * 0.83),
-	])
-	cushion_right.polygon = PackedVector2Array([
-		arena_rect.position + Vector2(arena_rect.size.x * 0.58, arena_rect.size.y * 0.24),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.64, arena_rect.size.y * 0.23),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.65, arena_rect.size.y * 0.29),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.57, arena_rect.size.y * 0.30),
-	])
-	path_line_horizontal.points = PackedVector2Array([
-		arena_rect.position + Vector2(arena_rect.size.x * 0.16, arena_rect.size.y * 0.50),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.84, arena_rect.size.y * 0.50),
-	])
-	path_line_vertical.points = PackedVector2Array([
-		arena_rect.position + Vector2(arena_rect.size.x * 0.50, arena_rect.size.y * 0.16),
-		arena_rect.position + Vector2(arena_rect.size.x * 0.50, arena_rect.size.y * 0.84),
-	])
-
-
-func _update_ui_layout(viewport_size: Vector2) -> void:
 	hud_left_panel.offset_left = 12.0
 	hud_left_panel.offset_top = 12.0
 	hud_left_panel.offset_right = 552.0
@@ -389,13 +285,3 @@ func _update_ui_layout(viewport_size: Vector2) -> void:
 	game_over_panel.offset_right = game_over_panel.offset_left + 420.0
 	game_over_panel.offset_top = max(120.0, (viewport_size.y - 280.0) * 0.5)
 	game_over_panel.offset_bottom = game_over_panel.offset_top + 280.0
-
-
-func _update_camera_limits() -> void:
-	if player_camera == null:
-		return
-
-	player_camera.limit_left = int(arena_rect.position.x)
-	player_camera.limit_top = int(arena_rect.position.y)
-	player_camera.limit_right = int(arena_rect.end.x)
-	player_camera.limit_bottom = int(arena_rect.end.y)

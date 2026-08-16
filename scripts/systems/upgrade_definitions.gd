@@ -14,7 +14,7 @@ const DEFINITIONS: Array[Dictionary] = [
 	{
 		"id": "move_speed",
 		"title": "Pas nerveux",
-		"description": "+28 en vitesse de deplacement."
+		"description": "Court plus vite."
 	},
 	{
 		"id": "max_health",

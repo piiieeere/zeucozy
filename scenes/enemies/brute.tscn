@@ -1,47 +1,65 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/enemy.gd" id="1_g4kf5"]
 
-[sub_resource type="CircleShape2D" id="CircleShape2D_body"]
-radius = 18.0
+[sub_resource type="CylinderMesh" id="CylinderMesh_shadow"]
+top_radius = 1.05
+bottom_radius = 1.05
+height = 0.02
+radial_segments = 20
+rings = 0
 
-[sub_resource type="CircleShape2D" id="CircleShape2D_area"]
-radius = 20.0
+[sub_resource type="SphereMesh" id="SphereMesh_body"]
+radius = 0.9
+height = 1.8
 
-[node name="Brute" type="CharacterBody2D"]
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_body"]
+height = 1.6
+radius = 0.9
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_area"]
+radius = 1.0
+
+[node name="Brute" type="CharacterBody3D"]
 collision_layer = 2
 collision_mask = 0
+motion_mode = 1
 script = ExtResource("1_g4kf5")
-base_speed = 82.0
+base_speed = 2.6
 max_health = 7
 contact_damage = 2
 xp_drop = 3
+body_color = Color(0.741176, 0.698039, 1, 1)
+outline_thickness = 0.042
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-shape = SubResource("CircleShape2D_body")
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+shape = SubResource("CylinderShape3D_body")
 
-[node name="Outline" type="Polygon2D" parent="."]
-color = Color(0.164706, 0.164706, 0.227451, 0.95)
-polygon = PackedVector2Array(0, -25, 21, -10, 23, 16, 0, 25, -23, 16, -21, -10)
+[node name="Shadow" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)
+mesh = SubResource("CylinderMesh_shadow")
 
-[node name="Body" type="Polygon2D" parent="."]
-color = Color(0.741176, 0.698039, 1, 1)
-polygon = PackedVector2Array(0, -22, 18, -8, 20, 14, 0, 22, -20, 14, -18, -8)
+[node name="Body" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+mesh = SubResource("SphereMesh_body")
 
-[node name="Hurtbox" type="Area2D" parent="."]
+[node name="Hurtbox" type="Area3D" parent="."]
 collision_layer = 32
 collision_mask = 64
 monitoring = true
 monitorable = true
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Hurtbox"]
-shape = SubResource("CircleShape2D_area")
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Hurtbox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("SphereShape3D_area")
 
-[node name="DamageArea" type="Area2D" parent="."]
+[node name="DamageArea" type="Area3D" parent="."]
 collision_layer = 16
 collision_mask = 8
 monitoring = true
 monitorable = true
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="DamageArea"]
-shape = SubResource("CircleShape2D_area")
+[node name="CollisionShape3D" type="CollisionShape3D" parent="DamageArea"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("SphereShape3D_area")
