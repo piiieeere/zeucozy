@@ -25,7 +25,32 @@ extends RefCounted
 ##     palette est chaude, un decalage rouge y passerait pour un bug.
 ##
 ## ⚠️ Ce que §5 impose survit intact et contraint tout : jamais de #000000,
-## jamais un clair qui tire au froid. D'ou un brun tres sombre et un creme chaud.
+## jamais un clair qui tire au froid.
+##
+## ─── v3, 2026-08-17 : la reference d'interface a CHANGE ───
+##
+## Cowboy Bebop + Neon Genesis Evangelion remplacent Orbitals pour la COULEUR,
+## la MATIERE et la COMPOSITION. Orbitals garde la PLACE (HUD nu dans un coin,
+## texte minuscule, ombre decalee, entree en pas) : tout §9.4 et tout ce qui
+## precede sont intacts. Trois choses seulement changent, et elles sont liees :
+##
+##   • L'UI N'EST PLUS TRANSLUCIDE, NULLE PART. Les cartes de choix etaient a
+##     8 % d'opacite — ce n'etait pas une carte, c'etait un voile. Ni Bebop ni
+##     Eva n'ont un seul element d'UI translucide : c'est ce qui les fait lire
+##     comme du PAPIER POSE sur l'image plutot que comme un calque de logiciel.
+##     Seul le voile de fond garde un alpha, et il ASSOMBRIT au lieu de teinter.
+##   • L'UI EST EN GRIS NEUTRE, hors de la palette chaude de §4. Une interface
+##     n'appartient pas au monde : le brun ramenait l'UI dans l'appartement du
+##     chat. ⚠️ Le gris reste QUASI NEUTRE (2 % de saturation) et non le gunmetal
+##     bleute de Bebop — precedent mesure : le corps de la griffure a du passer
+##     de #383E42 a #37393B parce qu'un gris bleute se lit comme une tache
+##     FROIDE sur un sol parchemin. L'UI est posee sur ce meme sol.
+##   • LES COINS SONT DROITS, avec des reperes d'angle. Le chanfrein venait
+##     d'Orbitals ; Bebop et Eva sont carres sans exception.
+##
+## Et une regle de composition qui remplace les demi-teintes : LA HIERARCHIE SE
+## FAIT A L'ECHELLE, pas au gris. Un mot de carton a 44 px contre sa legende a
+## 10 px dit ce qu'aucune nuance ne dira.
 
 const FRAME_SHADER := preload("res://shaders/ui_frame.gdshader")
 const SPEEDLINES_SHADER := preload("res://shaders/ui_speedlines.gdshader")
@@ -36,23 +61,58 @@ const SPEEDLINES_SHADER := preload("res://shaders/ui_speedlines.gdshader")
 
 ## Le trait. Reprend l'outline principal de §4 : l'UI et le monde partagent leur
 ## encre, c'est ce qui fait qu'elle se lit comme dessinee sur la meme cel.
+##
+## ⚠️ Il ne sert plus QUE ce qui flotte sur le jeu — le HUD nu et les jauges. A
+## l'interieur d'un carton, la plaque est opaque : plus rien n'a besoin d'etre
+## detache, et un brun chaud sur du gris neutre y serait une 4e valeur (§9.3
+## regle 4). Voir `make_label` et le cerne.
 const INK := Color("#3D2B1A")
 
-## La plaque des cartons. Plus sombre que l'encre pour que l'encre reste VISIBLE
-## dessus : un cadre de la couleur de son fond n'est pas un cadre.
+## La plaque des cartons — ardoise QUASI NEUTRE, 2 % de saturation.
 ##
-## ⚠️ Elle est SOMBRE, la ou §9 demandait du parchemin avant sa reecriture. Ce
-## n'est pas un gout : le sol du jeu est en parchemin (#F5ECD8) et en ble
-## (#E8D4A8). Une plaque parchemin sur un sol parchemin ne se lit pas.
-const PLATE := Color("#241A11")
+## ⚠️ Elle etait brune (#241A11) jusqu'au 2026-08-17. Le raisonnement d'alors
+## etait juste — "une plaque parchemin sur un sol parchemin ne se lit pas" —
+## mais sa conclusion etait trop etroite : elle ne considerait que des couleurs
+## DE LA PALETTE DU MONDE. Sortir de cette palette etait la 3e option, et
+## personne ne l'avait posee. Le gris n'est pas une entorse a §4, c'est la
+## reconnaissance que l'UI n'est pas dans son domaine.
+##
+## 0,23 de luma contre 0,84 pour le parquet : 0,61 d'ecart. C'est ce chiffre qui
+## rend la plaque VOYANTE sans lui donner de contour epais — une plaque se lit a
+## la valeur, le filet ne fait que la finir.
+const PLATE := Color("#3A3A38")
 
-## Le creme du texte — le meme que le blanc du pelage tuxedo. Un blanc froid sur
-## une image entierement chaude se lit comme une erreur d'affichage (§5).
+## Le second gris, plus sombre : piste de jauge, carte de choix, pastille de
+## langue. Tout ce qui doit se poser DANS un carton sans se confondre avec lui.
+const PLATE_LOW := Color("#2A2A28")
+
+## Le filet et les reperes d'angle des cartons. Assez clair pour se lire sur la
+## plaque, assez sombre pour ne pas concurrencer le texte.
+##
+## ⚠️ C'est lui qui remplace INK comme cerne DES CARTONS. Sur une plaque a 0,23,
+## une encre a 0,19 ne serait pas un cadre — ce serait la couleur de son fond.
+const RULE := Color("#8E8E88")
+
+## Le voile derriere un carton. La SEULE translucidite de toute l'interface, et
+## la seule qui soit legitime : elle assombrit l'image au lieu de la teinter.
+## L'encre a 55 % qu'elle remplace teintait la scene en brun.
+const VEIL := Color("#1A1A19")
+
+## Le creme du texte — le meme que le blanc du pelage tuxedo.
+##
+## ⚠️ IL NE CHANGE PAS, alors qu'un creme plus neutre serait plus "Bebop".
+## #F7EFE0 est deja le blanc du pelage, le coeur de la griffure et le creme de
+## l'haleine puante. Fabriquer un second creme pour l'UI seule, c'est fabriquer
+## exactement la divergence de constantes que ce projet passe son temps a
+## reparer. Et §5 tient : un blanc froid sur une image chaude est un bug.
 const CREAM := Color("#F7EFE0")
 
-## Creme assourdi : legendes, sous-titres de carton, telemetrie. Une hierarchie de
-## texte se fait a la VALEUR avant de se faire a la taille.
-const CREAM_DIM := Color("#C9BCA6")
+## Texte secondaire : legendes, sous-titres, telemetrie.
+##
+## ⚠️ Neutralise le 2026-08-17. L'ancien #C9BCA6 etait un gris CHAUD ; sur une
+## plaque brune il passait, sur du gris neutre il se lit comme du texte jauni.
+## C'est le seul changement de couleur que le passage au gris impose vraiment.
+const CREAM_DIM := Color("#A8A5A0")
 
 const AMBER := Color("#D4A860")      # accent, survol
 const TERRACOTTA := Color("#D46858") # vie
@@ -107,11 +167,24 @@ const _BOLD_EXT := preload("res://assets/fonts/ZenKakuGothicNew-Bold.latin-ext.w
 
 const BASE_VIEWPORT := Vector2(1152.0, 648.0)
 
-const MARGIN := 20.0        ## Marge au bord de l'ecran.
-const PAD := 16.0           ## Air interieur d'un carton.
-const BORDER := 2.0         ## Filet d'encre des cartons.
-const CHAMFER := 12.0       ## Coin coupe des cartons.
-const CHAMFER_SMALL := 3.0  ## Coin coupe des pastilles et des jauges.
+const MARGIN := 20.0  ## Marge au bord de l'ecran.
+const PAD := 16.0     ## Air interieur d'un carton.
+const BORDER := 2.0   ## Filet des cartons.
+
+## Le repere d'angle — deux traits courts en L rentre, en retrait de chaque coin.
+##
+## ⚠️ Il REMPLACE le chanfrein, il ne s'y ajoute pas. Bebop et Eva sont carres
+## sans exception ; mais un angle droit NU retombe sur le rectangle de logiciel
+## que le chanfrein existait pour eviter. Le repere est ce qui date l'interface
+## a sa place — c'est le cartouche technique d'Eva.
+const TICK := 10.0
+const TICK_INSET := 6.0
+const TICK_WIDTH := 2.0
+
+## Pas de repere. Les jauges : une marque de 10 px sur une piste de 8 px de haut
+## n'a aucun sens, et §9.6 leur demande le meme dessin qu'entre elles, pas le
+## meme qu'un carton.
+const NO_TICK := 0.0
 
 ## Le decalage de l'ombre, en px. Deux suffisent : au-dela ca ne lit plus comme
 ## un defaut de registre mais comme une ombre portee, et on retombe sur l'UI de
@@ -123,16 +196,29 @@ const SHADOW_OFFSET := Vector2i(2, 2)
 const SIZE_TIME := 34       ## L'horloge — le seul gros chiffre du HUD.
 const SIZE_LABEL := 15      ## Legendes en capitales ("NIVEAU", "ENNEMIS").
 const SIZE_TELEMETRY := 12  ## Le releve de build, en bas.
-const SIZE_CARD_TITLE := 40 ## Le mot des cartons ("NIVEAU 3", "K.O.").
-const SIZE_CARD_SUB := 14
+
+## Le mot des cartons ("NIVEAU 3", "K.O.") et sa legende.
+##
+## ⚠️ L'ECART ENTRE LES DEUX EST LE DISPOSITIF, pas leur taille absolue. 44
+## contre 10, soit un facteur 4,4 : c'est le geste d'Eva, un mot cadre a ras
+## bord et une legende minuscule a cote. Il REMPLACE la hierarchie par nuances
+## de gris que la v2 tenait (§9.3 regle 5). Rapprocher les deux corps, meme de
+## 4 px, c'est reintroduire le besoin de demi-teintes qu'on vient de supprimer.
+const SIZE_CARD_TITLE := 44
+const SIZE_CARD_SUB := 10
+
 const SIZE_CHOICE_TITLE := 17
 const SIZE_CHOICE_DESC := 12
 const SIZE_BUTTON := 16
 
 ## Interlettrage des capitales. Une capitale sans chasse ajoutee se lit comme un
 ## mot tasse ; c'est ce qui separe un intertitre d'un label de formulaire.
+##
+## Le titre monte a 6 le 2026-08-17 : les capitales tres espacees sont la
+## signature typographique de Bebop, et le titre est le seul endroit ou une
+## chasse pareille reste lisible.
 const TRACKING_LABEL := 2
-const TRACKING_TITLE := 3
+const TRACKING_TITLE := 6
 
 # Jauges.
 #
@@ -240,15 +326,20 @@ static func make_hud_label(text: String, size: int = SIZE_LABEL, color: Color = 
 	return make_label(text, bold_font(), size, color, TRACKING_LABEL, 2, true)
 
 
-## Une plaque de carton : fond sombre, filet d'encre, coins coupes.
+## Une plaque de carton : aplat OPAQUE, filet fin, angles droits, reperes d'angle.
 ##
-## ⚠️ Reservee aux MOMENTS (niveau, K.O.) et aux jauges. Le HUD permanent n'en
-## pose aucune — §9.2. Le jour ou une plaque apparait derriere le HUD, le
-## registre bascule de "anime" a "logiciel" et rien ne le signalera.
+## ⚠️ Reservee aux MOMENTS (niveau, K.O., reglages) et aux jauges. Le HUD
+## permanent n'en pose aucune — §9.2. Le jour ou une plaque apparait derriere le
+## HUD, le registre bascule de "anime" a "logiciel" et rien ne le signalera.
+##
+## ⚠️ NE JAMAIS LUI PASSER UNE COULEUR A ALPHA PARTIEL. §9.3 regle 3 : un aplat
+## d'UI est opaque ou n'existe pas. Une opacite partielle est TOUJOURS la
+## solution de facilite au meme probleme — "cet element est trop present" — et la
+## vraie reponse est de le rendre plus petit, plus sombre, ou de le supprimer.
 static func make_frame(
 	plate: Color = PLATE,
-	ink: Color = INK,
-	chamfer: float = CHAMFER,
+	ink: Color = RULE,
+	tick: float = TICK,
 	border: float = BORDER
 ) -> ShaderMaterial:
 	var mat := ShaderMaterial.new()
@@ -256,7 +347,9 @@ static func make_frame(
 	mat.set_shader_parameter("plate_color", plate)
 	mat.set_shader_parameter("ink_color", ink)
 	mat.set_shader_parameter("border_px", border)
-	mat.set_shader_parameter("chamfer_px", chamfer)
+	mat.set_shader_parameter("tick_px", tick)
+	mat.set_shader_parameter("tick_inset_px", TICK_INSET)
+	mat.set_shader_parameter("tick_width_px", TICK_WIDTH)
 	mat.set_shader_parameter("reveal", 1.0)
 	return mat
 
@@ -266,17 +359,17 @@ static func make_frame(
 ## Il n'y a RIEN a recabler quand il change de taille : `ui_frame.gdshader`
 ## deduit ses pixels de `fwidth(UV)`. Une version precedente passait la taille
 ## par un uniform synchronise sur le signal `resized` — il arrivait en retard ou
-## pas du tout selon l'ordre de resolution du layout, et les chanfreins
-## sortaient plusieurs fois trop gros, d'un facteur different par plaque.
+## pas du tout selon l'ordre de resolution du layout, et les coins sortaient
+## plusieurs fois trop gros, d'un facteur different par plaque.
 static func make_plate(
 	plate: Color = PLATE,
-	ink: Color = INK,
-	chamfer: float = CHAMFER,
+	ink: Color = RULE,
+	tick: float = TICK,
 	border: float = BORDER
 ) -> ColorRect:
 	var rect := ColorRect.new()
 	rect.color = Color(1, 1, 1, 1)
-	rect.material = make_frame(plate, ink, chamfer, border)
+	rect.material = make_frame(plate, ink, tick, border)
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return rect
 

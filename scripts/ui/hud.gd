@@ -9,20 +9,36 @@ extends Control
 ##
 ## ─── Le partage HUD / cartons ───
 ##
-## "Visual Art Direction" §9.2-9.3, reecrit le 2026-08-16 d'apres l'analyse
-## image d'Orbitals. Deux registres, et c'est leur CONTRASTE qui fait
-## l'evenement, pas la taille des cartons :
+## "Visual Art Direction" §9.2-9.3. Deux registres, et c'est leur CONTRASTE qui
+## fait l'evenement, pas la taille des cartons :
 ##
 ##   • LE HUD PERMANENT EST NU. Aucune plaque, aucun cadre, aucune equerre. Du
 ##     texte creme cerne d'encre, pose directement sur le jeu, minuscule et
 ##     tasse dans un coin. Il se detache par son cerne — la logique exacte du
 ##     contour du chat sur le parquet.
-##   • LES CARTONS ONT UN CONTENANT. Plaque sombre, filet d'encre, coins coupes,
-##     lignes de vitesse, entree EN PAS. Ils prennent l'ecran parce qu'ils sont
-##     les seuls a en avoir le droit.
+##   • LES CARTONS ONT UN CONTENANT. Plaque de gris OPAQUE, filet fin, angles
+##     droits et reperes d'angle, lignes de vitesse, entree EN PAS. Ils prennent
+##     l'ecran parce qu'ils sont les seuls a en avoir le droit.
 ##
 ## ⚠️ Le jour ou une plaque apparait derriere le HUD, le registre bascule
 ## d'"anime" a "logiciel" et rien dans le code ne le signalera.
+##
+## ─── v3, 2026-08-17 : ce que ce fichier a change et pourquoi ───
+##
+## La reference d'interface passe d'Orbitals a Cowboy Bebop + Evangelion pour
+## la couleur, la matiere et la composition (§9 v3). Le partage ci-dessus est
+## intact — Orbitals avait raison sur la PLACE. Trois choses seulement bougent,
+## et chacune porte son commentaire a l'endroit ou elle se lit :
+##
+##   1. PLUS RIEN N'EST TRANSLUCIDE (voile de fond excepte). Les cartes de choix
+##      etaient a 8 % : le joueur choisissait entre trois fantomes.
+##   2. LES PLAQUES SONT EN GRIS NEUTRE, hors de la palette chaude du monde.
+##      Une UI n'appartient pas a l'appartement du chat.
+##   3. LE SURVOL SE DIT EN AMBRE, plus par l'opacite — consequence directe du
+##      point 1, le signal etait la transparence elle-meme.
+##
+## Et une regle de composition qui traverse les trois cartons : LES TITRES SONT
+## CALES A GAUCHE. Rien n'est centre sauf le carton lui-meme (§9.1 regle 5).
 
 const UiStyle := preload("res://scripts/systems/ui_style.gd")
 const FxCadence := preload("res://scripts/systems/fx_cadence.gd")
@@ -144,13 +160,25 @@ func _build_corner_block() -> void:
 func _make_gauge_row(gauge_size: Vector2, fill_color: Color) -> Dictionary:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	# ⚠️ BEGIN, PAS CENTER. La colonne donne a toutes ses rangees la largeur de
+	# la plus large ; "LEVEL 1" etant plus long que "85", la rangee de vie etait
+	# plus etroite que celle d'XP — et centree, elle se retrouvait INDENTEE de
+	# 20 px par rapport a elle. Le defaut existait depuis toujours ; il n'est
+	# devenu visible qu'une fois les pistes opaques, personne ne pouvant aligner
+	# a l'oeil deux barres a 22 % d'encre. §9.1 regle 5 : cale a gauche.
+	row.alignment = BoxContainer.ALIGNMENT_BEGIN
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	# La piste : creuse, juste un filet d'encre. Une piste pleine ferait deux
-	# barres au lieu d'une, et on ne saurait plus laquelle est la jauge.
+	# La piste est OPAQUE depuis le 2026-08-17 (§9.3 regle 3). Elle etait a 22 %
+	# d'encre : sur le parquet clair elle disparaissait presque, sur un tapis
+	# sombre elle devenait invisible — donc la jauge vide ne disait plus rien, et
+	# une jauge dont on ne voit pas le VIDE ne dit pas non plus le plein.
+	#
+	# Son filet reste l'ENCRE, et non le gris des cartons : la piste flotte sur
+	# le jeu, elle appartient au registre nu du HUD — qui se detache par son
+	# cerne, comme le chat se detache du parquet.
 	var track := UiStyle.make_plate(
-		Color(UiStyle.INK, 0.22), UiStyle.INK, UiStyle.CHAMFER_SMALL, 1.0
+		UiStyle.PLATE_LOW, UiStyle.INK, UiStyle.NO_TICK, 1.0
 	)
 	track.custom_minimum_size = gauge_size
 	# ⚠️ SANS CECI LA PISTE EST UNE DALLE. Un HBoxContainer etire ses enfants a
@@ -160,9 +188,9 @@ func _make_gauge_row(gauge_size: Vector2, fill_color: Color) -> Dictionary:
 	track.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(track)
 
-	# Le remplissage est un ColorRect NU, enfant de la piste : a 8 px de haut un
-	# chanfrein ne se verrait pas et couterait un second materiau. Le filet de
-	# la piste fait deja tout le travail de forme.
+	# Le remplissage est un ColorRect NU, enfant de la piste : a 8 px de haut une
+	# seconde plaque couterait un materiau pour rien. Le filet de la piste fait
+	# deja tout le travail de forme.
 	var fill := ColorRect.new()
 	fill.color = fill_color
 	fill.position = Vector2(1.0, 1.0)
@@ -284,19 +312,43 @@ func _build_card(card_size: Vector2) -> Dictionary:
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(card)
 
+	# Le voile est la SEULE translucidite de toute l'interface (§9.3 regle 3), et
+	# c'est aussi la seule qui soit legitime : il n'y a pas d'autre facon de
+	# montrer que le jeu est en pause DERRIERE le carton.
+	#
+	# ⚠️ Il ASSOMBRIT, il ne teinte plus. A 55 % d'encre brune il repeignait la
+	# scene en sepia — le sol, le chat et les ennemis changeaient de couleur, ce
+	# qui est exactement ce qu'un voile ne doit pas faire.
 	var veil := ColorRect.new()
-	veil.color = Color(UiStyle.INK, 0.55)
+	veil.color = Color(UiStyle.VEIL, 0.80)
 	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
 	veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(veil)
 
-	var lines := UiStyle.make_speedlines(Color(UiStyle.AMBER, 0.30))
+	# Les lignes sont SOMBRES, et opaques.
+	#
+	# Elles etaient en ambre a 30 %. Deux raisons de changer de couleur, et la
+	# seconde compte plus : §9.3 regle 3 interdit la translucidite, et §9.3
+	# regle 4 reserve l'ambre a ce qui DESIGNE — l'option active, le survol,
+	# l'alerte. Des lignes de vitesse ne designent rien, elles decorent :
+	# depenser l'unique accent sature de l'ecran sur un fond, c'est ne plus
+	# l'avoir pour le survol d'une carte, qui en a besoin.
+	#
+	# ⚠️ ET ELLES SONT PLUS SOMBRES QUE LE VOILE, PAS PLUS CLAIRES. Premier essai
+	# en gris de filet (#8E8E88, 0,56) : opaques, elles ont AVALE L'IMAGE — la
+	# scene voilee tombe a ~0,25, des traits a 0,56 par-dessus deviennent le
+	# sujet du cadre et le carton passe au second plan. C'est le piege exact que
+	# §9.3 regle 3 annonce : la tentation est alors de les rendre translucides,
+	# et la vraie reponse est de les rendre plus SOMBRES. A 0,10 sur un fond a
+	# 0,25 elles se lisent comme de l'encre — le registre du manga, d'ailleurs,
+	# ou le trait de vitesse est noir.
+	var lines := UiStyle.make_speedlines(UiStyle.VEIL)
 	lines.set_anchors_preset(Control.PRESET_FULL_RECT)
 	card.add_child(lines)
 
 	# ⚠️ `card_size`, PAS `size` : dans une methode de Control, `size` est la
 	# taille du noeud lui-meme — ici le HUD plein cadre. Le carton s'etalait sur
-	# tout l'ecran, chanfreins compris, et le seul indice etait un avertissement
+	# tout l'ecran, reperes d'angle compris, et le seul indice etait un avertissement
 	# de shadowing que rien n'obligeait a lire.
 	var plate := UiStyle.make_plate()
 	plate.set_anchors_preset(Control.PRESET_CENTER)
@@ -331,18 +383,28 @@ func _build_level_card() -> void:
 
 	var column: VBoxContainer = parts["column"]
 
+	# ⚠️ CALE A GAUCHE, et sans cerne. Les deux viennent du meme endroit.
+	#
+	# L'alignement : §9.1 regle 5 — rien n'est centre sauf le carton lui-meme.
+	# Un titre centre au-dessus d'une legende centree est une composition de
+	# boite de dialogue ; le meme couple cale a gauche est un cartouche d'anime.
+	#
+	# Le cerne : il existe pour detacher un texte qui FLOTTE sur le jeu. Ici la
+	# plaque est opaque, plus rien ne flotte — et une encre brune sur du gris
+	# neutre serait une 4e valeur a l'ecran (§9.3 regle 4). L'ombre decalee, elle,
+	# reste : ce n'est pas de la lisibilite, c'est la trace de tele d'epoque.
 	_level_title = UiStyle.make_label(
 		Locale.t("hud.level") % 2, UiStyle.display_font(), UiStyle.SIZE_CARD_TITLE,
-		UiStyle.CREAM, UiStyle.TRACKING_TITLE, 4, true
+		UiStyle.CREAM, UiStyle.TRACKING_TITLE, 0, true
 	)
-	_level_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_level_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	column.add_child(_level_title)
 
 	_level_sub = UiStyle.make_label(
 		Locale.t("card.level_sub"), UiStyle.body_font(), UiStyle.SIZE_CARD_SUB,
-		UiStyle.CREAM_DIM, 1, 2, false
+		UiStyle.CREAM_DIM, 1, 0, false
 	)
-	_level_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_level_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	column.add_child(_level_sub)
 
 	# Les trois choix COTE A COTE, et non empiles. Trois boutons empiles avec
@@ -363,14 +425,16 @@ func _build_level_card() -> void:
 ## Le bouton est invisible parce qu'un Button de Godot ne sait pas porter cette
 ## plaque : son `material` teinterait aussi son texte. On separe donc le dessin
 ## (ColorRect + Labels) de l'interaction (Button a plat) — c'est plus simple que
-## de se battre avec un theme, et ca garde le chanfrein.
+## de se battre avec un theme, et ca garde les reperes d'angle.
+##
+## ⚠️ C'ETAIT LE DEFAUT N°1 DE L'INTERFACE. Cette plaque etait a `Color(CREAM,
+## 0.08)`, soit 8 % d'opacite : ce n'etait pas une carte, c'etait un voile pose
+## sur un autre voile. Le joueur devait choisir entre trois fantomes.
 func _make_choice_slot(index: int) -> Control:
 	var slot := Control.new()
 	slot.custom_minimum_size = CHOICE_SIZE
 
-	var plate := UiStyle.make_plate(
-		Color(UiStyle.CREAM, 0.08), UiStyle.CREAM_DIM, UiStyle.CHAMFER_SMALL * 2.0, 1.0
-	)
+	var plate := UiStyle.make_plate(UiStyle.PLATE_LOW, UiStyle.RULE, UiStyle.TICK, 1.0)
 	plate.set_anchors_preset(Control.PRESET_FULL_RECT)
 	slot.add_child(plate)
 
@@ -404,22 +468,33 @@ func _make_choice_slot(index: int) -> Control:
 	button.focus_mode = Control.FOCUS_NONE
 	slot.add_child(button)
 
-	button.pressed.connect(func() -> void: choice_selected.emit(index))
-	button.mouse_entered.connect(_set_slot_hover.bind(plate, true))
-	button.mouse_exited.connect(_set_slot_hover.bind(plate, false))
+	var entry := {"slot": slot, "plate": plate, "title": title, "desc": desc}
 
-	_choice_slots.append({"slot": slot, "plate": plate, "title": title, "desc": desc})
+	button.pressed.connect(func() -> void: choice_selected.emit(index))
+	button.mouse_entered.connect(_set_slot_hover.bind(entry, true))
+	button.mouse_exited.connect(_set_slot_hover.bind(entry, false))
+
+	_choice_slots.append(entry)
 	return slot
 
 
-## Le survol change la PLAQUE, pas le texte. Un texte qui change de couleur au
-## survol clignote ; une plaque qui s'allume designe.
-func _set_slot_hover(plate: ColorRect, hovered: bool) -> void:
-	var mat: ShaderMaterial = plate.material
-	mat.set_shader_parameter(
-		"plate_color", Color(UiStyle.AMBER, 0.26) if hovered else Color(UiStyle.CREAM, 0.08)
+## Le survol s'exprime en AMBRE — filet, reperes d'angle et titre ensemble.
+##
+## ⚠️ Il ne peut plus se dire par l'opacite, et c'est la consequence a laquelle
+## le passage a l'opaque oblige. En v2, survoler une carte la faisait passer de
+## 8 % a 26 % : le signal ETAIT la transparence. Tout etant desormais opaque, il
+## fallait un autre signal, et §9.3 regle 4 le designe — l'ambre est le seul
+## sature de l'ecran, et son role est precisement de DESIGNER.
+##
+## Le fond, lui, ne bouge pas. Une plaque qui change de valeur au survol fait
+## sauter la carte hors de la rangee ; un filet qui s'allume la designe sans la
+## deplacer. C'est le meme dispositif que la pastille de langue active (§9.7).
+func _set_slot_hover(entry: Dictionary, hovered: bool) -> void:
+	var mat: ShaderMaterial = entry["plate"].material
+	mat.set_shader_parameter("ink_color", UiStyle.AMBER if hovered else UiStyle.RULE)
+	entry["title"].add_theme_color_override(
+		"font_color", UiStyle.AMBER if hovered else UiStyle.CREAM
 	)
-	mat.set_shader_parameter("ink_color", UiStyle.AMBER if hovered else UiStyle.CREAM_DIM)
 
 
 func _build_game_over_card() -> void:
@@ -433,16 +508,16 @@ func _build_game_over_card() -> void:
 
 	var title := UiStyle.make_label(
 		"K.O.", UiStyle.display_font(), UiStyle.SIZE_CARD_TITLE + 8,
-		UiStyle.TERRACOTTA, UiStyle.TRACKING_TITLE, 4, true
+		UiStyle.TERRACOTTA, UiStyle.TRACKING_TITLE, 0, true
 	)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	column.add_child(title)
 
 	_game_over_summary = UiStyle.make_label(
 		"", UiStyle.body_font(), UiStyle.SIZE_CARD_SUB,
-		UiStyle.CREAM_DIM, 1, 2, false
+		UiStyle.CREAM_DIM, 1, 0, false
 	)
-	_game_over_summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_game_over_summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	column.add_child(_game_over_summary)
 
 	_restart_button = _make_wide_button(Locale.t("card.restart"))
@@ -458,7 +533,7 @@ func _build_game_over_card() -> void:
 ## Les reglages sont un CARTON, pas un ecran a part.
 ##
 ## Ils passent donc par le meme squelette que le niveau et le K.O. — voile,
-## lignes de vitesse, plaque chanfreinee, ouverture en pas. Une fenetre de
+## lignes de vitesse, plaque grise a angles droits, ouverture en pas. Une fenetre de
 ## preferences dessinee dans un autre registre serait le seul endroit du jeu a
 ## ressembler a un logiciel, et §9 dit exactement l'inverse.
 ##
@@ -476,16 +551,16 @@ func _build_settings_card() -> void:
 
 	_settings_title = UiStyle.make_label(
 		Locale.t("settings.title"), UiStyle.display_font(), UiStyle.SIZE_CARD_TITLE - 6,
-		UiStyle.CREAM, UiStyle.TRACKING_TITLE, 4, true
+		UiStyle.CREAM, UiStyle.TRACKING_TITLE, 0, true
 	)
-	_settings_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_settings_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	column.add_child(_settings_title)
 
 	_settings_hint = UiStyle.make_label(
 		Locale.t("settings.hint"), UiStyle.body_font(), UiStyle.SIZE_CARD_SUB,
-		UiStyle.CREAM_DIM, 1, 2, false
+		UiStyle.CREAM_DIM, 1, 0, false
 	)
-	_settings_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_settings_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	column.add_child(_settings_hint)
 
 	column.add_child(_build_language_row())
@@ -530,9 +605,7 @@ func _make_language_slot(code: String) -> Control:
 	var slot := Control.new()
 	slot.custom_minimum_size = LANGUAGE_SIZE
 
-	var plate := UiStyle.make_plate(
-		Color(UiStyle.CREAM, 0.08), UiStyle.CREAM_DIM, UiStyle.CHAMFER_SMALL * 2.0, 1.0
-	)
+	var plate := UiStyle.make_plate(UiStyle.PLATE_LOW, UiStyle.RULE, UiStyle.TICK, 1.0)
 	plate.set_anchors_preset(Control.PRESET_FULL_RECT)
 	slot.add_child(plate)
 
@@ -558,9 +631,12 @@ func _make_language_slot(code: String) -> Control:
 	return slot
 
 
-## Marque la langue active. La pastille choisie s'allume en ambre — le meme
-## signal visuel que le survol d'une carte d'upgrade, pour la meme raison : c'est
-## la PLAQUE qui designe, jamais la couleur du texte.
+## Marque la langue active — filet, reperes d'angle et libelle en ambre.
+##
+## Exactement le meme signal que le survol d'une carte d'upgrade, et c'est
+## voulu : l'ambre est le seul sature de l'ecran et son role unique est de
+## DESIGNER (§9.3 regle 4). Deux dispositifs differents pour "cet element est
+## celui-la" obligeraient a apprendre l'interface deux fois.
 ##
 ## ⚠️ Sans etat visible, deux pastilles identiques ne disent pas laquelle est en
 ## service, et le seul indice serait la langue du reste du carton — illisible
@@ -569,10 +645,10 @@ func _sync_language_slots() -> void:
 	for entry in _language_slots:
 		var active: bool = entry["code"] == Locale.language()
 		var mat: ShaderMaterial = entry["plate"].material
-		mat.set_shader_parameter(
-			"plate_color", Color(UiStyle.AMBER, 0.26) if active else Color(UiStyle.CREAM, 0.08)
+		mat.set_shader_parameter("ink_color", UiStyle.AMBER if active else UiStyle.RULE)
+		entry["label"].add_theme_color_override(
+			"font_color", UiStyle.AMBER if active else UiStyle.CREAM
 		)
-		mat.set_shader_parameter("ink_color", UiStyle.AMBER if active else UiStyle.CREAM_DIM)
 
 
 func show_settings_card() -> void:
@@ -621,8 +697,9 @@ func _make_wide_button(text: String) -> Button:
 	button.add_theme_color_override("font_color", UiStyle.CREAM)
 	button.add_theme_color_override("font_hover_color", UiStyle.AMBER)
 	button.add_theme_color_override("font_pressed_color", UiStyle.AMBER)
-	button.add_theme_constant_override("outline_size", 2)
-	button.add_theme_color_override("font_outline_color", UiStyle.INK)
+	# Pas de cerne : le bouton est POSE SUR UNE PLAQUE OPAQUE. Le cerne d'encre
+	# n'existe que pour un texte qui flotte sur le jeu — ici il n'ajouterait
+	# qu'une 4e valeur brune sur du gris neutre (§9.3 regle 4).
 	return button
 
 
@@ -647,7 +724,7 @@ func show_level_card(level: int, choices: Array) -> void:
 			slot.visible = true
 			entry["title"].text = Locale.upgrade_title(id).to_upper()
 			entry["desc"].text = Locale.upgrade_description(id)
-			_set_slot_hover(entry["plate"], false)
+			_set_slot_hover(entry, false)
 		else:
 			slot.visible = false
 

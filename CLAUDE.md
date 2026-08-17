@@ -397,7 +397,8 @@ zeucozy/
 │       ├── prop_test.gd # Banc des meubles : 8 directions + rapport de taille au chat
 │       └── motion_probe.gd # ⏱️ Fluidité : temps de frame + battement sur 3 frames
 ├── shaders/          # cel_toon, cel_outline, cel_face, cel_paws, retro_post
-│                     # ui_frame (plaque chanfreinée), ui_speedlines (lignes de vitesse)
+│                     # ui_frame (plaque grise, angles droits + repères d'angle)
+│                     # ui_speedlines (lignes de vitesse)
 │                     # cel_paws (bouts de pattes + les 3 griffes dessinées)
 │                     # cel_ground (parquet peint), cel_rug (tapis)
 │                     # hit_burst (éclat de collision), impact_frame (flash)
@@ -672,9 +673,15 @@ reste à faire, et sa place est déjà prévue (`aim_source`).
 **L'interface a été refaite le 2026-08-16** — voir « L'interface » plus haut. Elle est
 passée du placeholder Godot (police par défaut, panneaux arrondis, textes de debug) au
 registre anime TV 80–90, **d'après un relevé image d'*Orbitals*** et non de mémoire : HUD
-nu et minuscule dans un coin, cartons chanfreinés qui s'ouvrent en pas, deux polices
+nu et minuscule dans un coin, cartons qui s'ouvrent en pas, deux polices
 gothiques japonaises sous-ensemblées. §9 de la DA a été réécrit dans la foulée.
 Les kana décoratifs, eux, ont été retirés le 2026-08-17.
+
+**Puis refaite une SECONDE fois le 2026-08-17** — voir « L'interface en gris » plus bas.
+*Orbitals* garde la **place** de l'UI ; ***Cowboy Bebop* et *Evangelion*** prennent sa
+**couleur**, sa **matière** et sa **composition**. Rien n'est plus translucide, les
+plaques sont en gris neutre hors palette du monde, et les coins coupés cèdent la place à
+des angles droits à repères. §9 de la DA a été réécrit **une deuxième fois**.
 
 **Visuels :** le **chat est dans le jeu**, cel-shadé, contour, visage peint et **griffes
 dessinées** compris, et il se lit à taille de jeu — désormais en **tuxedo noir et blanc**,
@@ -810,6 +817,67 @@ C'est leur **contraste** qui fabrique l'événement, pas la taille des cartons.
 > par frame à 30 fps. ⚠️ La première sonde mesurait `Engine.get_frames_drawn()` — qui reste
 > à **0 en headless**, puisque rien n'est dessiné. Elle rendait « tout sur la frame 0 »,
 > un résultat parfaitement plausible et entièrement faux.
+
+### L'interface en gris — refaite une 2ᵉ fois le 2026-08-17
+
+La référence d'interface passe d'*Orbitals* à ***Cowboy Bebop* + *Neon Genesis
+Evangelion***. Ce n'est pas un raffinement, c'est un changement de famille — demandé après
+avoir joué la version précédente. **Ce qu'*Orbitals* disait de la PLACE reste intact** :
+HUD nu dans un coin, texte minuscule en capitales, ombre décalée, entrée en pas, aucune
+mincho. Ce sont la **couleur**, la **matière** et la **composition** qui changent. DA §9,
+réécrit une deuxième fois.
+
+| | v2 (*Orbitals*) | v3 (Bebop / Eva) | La raison |
+|---|---|---|---|
+| Plaques | brun quasi noir `#241A11` | **gris ardoise** `#3A3A38` | Le brun ramenait l'UI dans la palette du décor. Une interface est **hors-diégèse** |
+| Opacité | 8 à 92 % | **100 %, partout** | Voir ci-dessous — c'était le défaut n°1 |
+| Coins | chanfrein 12 px | **angles droits + repères d'angle** | Bebop et Eva sont carrés sans exception |
+| Hiérarchie | valeur du texte | **contraste d'échelle** (44 px / 10 px) | Le geste d'Eva : un mot énorme, une légende minuscule |
+| Titres | centrés | **calés à gauche** | Rien n'est centré sauf le carton lui-même |
+
+⛔ **Le défaut n°1 : l'UI était translucide.** Les cartes de choix étaient à **8 %
+d'opacité** — ce n'était pas une carte, c'était un voile posé sur un autre voile, et le
+joueur choisissait entre trois fantômes. Ni Bebop ni Eva n'ont un seul élément d'UI
+translucide : leurs aplats opaques sont précisément ce qui les fait lire comme du **papier
+posé sur l'image** plutôt que comme un calque de logiciel.
+
+- **Une opacité partielle est TOUJOURS la solution de facilité au même problème** — « cet
+  élément est trop présent ». La vraie réponse est de le rendre plus **petit**, plus
+  **sombre**, ou de le **supprimer**. Jamais fantôme.
+- **Seul le voile de fond garde un alpha** (80 %), et il **assombrit** au lieu de teinter.
+  À 55 % d'encre brune il repeignait le sol, le chat et les ennemis en sépia.
+- **Le survol ne peut plus se dire par l'opacité** — c'était le signal (8 % → 26 %). Il
+  passe au **filet ambre + titre ambre**, le même dispositif que la pastille de langue
+  active : deux façons de dire « c'est celui-là » obligeraient à apprendre l'UI deux fois.
+- **Le gris est QUASI NEUTRE** (2 % de saturation), pas le gunmetal bleuté de Bebop.
+  Précédent mesuré : le corps de la griffure a dû passer de `#383E42` à `#37393B` parce
+  qu'un gris bleuté se lit comme une tache **froide** sur un sol parchemin. L'UI est posée
+  sur ce même sol, elle hérite de la contrainte.
+- **Le crème du texte ne change PAS** (`#F7EFE0`), alors qu'un crème neutre serait plus
+  Bebop : c'est déjà le blanc du pelage tuxedo, le cœur de la griffure et le crème de
+  l'haleine. En fabriquer un second pour l'UI seule, c'est fabriquer exactement la
+  divergence de constantes que ce projet passe son temps à réparer.
+- **Le cerne d'encre disparaît DANS les cartons**, et nulle part ailleurs. Il existe pour
+  détacher un texte qui flotte sur le jeu ; sur une plaque opaque plus rien ne flotte, et
+  un brun chaud sur du gris neutre y serait une 4ᵉ valeur. Le HUD permanent le garde
+  intégralement — c'est tout ce qui le tient.
+
+> ⚠️ **Deux défauts trouvés EN CAPTURE, aucun visible en lisant le code, et tous deux
+> causés par le passage à l'opaque :**
+> - **Les lignes de vitesse ont avalé l'image.** Passées opaques dans le gris de filet
+>   (`#8E8E88`, luma 0,56) sur une scène voilée à ~0,25, elles sont devenues le **sujet du
+>   cadre**. La tentation immédiate est de leur redonner un alpha ; la bonne réponse est de
+>   les rendre **plus sombres** — `#1A1A19`, où elles se lisent comme de l'encre, ce qu'est
+>   d'ailleurs un trait de vitesse au manga. *Un élément d'UI n'a pas à être clair pour
+>   être opaque.*
+> - **Les deux jauges du HUD n'étaient pas alignées.** `LEVEL 1` étant plus large que `85`,
+>   la rangée de vie était plus étroite — et **centrée**, donc indentée de 20 px. Le défaut
+>   existait **depuis toujours** : personne ne peut aligner à l'œil deux barres à 22 %
+>   d'encre. Corrigé en `ALIGNMENT_BEGIN`.
+>
+> 🔍 **Ce que les deux disent ensemble :** rendre une UI opaque ne la rend pas seulement
+> visible, ça rend visibles **ses défauts de composition**. En attendre d'autres au
+> prochain élément ajouté.
 
 **Juger l'UI sans jouer** — les cartons n'apparaissent pas dans une capture passive :
 
