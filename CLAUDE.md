@@ -383,7 +383,8 @@ zeucozy/
 │   │   ├── cel_style.gd            # Matériaux cel des primitives, du sol + ombre de contact
 │   │   ├── cel_model.gd            # ⭐ Le style du chat — partagé jeu ↔ banc de test
 │   │   ├── cel_prop.gd             # ⭐ Le style des meubles — .glb sans squelette
-│   │   ├── fx_cadence.gd           # ⭐ Les 2 durées de pose des FX (§7) — source unique
+│   │   ├── fx_cadence.gd           # ⭐ Les 3 durées de pose des FX (§7) — source unique
+│   │   ├── breath_aura.gd          # 🌀 Le Soufflement — aura lootable, poses + morsure
 │   │   ├── ui_style.gd             # ⭐ Le style de l'interface — palette, polices, cadence
 │   │   ├── impact_frame.gd         # Flash ambré plein cadre, 2 frames
 │   │   └── hit_burst.gd            # Éclat de collision, 8 poses
@@ -399,6 +400,7 @@ zeucozy/
 │                     # cel_ground (parquet peint), cel_rug (tapis)
 │                     # hit_burst (éclat de collision), impact_frame (flash)
 │                     # claw_slash (la griffure — 3 traits cernés, billboard dirigé)
+│                     # breath_aura (le Soufflement — volutes cernées, décalque AU SOL)
 │                     # cel_core + cel_floor (includes, fonctions pures)
 ├── tools/
 │   ├── export_cat.py       # ⚠️ LE SEUL chemin d'export du chat (voir piège n°6)
@@ -493,6 +495,62 @@ moustaches : segments SDF dans un espace local projeté, rien de modélisé (§2
 > est la taille de la patte à l'écran, pas le trait. Elles vivent donc au banc, et dans
 > tout cadrage rapproché à venir (portrait, menu, écran de mort).
 
+### Le Soufflement — la 1ʳᵉ compétence lootable (2026-08-17)
+
+Une **aura circulaire posée au sol** autour du chat, qui blesse en continu tout ennemi
+entré dedans. Les six upgrades d'origine règlent toutes un chiffre qui existe déjà ;
+celle-ci **débloque une arme** que le chat n'a pas au départ, et se cumule.
+
+| Palier | Rayon | Dégâts / morsure | Dégâts / s |
+|---|---|---|---|
+| 1 | 2,8 m | 1 | 1,5 |
+| 2 | 3,35 m | 2 | 3,0 |
+| 3 | 3,9 m | 3 | 4,5 |
+
+- **Elle mord par à-coups** — une morsure toutes les ~0,67 s, et la couronne gonfle
+  exactement sur cette pose-là. Des dégâts étalés frame par frame seraient invisibles :
+  le joueur ne saurait jamais *quand* il gagne du terrain. Le cycle de poses **EST**
+  l'intervalle de dégâts, il n'y a pas deux horloges.
+- **Elle cohabite avec la griffure au lieu de la remplacer** : 5,2 m visés qui frappent 3
+  d'un coup, contre 2,8 m qui ne se visent pas et grignotent sans arrêt. ⚠️ Son rayon est
+  **sous** la portée de griffure et à peine au-dessus du contact ennemi (~1,55 m) — un
+  mètre de répit, pas plus. C'est la première mécanique du jeu qui récompense de **rester**
+  au contact.
+- **Pas d'Area3D : un test de distance au centre.** Une sphère de collision aurait ajouté
+  le rayon de la hurtbox ennemie (0,75 m) à la portée réelle — le souffle aurait mordu
+  **27 % plus loin que ce qu'il montre**. Même principe que l'arc de la griffure : la
+  géométrie donne les candidats, un test explicite donne la vérité.
+- **Elle est enfant du chat** (c'est son souffle, il ne reste pas en arrière), mais le node
+  `Player` ne tourne pas — seul `$Model` tourne — donc la couronne garde son orientation
+  monde et ne pivote pas quand on vise ailleurs.
+
+> ⚠️ **Elle a introduit une 3ᵉ cadence, et c'est une règle de DA, pas un réglage.**
+> `FxCadence.AMBIENT_POSE` (5 frames) : la cadence de FX (2 frames) donne un clignotement
+> à ~4 Hz sur une aura toujours affichée — exactement ce que §8bis a écarté en refusant le
+> tremblement du signal. **La cadence se choisit sur la durée de vie de l'élément, pas sur
+> sa catégorie.** §7 a été élargi dans la foulée.
+
+> ⚠️ **C'est le seul FX posé À PLAT AU SOL, et le seul OCCULTÉ.** Les deux vont ensemble et
+> aucun n'est un choix esthétique : un cercle en billboard resterait un cercle parfait à
+> l'écran alors que les ennemis vivent dans le plan du sol — le dessin mentirait sur la
+> portée. Et le test de profondeur ne peut **pas** être coupé comme sur la griffure :
+> l'arc arrière de la couronne se projette ~1,8 m plus haut à l'écran, soit la taille du
+> chat, et se peindrait par-dessus lui.
+
+> 🔍 **Trois passes de réglage, toutes mesurées sur les frames, aucune devinable** — et
+> elles disent la même chose : *une couronne régulière n'est pas un dessin, c'est un
+> indicateur de portée.* (1) 11 volutes de 0,24 ne se recouvraient que de 0,03, la marge
+> exacte que l'encre mange → collier de perles ; c'est l'**écartement des centres** qui
+> décide, pas le nombre. (2) Le hasard seul ne défait pas la régularité : il faut une
+> **modulation basse fréquence** (3 bosses sur le tour). (3) Un accent crème centré est un
+> pois — il ne se lit comme un accent de brillance (§6) qu'une fois **rogné en croissant**
+> par le bord de sa volute. Détail chiffré dans la DA, §8.
+
+> ⚠️ **Le trait est exprimé en MÈTRES**, converti en unités de quad à l'affichage. La zone
+> grandit à chaque palier : en fraction du quad, le trait grossirait avec elle. Et il se
+> cale sur la taille de la **forme cernée** (~0,55 m de bouffée), pas sur celle du décalque
+> — la griffure, qui fait plusieurs mètres, porte un trait bien plus épais.
+
 ### La visée — dissociée du déplacement (2026-08-16)
 
 La griffure partait dans la direction de marche. Elle part désormais **là où le joueur
@@ -530,8 +588,10 @@ possible, et c'est tout l'objet du changement : **la fuite cesse d'être passive
   quand le stick revient au centre.
 
 ### Upgrades (upgrade_definitions.gd)
-6 types : `damage`, `attack_speed`, `move_speed`, `max_health`, `pickup_radius`, `claw_range`
+7 types : `damage`, `attack_speed`, `move_speed`, `max_health`, `pickup_radius`,
+`claw_range`, `breath`
 3 choix aléatoires par level-up, sans doublons.
+`breath` est la seule qui **débloque** au lieu de régler — voir « Le Soufflement ».
 `projectile_speed` est sortie du pool avec le passage à la griffure — une upgrade qui
 n'améliore plus rien de visible est un mensonge à l'écran. Son cas reste dans
 `apply_upgrade` : la rebrancher tient à une entrée ici.
@@ -580,9 +640,14 @@ Le rig de caméra fait exception : il bouge dans `_process`, donc son interpolat
 ## État actuel
 
 **Systèmes en place :** mouvement 8 directions, **visée souris indépendante**, spawn
-ennemis, **attaque de griffure au corps à corps**, XP/niveaux, 6 upgrades, scaling
-difficulté, HUD complet, Game Over/restart, arène large. Toute la logique de gameplay
-tourne — le passage en 3D ne l'a pas touchée.
+ennemis, **attaque de griffure au corps à corps**, **aura de Soufflement**, XP/niveaux,
+7 upgrades, scaling difficulté, HUD complet, Game Over/restart, arène large. Toute la
+logique de gameplay tourne — le passage en 3D ne l'a pas touchée.
+
+**La première compétence lootable est arrivée le 2026-08-17** — voir « Le Soufflement »
+plus haut. Le pool d'upgrades ne savait jusque-là que régler des chiffres existants ; il
+peut désormais **débloquer une arme**, et celle-ci pousse à rester au contact là où tout
+le reste du jeu pousse à l'esquive.
 
 **L'attaque a changé de nature le 2026-08-16** — voir « L'attaque » plus haut. Le projectile
 auto-visé cède la place à une griffure dirigée par le joueur : c'est la première fois
@@ -739,6 +804,17 @@ C'est leur **contraste** qui fabrique l'événement, pas la taille des cartons.
   --write-movie <dossier>/c.png --fixed-fps 30 --quit-after 30 -- --ui-card=level
 #   --ui-card=level      le carton de niveau et ses 3 choix
 #   --ui-card=gameover   le carton de K.O.
+```
+
+**Juger le Soufflement sans jouer** — l'aura n'existe pas tant qu'on n'a pas pris
+l'upgrade, donc une capture passive ne la montre jamais :
+
+```bash
+"C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --path . \
+  --write-movie <dossier>/g.png --fixed-fps 30 --quit-after 34 -- --breath=1
+#   --breath=1   la competence au premier palier (2,8 m)
+#   --breath=3   trois reprises cumulees (3,9 m) — pour verifier que le trait
+#                ne grossit PAS avec la zone
 ```
 
 ### La vie en points — faite le 2026-08-16

@@ -29,6 +29,8 @@ const UpgradeDefinitions = preload("res://scripts/systems/upgrade_definitions.gd
 const CelStyle := preload("res://scripts/systems/cel_style.gd")
 const CelModel := preload("res://scripts/systems/cel_model.gd")
 const CLAW_SLASH_SCENE := preload("res://scenes/claw_slash.tscn")
+const BREATH_AURA_SCENE := preload("res://scenes/fx/breath_aura.tscn")
+const BreathAura := preload("res://scripts/systems/breath_aura.gd")
 
 signal health_changed(current_health: int, max_health: int)
 ## Le chat vient d'encaisser un coup — pas l'inverse. C'est ce qu'ecoutent les
@@ -80,6 +82,28 @@ signal died
 ## pique pas — mais franchement frontal : c'est ce qui fait de la direction
 ## visee une vraie visee, et non une decoration.
 @export var claw_arc_degrees: float = 120.0
+
+## LE SOUFFLEMENT — la premiere competence LOOTABLE du jeu.
+##
+## Les six upgrades d'origine reglent toutes un chiffre qui existe deja. Celle-ci
+## debloque une arme que le chat n'a pas au depart : une aura qui blesse en
+## continu tout ce qui s'approche. Elle vaut donc zero tant que `breath_level`
+## est a zero, et rien ne s'affiche a l'ecran dans ce cas.
+##
+## Elle est faite pour COHABITER avec la griffure, pas la remplacer, et les
+## chiffres disent lequel fait quoi : la griffure porte a 5,2 m, se vise, frappe
+## 3 d'un coup ; le souffle porte a 2,8 m, ne se vise pas, et grignote 1 toutes
+## les ~0,67 s. Rester au contact devient un choix, la ou le jeu ne recompensait
+## jusqu'ici que l'esquive.
+##
+## ⚠️ Le rayon de depart est SOUS la portee de griffure et a peine au-dessus de
+## la distance de contact d'un ennemi (~1,55 m, hurtbox 0,8 + 0,75) : le souffle
+## n'offre qu'un metre de repit. C'est ce qui l'empeche d'etre une upgrade
+## gratuite — un ennemi qu'il touche est un ennemi presque en train de mordre.
+@export var breath_radius_base: float = 2.8
+@export var breath_radius_step: float = 0.55
+@export var breath_damage_base: int = 1
+@export var breath_damage_step: int = 1
 
 ## Hauteur du plan de visee, en metres au-dessus des pattes du chat.
 ##
@@ -148,13 +172,39 @@ var aim_direction := Vector3.BACK
 ## recycle, exactement ce que le `spin` tire au hasard evite a l'eclat.
 var claw_side := 1.0
 
+## Zero = le chat n'a pas la competence, et l'aura n'existe meme pas comme node.
+var breath_level := 0
+var breath_aura: Node3D = null
+
 
 func _ready() -> void:
 	add_to_group("player")
 	health = max_health
 	CelStyle.apply_contact_shadow($Shadow)
 	_sync_pickup_radius()
+	_apply_breath_preview()
 	_emit_all_state()
+
+
+## Ouvre le Soufflement au lancement, pour le JUGER a l'image sans avoir a jouer
+## jusqu'au level-up qui le propose :
+##
+##   --breath=1   la competence au premier palier
+##   --breath=3   trois reprises cumulees
+##
+## Meme convention d'arguments utilisateur que `--ui-card=`, `--pitch=` et
+## `--decor-outline=` : tout ce projet dit qu'un reglage qu'on ne peut pas
+## capturer est un reglage fait a l'aveugle.
+func _apply_breath_preview() -> void:
+	for argument in OS.get_cmdline_user_args():
+		if not argument.begins_with("--breath="):
+			continue
+
+		var wanted := int(argument.trim_prefix("--breath="))
+
+		if wanted > 0:
+			breath_level = wanted
+			_sync_breath()
 
 
 func _physics_process(delta: float) -> void:
@@ -289,6 +339,11 @@ func apply_upgrade(upgrade_id: String) -> void:
 		"claw_range":
 			# Le decalque se dimensionne sur la portee : l'upgrade SE VOIT.
 			claw_range += 0.45
+		"breath":
+			# La seule upgrade qui DEBLOQUE : au premier palier elle fait
+			# apparaitre l'aura, aux suivants elle l'elargit et l'alourdit.
+			breath_level += 1
+			_sync_breath()
 		"projectile_speed":
 			# Retiree du tirage tant que le projectile dort. Gardee ici pour
 			# qu'y revenir soit une ligne dans upgrade_definitions.gd.
@@ -302,13 +357,52 @@ func build_stats_text() -> String:
 	# Le releve de build, en bas d'ecran. Les separateurs en point median plutot
 	# qu'en double espace : a 12 px et en creme assourdi, deux espaces ne
 	# separent plus rien et la ligne se lit comme une seule bouillie.
-	return "GRIFFURE %d · CADENCE %.2f s · PORTÉE %.1f m · VITESSE %.1f m/s · AIMANT %.1f m" % [
+	var line := "GRIFFURE %d · CADENCE %.2f s · PORTÉE %.1f m · VITESSE %.1f m/s · AIMANT %.1f m" % [
 		claw_damage,
 		attack_interval,
 		claw_range,
 		speed,
 		pickup_radius
 	]
+
+	# Le Soufflement n'apparait que si le chat l'a. Une ligne d'ATH qui
+	# annoncerait une arme absente serait le pendant exact du mensonge que
+	# `projectile_speed` faisait a l'ecran — voir upgrade_definitions.gd.
+	if breath_level > 0:
+		line += " · SOUFFLE %.1f/s SUR %.1f m" % [
+			BreathAura.damage_per_second(breath_damage()),
+			breath_radius()
+		]
+
+	return line
+
+
+func breath_radius() -> float:
+	return breath_radius_base + breath_radius_step * float(breath_level - 1)
+
+
+func breath_damage() -> int:
+	return breath_damage_base + breath_damage_step * (breath_level - 1)
+
+
+## Cree l'aura a la premiere prise, la redimensionne aux suivantes.
+##
+## Elle est enfant du CHAT, pour la meme raison que la griffure : c'est le
+## souffle du chat, il ne reste pas en arriere quand il court. Le node ne tourne
+## pas avec lui — seul `$Model` tourne — donc la couronne garde son orientation
+## dans le monde et ne se met pas a pivoter des qu'on vise ailleurs.
+func _sync_breath() -> void:
+	if breath_level <= 0:
+		return
+
+	if breath_aura == null or not is_instance_valid(breath_aura):
+		breath_aura = BREATH_AURA_SCENE.instantiate()
+		add_child(breath_aura)
+		# Sans ca, l'interpolation physique fait partir la couronne de l'origine
+		# du monde sur sa premiere frame.
+		breath_aura.reset_physics_interpolation()
+
+	breath_aura.setup(breath_radius(), breath_damage())
 
 
 ## Le squelette claque sur 3s pendant que la position, elle, reste lisse a 60 :

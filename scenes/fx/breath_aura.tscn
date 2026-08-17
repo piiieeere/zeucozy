@@ -1,0 +1,17 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Shader" path="res://shaders/breath_aura.gdshader" id="1_breathaura"]
+[ext_resource type="Script" path="res://scripts/systems/breath_aura.gd" id="2_breathaura"]
+
+[sub_resource type="QuadMesh" id="QuadMesh_breathaura"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_breathaura"]
+render_priority = 1
+shader = ExtResource("1_breathaura")
+
+[node name="BreathAura" type="MeshInstance3D"]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0.06, 0)
+cast_shadow = 0
+mesh = SubResource("QuadMesh_breathaura")
+material_override = SubResource("ShaderMaterial_breathaura")
+script = ExtResource("2_breathaura")

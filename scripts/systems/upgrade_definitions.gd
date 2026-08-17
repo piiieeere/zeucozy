@@ -37,6 +37,15 @@ const DEFINITIONS: Array[Dictionary] = [
 		"id": "claw_range",
 		"title": "Grande allonge",
 		"description": "La griffure porte plus loin et balaie plus large."
+	},
+	{
+		# La premiere entree du pool qui DEBLOQUE quelque chose au lieu de
+		# regler un chiffre existant. Reprise, elle elargit et renforce l'aura
+		# — d'ou le "se cumule", qui doit tenir dans la description : sans lui,
+		# la revoir dans le tirage une fois prise se lit comme un doublon.
+		"id": "breath",
+		"title": "Soufflement",
+		"description": "Un halo de souffle blesse ce qui s'approche. Se cumule."
 	}
 ]
 
