@@ -26,6 +26,7 @@ extends Control
 
 const UiStyle := preload("res://scripts/systems/ui_style.gd")
 const FxCadence := preload("res://scripts/systems/fx_cadence.gd")
+const Locale := preload("res://scripts/systems/locale.gd")
 
 ## Le carton s'ouvre en 3 poses. §9.3 regle 4 : en pas, jamais en fondu — un
 ## panneau qui glisse en `tween` serait le seul element de l'image a ne pas etre
@@ -34,10 +35,17 @@ const CARD_POSES: Array[float] = [0.0, 0.34, 0.72, 1.0]
 
 const CARD_SIZE := Vector2(560.0, 300.0)
 const GAME_OVER_SIZE := Vector2(440.0, 260.0)
+const SETTINGS_SIZE := Vector2(460.0, 250.0)
 const CHOICE_SIZE := Vector2(168.0, 128.0)
+const LANGUAGE_SIZE := Vector2(150.0, 44.0)
 
 signal choice_selected(index: int)
 signal restart_pressed
+## Le joueur a choisi une langue. Le HUD ne l'applique PAS lui-meme : il ne sait
+## rien des valeurs de jeu (vie, temps, objectif) qu'il faudrait reafficher. Il
+## previent main.gd, qui possede l'etat et repousse tout — le meme partage que
+## partout ailleurs ici, le HUD dessine, main decide.
+signal language_selected(code: String)
 
 var _time_value: Label
 var _health_fill: ColorRect
@@ -55,6 +63,14 @@ var _choice_slots: Array[Dictionary] = []
 
 var _game_over_card: Control
 var _game_over_summary: Label
+var _restart_button: Button
+
+var _settings_card: Control
+var _settings_title: Label
+var _settings_hint: Label
+var _settings_language_label: Label
+var _settings_close: Button
+var _language_slots: Array[Dictionary] = []
 
 
 func _ready() -> void:
@@ -66,6 +82,7 @@ func _ready() -> void:
 	_build_telemetry()
 	_build_level_card()
 	_build_game_over_card()
+	_build_settings_card()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -113,7 +130,7 @@ func _build_corner_block() -> void:
 	column.add_child(xp_row["row"])
 	_xp_fill = xp_row["fill"]
 
-	_level_value = UiStyle.make_hud_label("NIVEAU 1")
+	_level_value = UiStyle.make_hud_label(Locale.t("hud.level") % 1)
 	xp_row["row"].add_child(_level_value)
 
 
@@ -170,12 +187,12 @@ func _build_status_block() -> void:
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(column)
 
-	_enemy_count = UiStyle.make_hud_label("ENNEMIS 0")
+	_enemy_count = UiStyle.make_hud_label(Locale.t("hud.enemies") % 0)
 	_enemy_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	column.add_child(_enemy_count)
 
 	_objective = UiStyle.make_label(
-		"SURVIS", UiStyle.body_font(), UiStyle.SIZE_LABEL,
+		Locale.t("hud.objective_survive").to_upper(), UiStyle.body_font(), UiStyle.SIZE_LABEL,
 		UiStyle.CREAM_DIM, UiStyle.TRACKING_LABEL, 2, true
 	)
 	_objective.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
@@ -236,12 +253,12 @@ func set_xp(current: int, required: int, level: int) -> void:
 	var ratio := 0.0 if required <= 0 else clampf(float(current) / float(required), 0.0, 1.0)
 	var inner := UiStyle.XP_BAR - Vector2(2.0, 2.0)
 	_xp_fill.size = Vector2(inner.x * ratio, inner.y)
-	_level_value.text = "NIVEAU %d" % level
+	_level_value.text = Locale.t("hud.level") % level
 
 
 func set_objective(text: String, enemies: int) -> void:
 	_objective.text = text.to_upper()
-	_enemy_count.text = "ENNEMIS %d" % enemies
+	_enemy_count.text = Locale.t("hud.enemies") % enemies
 
 
 func set_telemetry(text: String) -> void:
@@ -317,14 +334,14 @@ func _build_level_card() -> void:
 	column.add_child(kana)
 
 	_level_title = UiStyle.make_label(
-		"NIVEAU 2", UiStyle.display_font(), UiStyle.SIZE_CARD_TITLE,
+		Locale.t("hud.level") % 2, UiStyle.display_font(), UiStyle.SIZE_CARD_TITLE,
 		UiStyle.CREAM, UiStyle.TRACKING_TITLE, 4, true
 	)
 	_level_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(_level_title)
 
 	_level_sub = UiStyle.make_label(
-		"Choisis une amélioration.", UiStyle.body_font(), UiStyle.SIZE_CARD_SUB,
+		Locale.t("card.level_sub"), UiStyle.body_font(), UiStyle.SIZE_CARD_SUB,
 		UiStyle.CREAM_DIM, 1, 2, false
 	)
 	_level_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -436,9 +453,171 @@ func _build_game_over_card() -> void:
 
 	# "つづku" — a suivre. La formule de fin d'episode, qui dit exactement ce que
 	# fait le bouton : ca continue.
-	var restart := _make_wide_button("つづく  ·  RELANCER")
-	column.add_child(restart)
-	restart.pressed.connect(func() -> void: restart_pressed.emit())
+	_restart_button = _make_wide_button(Locale.t("card.restart"))
+	column.add_child(_restart_button)
+	_restart_button.pressed.connect(func() -> void: restart_pressed.emit())
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Le carton de reglages
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+## Les reglages sont un CARTON, pas un ecran a part.
+##
+## Ils passent donc par le meme squelette que le niveau et le K.O. — voile,
+## lignes de vitesse, plaque chanfreinee, ouverture en pas. Une fenetre de
+## preferences dessinee dans un autre registre serait le seul endroit du jeu a
+## ressembler a un logiciel, et §9 dit exactement l'inverse.
+##
+## Un seul reglage aujourd'hui, la langue. La colonne est prete a en recevoir
+## d'autres — c'est la raison d'etre du libelle a gauche et des pastilles a
+## droite plutot que d'un simple bouton.
+func _build_settings_card() -> void:
+	var parts := _build_card(SETTINGS_SIZE)
+	_settings_card = parts["card"]
+	_settings_card.set_meta("plate", parts["plate"])
+	_settings_card.set_meta("lines", parts["lines"])
+	_settings_card.set_meta("content", parts["content"])
+
+	var column: VBoxContainer = parts["column"]
+
+	var kana := UiStyle.make_kana_label("settings")
+	kana.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	column.add_child(kana)
+
+	_settings_title = UiStyle.make_label(
+		Locale.t("settings.title"), UiStyle.display_font(), UiStyle.SIZE_CARD_TITLE - 6,
+		UiStyle.CREAM, UiStyle.TRACKING_TITLE, 4, true
+	)
+	_settings_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	column.add_child(_settings_title)
+
+	_settings_hint = UiStyle.make_label(
+		Locale.t("settings.hint"), UiStyle.body_font(), UiStyle.SIZE_CARD_SUB,
+		UiStyle.CREAM_DIM, 1, 2, false
+	)
+	_settings_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	column.add_child(_settings_hint)
+
+	column.add_child(_build_language_row())
+
+	_settings_close = _make_wide_button(Locale.t("settings.close"))
+	column.add_child(_settings_close)
+	_settings_close.pressed.connect(close_settings_card)
+
+
+## La ligne de reglage : son nom a gauche, ses valeurs a droite.
+##
+## Les langues sont des PASTILLES cote a cote, et non une liste deroulante ni une
+## fleche a cliquer. Avec deux ou trois langues, tout voir d'un coup coute moins
+## cher a lire qu'un menu qui cache ses options — et un OptionButton de Godot
+## arriverait avec son propre theme, donc son propre registre visuel.
+func _build_language_row() -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+
+	_settings_language_label = UiStyle.make_label(
+		Locale.t("settings.language"), UiStyle.bold_font(), UiStyle.SIZE_CHOICE_TITLE,
+		UiStyle.CREAM, UiStyle.TRACKING_LABEL, 0, false
+	)
+	_settings_language_label.custom_minimum_size = Vector2(120.0, 0.0)
+	_settings_language_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	row.add_child(_settings_language_label)
+
+	for code in Locale.LANGUAGES:
+		row.add_child(_make_language_slot(code))
+
+	return row
+
+
+## Une pastille de langue. Meme dispositif que les cartes de choix d'upgrade :
+## le dessin est une plaque + un Label, l'interaction un Button transparent
+## par-dessus — un Button de Godot ne sait pas porter cette plaque sans teinter
+## aussi son texte.
+func _make_language_slot(code: String) -> Control:
+	var slot := Control.new()
+	slot.custom_minimum_size = LANGUAGE_SIZE
+
+	var plate := UiStyle.make_plate(
+		Color(UiStyle.CREAM, 0.08), UiStyle.CREAM_DIM, UiStyle.CHAMFER_SMALL * 2.0, 1.0
+	)
+	plate.set_anchors_preset(Control.PRESET_FULL_RECT)
+	slot.add_child(plate)
+
+	# Le nom de la langue N'EST PAS traduit — voir Locale.NATIVE_NAMES.
+	var label := UiStyle.make_label(
+		Locale.native_name(code), UiStyle.bold_font(), UiStyle.SIZE_BUTTON,
+		UiStyle.CREAM, UiStyle.TRACKING_LABEL, 0, false
+	)
+	label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	slot.add_child(label)
+
+	var button := Button.new()
+	button.flat = true
+	button.set_anchors_preset(Control.PRESET_FULL_RECT)
+	button.focus_mode = Control.FOCUS_NONE
+	slot.add_child(button)
+
+	button.pressed.connect(func() -> void: language_selected.emit(code))
+
+	_language_slots.append({"code": code, "plate": plate, "label": label})
+	return slot
+
+
+## Marque la langue active. La pastille choisie s'allume en ambre — le meme
+## signal visuel que le survol d'une carte d'upgrade, pour la meme raison : c'est
+## la PLAQUE qui designe, jamais la couleur du texte.
+##
+## ⚠️ Sans etat visible, deux pastilles identiques ne disent pas laquelle est en
+## service, et le seul indice serait la langue du reste du carton — illisible
+## precisement pour qui vient de se tromper de langue.
+func _sync_language_slots() -> void:
+	for entry in _language_slots:
+		var active: bool = entry["code"] == Locale.language()
+		var mat: ShaderMaterial = entry["plate"].material
+		mat.set_shader_parameter(
+			"plate_color", Color(UiStyle.AMBER, 0.26) if active else Color(UiStyle.CREAM, 0.08)
+		)
+		mat.set_shader_parameter("ink_color", UiStyle.AMBER if active else UiStyle.CREAM_DIM)
+
+
+func show_settings_card() -> void:
+	_sync_language_slots()
+	_open_card(_settings_card)
+
+
+func close_settings_card() -> void:
+	_settings_card.visible = false
+
+
+func is_settings_card_open() -> bool:
+	return _settings_card.visible
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Changement de langue
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+## Reecrit tout ce que le HUD tient lui-meme. Ce qui depend d'une valeur de jeu
+## — vie, temps, objectif, niveau, telemetrie — n'est PAS ici : main.gd repousse
+## ces valeurs juste apres, et c'est lui qui les possede.
+##
+## ⚠️ Le carton de niveau ne se rafraichit pas : on ne peut pas ouvrir les
+## reglages pendant qu'il est affiche (voir main.gd), donc il n'y a pas de texte
+## a changer sous les yeux du joueur.
+func apply_language() -> void:
+	_settings_title.text = Locale.t("settings.title")
+	_settings_hint.text = Locale.t("settings.hint")
+	_settings_language_label.text = Locale.t("settings.language")
+	_settings_close.text = Locale.t("settings.close")
+	_level_sub.text = Locale.t("card.level_sub")
+	_restart_button.text = Locale.t("card.restart")
+	_sync_language_slots()
 
 
 func _make_wide_button(text: String) -> Button:
@@ -462,19 +641,22 @@ func _make_wide_button(text: String) -> Button:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
+## Les choix arrivent en `id` seulement — le pool ne porte plus de texte depuis
+## le passage au bilingue. C'est ici que l'id devient des mots, une fois, dans la
+## langue du moment.
 func show_level_card(level: int, choices: Array) -> void:
-	_level_title.text = "NIVEAU %d" % level
-	_level_sub.text = "Choisis une amélioration."
+	_level_title.text = Locale.t("hud.level") % level
+	_level_sub.text = Locale.t("card.level_sub")
 
 	for index in range(_choice_slots.size()):
 		var entry: Dictionary = _choice_slots[index]
 		var slot: Control = entry["slot"]
 
 		if index < choices.size():
-			var choice: Dictionary = choices[index]
+			var id := String(choices[index]["id"])
 			slot.visible = true
-			entry["title"].text = String(choice["title"]).to_upper()
-			entry["desc"].text = choice["description"]
+			entry["title"].text = Locale.upgrade_title(id).to_upper()
+			entry["desc"].text = Locale.upgrade_description(id)
 			_set_slot_hover(entry["plate"], false)
 		else:
 			slot.visible = false
@@ -483,7 +665,7 @@ func show_level_card(level: int, choices: Array) -> void:
 
 
 func show_game_over(elapsed: float, level: int) -> void:
-	_game_over_summary.text = "Survie %d:%02d  ·  Niveau %d" % [
+	_game_over_summary.text = Locale.t("card.game_over_summary") % [
 		int(elapsed) / 60, int(elapsed) % 60, level
 	]
 	_open_card(_game_over_card)

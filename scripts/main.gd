@@ -14,6 +14,8 @@ const XP_ORB_SCENE := preload("res://scenes/xp_orb.tscn")
 const PROJECTILE_SCENE := preload("res://scenes/projectile.tscn")
 const HIT_BURST_SCENE := preload("res://scenes/fx/hit_burst.tscn")
 const UpgradeDefinitions = preload("res://scripts/systems/upgrade_definitions.gd")
+const Locale := preload("res://scripts/systems/locale.gd")
+const SettingsStore := preload("res://scripts/systems/settings_store.gd")
 
 ## Aire de jeu, en metres. Environ 4 largeurs d'ecran de large — le meme
 ## rapport qu'avant entre l'arene et le cadre.
@@ -50,6 +52,15 @@ func _ready() -> void:
 	randomize()
 	add_to_group("game_root")
 
+	# AVANT tout affichage. Le HUD est un enfant, donc son `_ready` a deja
+	# construit ses labels quand on arrive ici — dans la langue par defaut. C'est
+	# `_refresh_text()` en fin de methode qui les remet dans la bonne, et ce
+	# detour est VOULU : il fait passer chaque lancement par le chemin du
+	# changement de langue, celui qui casserait sans qu'on s'en aperçoive s'il ne
+	# servait qu'au menu.
+	SettingsStore.load_settings()
+	_apply_language_override()
+
 	player.health_changed.connect(_on_player_health_changed)
 	player.xp_changed.connect(_on_player_xp_changed)
 	player.level_up_requested.connect(_on_player_level_up_requested)
@@ -59,6 +70,7 @@ func _ready() -> void:
 
 	hud.choice_selected.connect(_on_upgrade_button_pressed)
 	hud.restart_pressed.connect(_on_restart_button_pressed)
+	hud.language_selected.connect(_on_language_selected)
 
 	arena.build(arena_rect)
 	player.global_position = Vector3(arena_rect.get_center().x, 0.0, arena_rect.get_center().y)
@@ -67,11 +79,7 @@ func _ready() -> void:
 	# toute seule dans son propre _ready.
 	camera_rig.snap_to_target()
 
-	_on_player_health_changed(player.health, player.max_health)
-	_on_player_xp_changed(player.current_xp, player.xp_to_next, player.level)
-	_on_player_stats_changed(player.build_stats_text())
-	_update_objective_text()
-	_update_time_label()
+	_refresh_text()
 	_apply_ui_preview()
 
 
@@ -98,6 +106,77 @@ func _apply_ui_preview() -> void:
 				game_over = true
 				run_paused = true
 				hud.show_game_over(96.0, 4)
+			"settings":
+				_open_settings()
+
+
+## `--lang=en` force la langue au lancement, SANS toucher au fichier de
+## preferences : c'est une capture, pas un choix du joueur. Sans ce garde-fou,
+## faire une image de la version anglaise reglerait le jeu en anglais pour de
+## bon sur la machine.
+func _apply_language_override() -> void:
+	for argument in OS.get_cmdline_user_args():
+		if argument.begins_with("--lang="):
+			Locale.set_language(argument.trim_prefix("--lang="))
+
+
+## Échap ouvre et ferme les reglages.
+##
+## Ils ne s'ouvrent QUE pendant une run vivante. Pendant le carton de niveau,
+## Échap ne fait rien : ce carton attend une decision, et deux cartons empiles
+## sur un voile a moitie transparent ne se lisent plus. Pendant le K.O. non plus
+## — il n'offre qu'une action, et elle relance le jeu.
+func _unhandled_input(event: InputEvent) -> void:
+	if not event.is_action_pressed("ui_cancel"):
+		return
+
+	if hud.is_settings_card_open():
+		_close_settings()
+	elif not run_paused and not game_over:
+		_open_settings()
+	else:
+		return
+
+	get_viewport().set_input_as_handled()
+
+
+func _open_settings() -> void:
+	run_paused = true
+	hud.show_settings_card()
+
+
+func _close_settings() -> void:
+	hud.close_settings_card()
+	run_paused = false
+
+
+## Le joueur a change de langue. Trois choses, dans cet ordre : on l'applique, on
+## l'ecrit sur le disque, on redessine tout le texte a l'ecran.
+##
+## La sauvegarde est IMMEDIATE et non differee a la fermeture du jeu : une run de
+## survivor se termine souvent par un alt-F4, et un reglage perdu la ou le joueur
+## croit l'avoir pose est pire que pas de reglage du tout.
+func _on_language_selected(code: String) -> void:
+	Locale.set_language(code)
+	SettingsStore.save_settings()
+	_refresh_text()
+
+
+## Tout le texte de l'ecran, reconstruit. Le HUD reecrit ce qu'il tient lui-meme
+## (titres de cartons, libelles de reglages) ; les valeurs de jeu, c'est ICI
+## qu'elles vivent, donc c'est d'ici qu'on les repousse.
+##
+## ⚠️ Rien ne se met a jour tout seul : le HUD n'a pas de source a observer, il
+## n'a que ce que main lui a envoye la derniere fois. Une valeur oubliee ici
+## resterait affichee dans l'ancienne langue jusqu'a son prochain changement —
+## la telemetrie, par exemple, ne bouge qu'au level-up.
+func _refresh_text() -> void:
+	hud.apply_language()
+	_on_player_health_changed(player.health, player.max_health)
+	_on_player_xp_changed(player.current_xp, player.xp_to_next, player.level)
+	_on_player_stats_changed(player.build_stats_text())
+	_update_objective_text()
+	_update_time_label()
 
 
 func _process(delta: float) -> void:
@@ -271,5 +350,5 @@ func _update_time_label() -> void:
 
 
 func _update_objective_text() -> void:
-	var objective := "Brutes en approche" if elapsed_time >= 22.0 else "Survis"
-	hud.set_objective(objective, enemies_container.get_child_count())
+	var key := "hud.objective_brutes" if elapsed_time >= 22.0 else "hud.objective_survive"
+	hud.set_objective(Locale.t(key), enemies_container.get_child_count())

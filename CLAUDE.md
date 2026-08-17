@@ -386,6 +386,8 @@ zeucozy/
 │   │   ├── fx_cadence.gd           # ⭐ Les 3 durées de pose des FX (§7) — source unique
 │   │   ├── breath_aura.gd          # 🌀 L'haleine puante — aura lootable, poses + morsure
 │   │   ├── ui_style.gd             # ⭐ Le style de l'interface — palette, polices, cadence
+│   │   ├── locale.gd               # ⭐ TOUS les textes du jeu — français + anglais
+│   │   ├── settings_store.gd       # Préférences du joueur sur disque (user://settings.cfg)
 │   │   ├── impact_frame.gd         # Flash ambré plein cadre, 2 frames
 │   │   └── hit_burst.gd            # Éclat de collision, 8 poses
 │   ├── ui/
@@ -620,7 +622,10 @@ Le rig de caméra fait exception : il bouge dans `_process`, donc son interpolat
 - **Fournir des scripts complets** lors de modifications, jamais des extraits partiels.
 - **Ne pas complexifier** — architecture simple et modulaire, pas d'abstractions spéculatives.
 - **Respecter l'arborescence** : `scenes/`, `scripts/`, `assets/`.
-- **Langue UI :** Français (labels, titres d'upgrades, descriptions).
+- **Langue UI : français ET anglais depuis le 2026-08-17.** Le français reste la langue
+  d'écriture — on rédige en français, on traduit ensuite. ⚠️ **Aucun texte affichable ne
+  s'écrit en dur** : tout passe par `scripts/systems/locale.gd`, avec les deux langues
+  côte à côte sous la même clé.
 - **Pas de dépendances externes** sans demande explicite.
 - **Itérations rapides et testables** — les changements doivent être vérifiables immédiatement dans Godot.
 - **Nord étoile :** *"Rendre le jeu plus fun, plus mignon, sans complexifier."*
@@ -643,6 +648,11 @@ Le rig de caméra fait exception : il bouge dans `_process`, donc son interpolat
 ennemis, **attaque de griffure au corps à corps**, **aura d'haleine puante**, XP/niveaux,
 7 upgrades, scaling difficulté, HUD complet, Game Over/restart, arène large. Toute la
 logique de gameplay tourne — le passage en 3D ne l'a pas touchée.
+
+**Le jeu est bilingue depuis le 2026-08-17** — voir « Le jeu est bilingue » plus haut.
+Français et anglais, un carton de réglages ouvert par Échap, et le choix conservé d'une
+session à l'autre. Tout le texte affichable a quitté le code pour `locale.gd`, y compris
+les titres et descriptions d'upgrades que le pool portait jusque-là.
 
 **La première compétence lootable est arrivée le 2026-08-17** — voir « L'haleine puante »
 plus haut. Le pool d'upgrades ne savait jusque-là que régler des chiffres existants ; il
@@ -804,6 +814,9 @@ C'est leur **contraste** qui fabrique l'événement, pas la taille des cartons.
   --write-movie <dossier>/c.png --fixed-fps 30 --quit-after 30 -- --ui-card=level
 #   --ui-card=level      le carton de niveau et ses 3 choix
 #   --ui-card=gameover   le carton de K.O.
+#   --ui-card=settings   le carton de réglages (langue)
+#   --lang=en            force la langue de la capture, SANS toucher au fichier
+#                        de préférences — une image n'est pas un choix du joueur
 ```
 
 **Juger l'haleine puante sans jouer** — l'aura n'existe pas tant qu'on n'a pas pris
@@ -816,6 +829,62 @@ l'upgrade, donc une capture passive ne la montre jamais :
 #   --breath=3   trois reprises cumulees (3,9 m) — pour verifier que le trait
 #                ne grossit PAS avec la zone
 ```
+
+### Le jeu est bilingue — fait le 2026-08-17
+
+Français et anglais, avec un **carton de réglages** ouvert par **Échap**. La langue est le
+premier réglage ; le carton est fait pour en recevoir d'autres.
+
+- **`locale.gd` est la source unique des textes**, sur le modèle de `ui_style.gd`. Un
+  texte écrit en dur dans un écran est un texte qui ne sera jamais traduit, et rien dans
+  le code ne le signalera.
+- **Une entrée par clé, les deux langues CÔTE À CÔTE.** Deux dictionnaires séparés (un par
+  langue) laissent une clé non traduite passer inaperçue ; ici le trou se voit en lisant
+  le fichier.
+- **Les clés portent des PHRASES ENTIÈRES**, jamais des morceaux à recoller. `"PORTÉE
+  %.1f m"` est une clé ; `"PORTÉE"` + `"%.1f"` + `"m"` en ferait trois, et l'ordre des
+  mots change d'une langue à l'autre.
+- **Le pool d'upgrades ne porte plus aucun texte** : `upgrade_definitions.gd` n'a plus que
+  des `id`, et les clés `upgrade.<id>.title` / `.desc` s'en déduisent. Rien à tenir
+  synchronisé à la main.
+- **Le nom d'une langue est écrit DANS cette langue** (`FRANÇAIS` / `ENGLISH`) — un joueur
+  perdu cherche « English », pas « Anglais ». C'est la seule chaîne qui ne se traduit pas.
+
+> ⚠️ **Ce n'est PAS `tr()` + un CSV, et c'est délibéré.** Un CSV doit être réimporté à
+> chaque édition de texte, ce qui ajoute une étape à chaque retouche ; et `tr()` sur une
+> clé absente rend **la clé**, en silence — on verrait `card.level_sub` à l'écran sans
+> qu'aucune erreur ne soit levée. Ici une clé inconnue **lève** (faute de code) et une
+> traduction manquante retombe sur le français (donnée manquante). Toute l'UI étant déjà
+> construite en code, le rattrapage automatique des `Control` par `tr()` n'apportait rien.
+
+> ⚠️ **Rien ne se met à jour tout seul.** Le HUD n'observe aucune source : il n'a que ce
+> que `main.gd` lui a envoyé la dernière fois. `_refresh_text()` repousse donc **toutes**
+> les valeurs après un changement de langue — une oubliée resterait dans l'ancienne langue
+> jusqu'à son prochain changement, et la télémétrie, elle, ne bouge qu'au level-up.
+
+> ⚠️ **Le chemin de changement de langue est emprunté À CHAQUE LANCEMENT**, et c'est
+> voulu : le HUD est un enfant de `main`, donc ses labels sont déjà construits (en langue
+> par défaut) quand `main._ready()` s'exécute. C'est `_refresh_text()` qui les remet dans
+> la bonne. Un chemin qui ne servirait qu'au menu casserait sans qu'on s'en aperçoive.
+
+> 🔍 **Le kana `セッティング` rend juste, et par CHANCE, pas par construction.** Google
+> Fonts renvoie sur `text=` un morceau de sous-ensemble **plus large que demandé**.
+> Vérification faite à l'image : `レベルアップ` s'affiche depuis toujours alors que
+> `ア`, `ッ` et `プ` **n'ont jamais été** dans `$Kana` — le garde-fou de `fetch_fonts.ps1`
+> était donc déjà contourné sans que personne le sache. Les deux listes sont remises
+> d'accord ; ne pas compter sur cette marge pour un kana futur.
+> ⚠️ `FontFile.has_char()` **ne répond pas** sur ces woff2 (faux partout, y compris pour
+> un glyphe qui s'affiche) : la seule vérification qui vaut est de **regarder la frame**.
+
+**Réglages : où ils s'ouvrent, et où ils ne s'ouvrent pas.** Échap n'ouvre le carton que
+pendant une run vivante. Pendant le carton de niveau il ne fait rien — ce carton attend
+une décision, et deux cartons empilés sur un voile à moitié transparent ne se lisent
+plus. Pendant le K.O. non plus : il n'offre qu'une action, et elle relance le jeu.
+
+**La sauvegarde est immédiate**, pas différée à la fermeture : une run de survivor se
+termine souvent par un alt-F4, et un réglage perdu là où le joueur croit l'avoir posé est
+pire que pas de réglage du tout. Au tout premier lancement — pas de fichier — le jeu prend
+la **langue du système**, une fois ; dès qu'il y a un choix, le fichier fait foi.
 
 ### La vie en points — faite le 2026-08-16
 

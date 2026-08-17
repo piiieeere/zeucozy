@@ -27,7 +27,7 @@ New-Item -ItemType Directory -Force $OutDir | Out-Null
 $UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
 # Les kana decoratifs reellement dessines par l'UI. Voir ui_style.gd (KANA).
-$Kana = "タイムレベルライフゲームオーバーつづくネコ"
+$Kana = "タイムレベルアップライフゲームオーバーつづくネコセッティング"
 
 # ⚠️ Shippori Mincho B1 a ete ESSAYEE puis ECARTEE le 2026-08-16, apres analyse
 # image d'Orbitals (4 min de gameplay en 720p60) : il n'y a AUCUNE mincho dans

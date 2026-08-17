@@ -31,6 +31,7 @@ const CelModel := preload("res://scripts/systems/cel_model.gd")
 const CLAW_SLASH_SCENE := preload("res://scenes/claw_slash.tscn")
 const BREATH_AURA_SCENE := preload("res://scenes/fx/breath_aura.tscn")
 const BreathAura := preload("res://scripts/systems/breath_aura.gd")
+const Locale := preload("res://scripts/systems/locale.gd")
 
 signal health_changed(current_health: int, max_health: int)
 ## Le chat vient d'encaisser un coup — pas l'inverse. C'est ce qu'ecoutent les
@@ -357,7 +358,7 @@ func build_stats_text() -> String:
 	# Le releve de build, en bas d'ecran. Les separateurs en point median plutot
 	# qu'en double espace : a 12 px et en creme assourdi, deux espaces ne
 	# separent plus rien et la ligne se lit comme une seule bouillie.
-	var line := "GRIFFURE %d · CADENCE %.2f s · PORTÉE %.1f m · VITESSE %.1f m/s · AIMANT %.1f m" % [
+	var line: String = Locale.t("stats.line") % [
 		claw_damage,
 		attack_interval,
 		claw_range,
@@ -369,7 +370,7 @@ func build_stats_text() -> String:
 	# annoncerait une arme absente serait le pendant exact du mensonge que
 	# `projectile_speed` faisait a l'ecran — voir upgrade_definitions.gd.
 	if breath_level > 0:
-		line += " · HALEINE %.1f/s SUR %.1f m" % [
+		line += Locale.t("stats.breath") % [
 			BreathAura.damage_per_second(breath_damage()),
 			breath_radius()
 		]
