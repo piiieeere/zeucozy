@@ -4,10 +4,14 @@
 // bords un peu mous, cernee d'un trait, avec un liseré interieur qui la fait
 // lire comme du tissu et non comme un aplat de couleur.
 //
-// Deux choses le relient au sol pour qu'il ne se decolle pas :
-//   - la MEME flaque de lumiere, evaluee en coordonnees monde. Le soleil
-//     traverse le tapis au lieu de s'arreter a son bord ;
-//   - le meme trait d'encre teinte vers la couleur locale.
+// Ce qui le relie au sol pour qu'il ne se decolle pas : le meme trait d'encre,
+// teinte vers la couleur locale.
+//
+// ⚠️ Il partageait aussi la MEME flaque de lumiere, evaluee en coordonnees
+// monde, pour que le soleil traverse le tapis au lieu de s'arreter a son bord.
+// La flaque a ete retiree le 2026-08-17 — motif et reglages d'alors dans le
+// bandeau en tete de `cel_ground.gdshader`. Le point qui reste valable : sol et
+// tapis doivent s'eclairer PAREIL, sinon leur bord commun saute.
 //
 // Le contour est obtenu par `discard` plutot que par un contour en coque
 // inversee : sur une surface plane, la coque pousse ses sommets vers le haut
@@ -39,23 +43,8 @@ uniform float ink_tint : hint_range(0.0, 1.0) = 0.30;
 uniform float ink_width : hint_range(0.005, 0.3) = 0.055;
 uniform float ink_variation : hint_range(0.0, 1.0) = 0.5;
 
-group_uniforms flaques;
-// A garder identiques a cel_ground, sinon le bord de la flaque saute au
-// passage du tapis. CelStyle les recopie depuis la meme source.
-uniform float pool_scale : hint_range(4.0, 80.0) = 26.0;
-uniform float pool_level : hint_range(0.0, 1.0) = 0.50;
-uniform float pool_wobble : hint_range(0.0, 1.0) = 0.40;
-
-uniform vec4 sun_color : source_color = vec4(1.0, 0.839, 0.647, 1.0); // #FFD6A5
-uniform float sun_strength : hint_range(0.0, 1.0) = 0.22;
-
-uniform float shadow_hue_shift : hint_range(-0.2, 0.2) = -0.02;
-uniform float shadow_saturation : hint_range(0.5, 2.0) = 1.10;
-uniform float shadow_value : hint_range(0.1, 1.0) = 0.93;
-
 varying vec3 v_world;
 
-#include "res://shaders/cel_core.gdshaderinc"
 #include "res://shaders/cel_floor.gdshaderinc"
 
 // Distance signee a un rectangle arrondi. Negatif dedans.
@@ -90,9 +79,10 @@ void fragment() {
 		discard;
 	}
 
-	vec3 shade = warm_shadow(base_color.rgb, shadow_hue_shift, shadow_saturation, shadow_value);
-	vec3 sun = mix(base_color.rgb, sun_color.rgb, sun_strength);
-	vec3 col = mix(shade, sun, light_pool(v_world.xz, pool_scale, pool_level, pool_wobble));
+	// Eclairage uniforme depuis le 2026-08-17 — voir le bandeau en tete de
+	// `cel_ground.gdshader`. Le tapis suit le sol : ils ne peuvent pas diverger
+	// sur ce point sans que leur bord commun se remette a sauter.
+	vec3 col = base_color.rgb;
 
 	float ink = clamp(max(outline, band), 0.0, 1.0);
 	col = mix(col, mix(ink_color.rgb, col, ink_tint), ink);

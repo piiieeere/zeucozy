@@ -35,6 +35,8 @@ var arena_rect := Rect2(-ARENA_SIZE * 0.5, ARENA_SIZE)
 # Non types : ils portent un script et on appelle leurs methodes a eux.
 @onready var arena = $Arena
 @onready var camera_rig = $CameraRig
+# 💤 Plus appele depuis le 2026-08-17 — le flash plein cadre est debranche
+# (voir `_on_player_hit`). Garde pour que le rebrancher tienne en une ligne.
 @onready var impact_frame = $ImpactFrame
 @onready var enemies_container: Node3D = $Enemies
 @onready var projectiles_container: Node3D = $Projectiles
@@ -344,14 +346,19 @@ func _spawn_xp_orb(world_position: Vector3, xp_value: int) -> void:
 	orb.xp_value = xp_value
 
 
-## Le chat encaisse — "Visual Art Direction" §8. Deux effets, et c'est voulu :
-## l'eclat DIT ou ca a cogne, l'impact frame dit que c'etait un coup. §8 les
-## demande ensemble ("hit → petites etoiles chaudes + flash ambre"), et ils se
-## repartissent le travail au lieu de se doubler — l'un est local et tient
-## 8 frames, l'autre est plein cadre et n'en tient que 2.
+## Le chat encaisse — "Visual Art Direction" §8.
+##
+## UN seul effet depuis le 2026-08-17 : l'eclat, local, plante au point de
+## contact. §8 en demandait deux ("hit → petites etoiles chaudes + flash
+## ambre") et ils se repartissaient le travail — l'eclat DIT ou ca a cogne,
+## l'impact frame disait que c'etait un coup.
+##
+## ⚠️ LE FLASH PLEIN CADRE EST DEBRANCHE, a la demande : deux frames d'ambre
+## sur toute l'image se lisaient comme un a-coup d'affichage. C'est la couche
+## GLOBALE qui part ; celle qui porte l'information reste. Le noeud
+## `$ImpactFrame` et son script sont gardes entiers — rebrancher tient a
+## reecrire `impact_frame.flash()` ici (voir impact_frame.gd).
 func _on_player_hit(contact_position: Vector3) -> void:
-	impact_frame.flash()
-
 	var burst = HIT_BURST_SCENE.instantiate()
 	fx_container.add_child(burst)
 	burst.global_position = contact_position

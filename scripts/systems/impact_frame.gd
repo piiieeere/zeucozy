@@ -1,5 +1,21 @@
 extends CanvasLayer
 
+## 💤 EN SOMMEIL DEPUIS LE 2026-08-17 — plus personne n'appelle `flash()`.
+##
+## Debranche a la demande : plein cadre, deux frames, il se lisait comme un
+## flash desagreable plutot que comme un coup encaisse. Meme traitement que le
+## projectile — la scene, le script, le shader et le noeud de `main.tscn` sont
+## gardes ENTIERS, seul l'appel a disparu (voir `_on_player_hit` dans main.gd).
+## Le rebrancher tient en une ligne.
+##
+## ⚠️ Le retour de degat n'a PAS disparu pour autant, et c'est ce qui rend le
+## debranchement acceptable : §8 demandait deux effets qui se partagent le
+## travail — l'eclat DIT ou ca a cogne, le flash disait que c'etait un coup.
+## L'eclat (`hit_burst`), lui, reste branche. Ce qui part, c'est la couche
+## PLEIN CADRE ; ce qui reste, c'est celle qui porte l'information.
+##
+## ─────────────────────────────────────────────────────────────────────────
+##
 ## L'impact frame — "Visual Art Direction" §7 et §8.
 ##
 ## Le flash ambre plein cadre quand LE CHAT encaisse un coup. Rien a voir avec
@@ -9,7 +25,7 @@ extends CanvasLayer
 ##
 ## Place SOUS le post-process (layer -1, donc dessine avant RetroPost) : un
 ## impact frame est une frame de l'IMAGE, pas un calque d'interface. Le grain
-## et la vignette de §8bis doivent passer par-dessus, sinon le
+## de §8bis doit passer par-dessus, sinon le
 ## flash se lit comme un element d'UI colle sur le film. Le HUD, lui, reste
 ## au-dessus des deux — c'est de l'interface, il ne clignote pas avec le chat.
 

@@ -22,7 +22,7 @@ extends Node3D
 ## C'est un `Label3D` billboard plante dans le MONDE, pas un `Control` dans une
 ## `CanvasLayer`. Trois consequences, et les trois sont le but :
 ##
-##   • elle est sous `RetroPost`, donc elle recoit le grain et la vignette de
+##   • elle est sous `RetroPost`, donc elle recoit le grain de
 ##     §8bis — meme argument que l'ATH (layer −2) et l'impact frame (−1) : au
 ##     dessus, elle se lirait comme un calque d'UI colle sur le film ;
 ##   • elle suit le chat, parce qu'elle appartient au coup et non a l'ecran ;

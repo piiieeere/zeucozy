@@ -1,22 +1,30 @@
 // La couche de tele d'epoque — "Visual Art Direction" §8bis.
 //
-// Deux effets, tous deux discrets, appliques sur l'image finale :
-// grain argentique et vignette chaude.
+// UN SEUL effet depuis le 2026-08-17 : le grain argentique.
 //
-// La HALATION a ete retiree le 2026-08-16. Elle etait la troisieme couche
-// (bave ambre autour des zones claires, calculee par ecart au flou) : elle
-// marchait, mais elle chargeait l'image sans que le jeu y gagne. §15 tranche
-// dans ce sens — lisibilite > detail. Son diagnostic reste dans la doc, il ne
-// faut pas le reperdre si on la rebranche un jour : elle ne peut PAS se
-// seuiller sur la luminance absolue, la palette parchemin etant deja a ~0,93.
+// Ce qui a ete retire, et qu'il ne faut pas reperdre :
+//
+// • LA HALATION — retiree le 2026-08-16. Bave ambre autour des zones claires,
+//   calculee par ecart au flou. Elle marchait, mais elle chargeait l'image sans
+//   que le jeu y gagne (§15 : lisibilite > detail). Son piege de reglage reste
+//   valable pour TOUT effet : elle ne peut PAS se seuiller sur la luminance
+//   absolue, la palette parchemin etant deja a ~0,93.
+//
+// • LA VIGNETTE CHAUDE — retiree le 2026-08-17, a la demande. Brun tres leger
+//   sur les bords, cense recentrer le regard. Mesuree avant de couper : c'etait
+//   une rampe lisse, sans contour de banding, donc elle n'etait PAS la source
+//   des lignes parasites qui ont motive la coupe (voir plus bas). Elle partait
+//   quand meme, pour la meme raison que la halation : §15 demande que ces
+//   effets se remarquent quand on les COUPE, pas quand on les regarde — et
+//   coupee, celle-ci ne manque pas.
+//
+//   ⚠️ Si on la rebranche : elle assombrissait par `mix(col, col * tint, edge)`
+//   avec tint = (0.62, 0.50, 0.40), force 0.30, depart a 0.72 du rayon.
 //
 // Ce qui est VOLONTAIREMENT absent, et ne doit pas etre rajoute :
 // le tremblement du signal hertzien (nauseeux sur une run de 20 minutes),
 // le saignement chromatique et les lignes de balayage (ils nuisent a la
 // lecture dans une arene chargee), et tout bloom froid ou bleute.
-//
-// §15 tranche : ces effets doivent se remarquer quand on les COUPE, pas
-// quand on les regarde.
 
 shader_type canvas_item;
 
@@ -52,11 +60,6 @@ uniform float grain_size : hint_range(1.0, 4.0) = 1.5;
 // A 0 on retrouve exactement l'ancien comportement, pour comparer.
 uniform float grain_stagger : hint_range(0.0, 1.0) = 1.0;
 
-group_uniforms vignette;
-uniform float vignette_strength : hint_range(0.0, 1.0) = 0.30;
-uniform float vignette_start : hint_range(0.0, 1.4) = 0.72;
-uniform vec4 vignette_tint : source_color = vec4(0.62, 0.50, 0.40, 1.0);
-
 float hash21(vec2 p) {
 	return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
 }
@@ -64,11 +67,7 @@ float hash21(vec2 p) {
 void fragment() {
 	vec3 col = texture(screen_tex, SCREEN_UV).rgb;
 
-	// --- vignette chaude : recentre le regard, pose l'epoque -----------------
-	float edge = smoothstep(vignette_start, 1.42, length(SCREEN_UV - vec2(0.5)) * 2.0);
-	col = mix(col, col * vignette_tint.rgb, edge * vignette_strength);
-
-	// --- grain argentique ----------------------------------------------------
+	// --- grain argentique — le seul post-traitement restant -------------------
 	vec2 cell = floor(SCREEN_UV / SCREEN_PIXEL_SIZE / grain_size);
 	// Le dephasage est tire de la CELLULE, donc fixe dans le temps : une
 	// cellule donnee change a intervalle regulier, jamais en avance ni en

@@ -9,12 +9,34 @@
 // coordonnees MONDE, pas sur l'UV : la taille du plan peut changer sans que le
 // parquet bouge sous les pieds du chat.
 //
-// Trois regles de DA gouvernent ce fichier :
+// Deux regles de DA gouvernent ce fichier :
 //   - §2bis  aplats francs, aucun degrade, aucun PBR
 //   - §2ter·1  le trait est de l'encre : epaisseur variable, couleur locale,
 //              depassements
-//   - §2ter·2  l'ombre est une forme dessinee. Un sol plat a une normale
-//              constante : sa lumiere ne peut etre QUE peinte.
+//
+// ─── LA FLAQUE DE LUMIERE A ETE RETIREE LE 2026-08-17 ───
+//
+// Le sol portait un rai de soleil peint (§2ter·2 : un sol plat a une normale
+// constante, sa lumiere ne peut etre QUE dessinee). Le champ etait anisotrope,
+// etire le long de `SUN_DIR` — 30°, jamais l'axe du parquet — et ancre au
+// MONDE, comme tout le reste du motif.
+//
+// ⚠️ C'est cet ancrage qui l'a tue, et ce n'etait pas un defaut de reglage.
+// La camera suit le chat : un motif ancre au monde DEFILE a l'ecran des qu'on
+// marche. Le parquet defile aussi, mais il est fait de traits fins qu'on lit
+// comme du sol ; le rai, lui, est une grande bande claire en diagonale sur
+// toute la largeur du cadre — et une grande bande qui traverse l'ecran en
+// permanence se lit comme un artefact d'affichage, pas comme du soleil.
+//
+// Aucun reglage ne rattrapait ca. Agrandir `pool_scale` ne fait qu'allonger la
+// bande, et la seule facon de l'empecher de defiler serait de l'ancrer a la
+// CAMERA — soit une tache de soleil qui suit le chat, ce qui est pire.
+//
+// La fonction `light_pool()` reste dans `cel_floor.gdshaderinc`, non appelee :
+// si un jour la lumiere peinte revient, elle doit revenir A UN SEUL ENDROIT,
+// partage par le sol et les tapis. C'est la raison d'etre de cet include.
+// Reglages d'alors : scale 26 m, level 0,56, wobble 0,40, soleil #FFD6A5 a
+// 0,26, ombre TSV (teinte −0,02 · saturation 1,10 · valeur 0,88).
 
 shader_type spatial;
 render_mode unshaded, cull_back, shadows_disabled, specular_disabled;
@@ -61,26 +83,8 @@ uniform float joint_wobble : hint_range(0.0, 0.3) = 0.11;
 // Depassement au croisement, en metres — le trait de crayon mal arrete.
 uniform float joint_overshoot : hint_range(0.0, 0.5) = 0.24;
 
-group_uniforms flaques;
-// Echelle de la flaque de lumiere, en metres. ~26 m pour ~1 flaque par ecran.
-uniform float pool_scale : hint_range(4.0, 80.0) = 26.0;
-uniform float pool_level : hint_range(0.0, 1.0) = 0.50;
-uniform float pool_wobble : hint_range(0.0, 1.0) = 0.40;
-
-// Le ton clair tire vers l'ambre chaud : c'est une tache de soleil, pas une
-// simple eclaircie.
-uniform vec4 sun_color : source_color = vec4(1.0, 0.839, 0.647, 1.0); // #FFD6A5
-uniform float sun_strength : hint_range(0.0, 1.0) = 0.22;
-
-// Le ton d'ombre reste derive en TSV : le gris multiplie est structurellement
-// impossible (§5.1). Ecart volontairement faible — c'est un sol, pas un mur.
-uniform float shadow_hue_shift : hint_range(-0.2, 0.2) = -0.02;
-uniform float shadow_saturation : hint_range(0.5, 2.0) = 1.10;
-uniform float shadow_value : hint_range(0.1, 1.0) = 0.93;
-
 varying vec3 v_world;
 
-#include "res://shaders/cel_core.gdshaderinc"
 #include "res://shaders/cel_floor.gdshaderinc"
 
 // Decalage horizontal d'une rangee. Pose a l'anglaise : deux rangees voisines
@@ -159,9 +163,10 @@ void fragment() {
 	wood = mix(wood, wood_dark.rgb, step(1.0 - dark_plank_ratio, pick));
 	wood *= 1.0 + (hash12(vec2(row, col) + 3.1) - 0.5) * plank_jitter;
 
-	vec3 shade = warm_shadow(wood, shadow_hue_shift, shadow_saturation, shadow_value);
-	vec3 sun = mix(wood, sun_color.rgb, sun_strength);
-	vec3 col_out = mix(shade, sun, light_pool(p, pool_scale, pool_level, pool_wobble));
+	// Le parquet est ECLAIRE UNIFORMEMENT depuis le 2026-08-17 : plus de rai de
+	// soleil. Voir le bandeau "flaque de lumiere retiree" en tete de fichier.
+	// La lame porte sa couleur de palette, sans ton d'ombre ni ton de soleil.
+	vec3 col_out = wood;
 
 	col_out = mix(col_out, mix(ink_color.rgb, col_out, ink_tint), clamp(ink, 0.0, 1.0));
 

@@ -17,25 +17,22 @@ const RUG_SHADER := preload("res://shaders/cel_rug.gdshader")
 ## Trait principal — brun chaud. Jamais de noir pur, meme sur un contour (§4).
 const INK := Color("#3D2B1A")
 
-## Reglage de la flaque de lumiere au sol.
+## ⚠️ LA FLAQUE DE LUMIERE A ETE RETIREE LE 2026-08-17, et `POOL` avec elle.
 ##
-## UNE seule source, recopiee telle quelle dans le sol et dans les tapis. C'est
-## la meme raison que "ne jamais recopier les constantes de cel_model.gd" : deux
-## valeurs qui divergent d'un demi-pouce et le bord de la flaque saute des qu'on
-## passe sur un tapis, ce qui redessine exactement le decoupage geometrique que
-## le style existe pour cacher.
-const POOL := {
-	"pool_scale": 26.0,
-	# Au-dessus de 0,5 : la part ensoleillee est MINORITAIRE. Un sol a moitie
-	# au soleil n'a plus de rai, il a deux moities.
-	"pool_level": 0.56,
-	"pool_wobble": 0.40,
-	"sun_color": Color("#FFD6A5"),
-	"sun_strength": 0.26,
-	"shadow_hue_shift": -0.02,
-	"shadow_saturation": 1.10,
-	"shadow_value": 0.88,
-}
+## Sol et tapis sont desormais eclaires UNIFORMEMENT : chacun porte sa couleur
+## de palette, sans ton de soleil ni ton d'ombre. Le motif et ses reglages sont
+## conserves dans le bandeau en tete de `cel_ground.gdshader`.
+##
+## Ce qui a tue la flaque n'etait pas son dessin mais son ANCRAGE : ancree au
+## monde, comme tout le motif du parquet, elle DEFILAIT en diagonale sur toute
+## la largeur du cadre des que le chat marchait — et une grande bande claire qui
+## traverse l'ecran en permanence se lit comme un artefact d'affichage.
+##
+## Ce que `POOL` disait, en revanche, reste vrai de toute lumiere de sol qui
+## reviendrait : UNE seule source, recopiee telle quelle dans le sol et dans les
+## tapis. Deux valeurs qui divergent d'un demi-pouce et le bord de la flaque
+## saute des qu'on passe sur un tapis — ce qui redessine exactement le decoupage
+## geometrique que le style existe pour cacher.
 
 
 ## Aplat cel sans contour. Pour le sol et les zones de couleur posees dessus :
@@ -86,7 +83,6 @@ static func make_outlined(
 static func make_ground() -> ShaderMaterial:
 	var mat := ShaderMaterial.new()
 	mat.shader = GROUND_SHADER
-	_apply_pool(mat)
 	return mat
 
 
@@ -103,13 +99,7 @@ static func make_rug(color: Color, size: Vector2, plane_size: Vector2) -> Shader
 	# Le liseré interieur suit la taille du tapis, sinon un petit tapis se
 	# retrouve entierement mange par son propre liseré.
 	mat.set_shader_parameter("band_inset", clampf(minf(size.x, size.y) * 0.09, 0.25, 1.1))
-	_apply_pool(mat)
 	return mat
-
-
-static func _apply_pool(mat: ShaderMaterial) -> void:
-	for key: String in POOL:
-		mat.set_shader_parameter(key, POOL[key])
 
 
 ## Ombre de contact — la petite tache posee sous un personnage.

@@ -45,6 +45,19 @@ float ink_line(float d, float width) {
 	return line * (1.0 - smoothstep(width * 1.5, width * 5.0, aa));
 }
 
+// ─── CE QUI SUIT N'EST PLUS APPELE DEPUIS LE 2026-08-17 ───
+//
+// La flaque de lumiere a ete retiree du sol et des tapis : ancree au monde,
+// elle defilait en diagonale sur toute la largeur du cadre des que le chat
+// marchait, et se lisait comme un artefact d'affichage plutot que comme du
+// soleil. Motif complet et reglages d'alors : en tete de `cel_ground.gdshader`.
+//
+// ⚠️ ELLE RESTE ICI, ET C'EST LA RAISON D'ETRE DE CE FICHIER. Si la lumiere
+// peinte revient un jour, elle doit revenir A UN SEUL ENDROIT, partage par le
+// sol et les tapis — sinon leur bord commun se remet a sauter. Deux
+// reimplementations divergentes sont le defaut que cet include existe pour
+// empecher ; la supprimer, c'est les garantir.
+
 // Direction des rais de lumiere — 30°, jamais l'axe du parquet. Un rai qui
 // suivrait les lames se confondrait avec elles.
 const vec2 SUN_DIR = vec2(0.866, 0.5);

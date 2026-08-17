@@ -45,7 +45,7 @@ far = 400.0
 
 ; L'interface est en layer -2, donc SOUS l'impact frame (-1) et SOUS le
 ; post-process retro (0). C'est deliberé : le HUD fait partie de l'IMAGE, il
-; doit donc recevoir le grain et la vignette de §8bis comme le reste. Pose
+; doit donc recevoir le grain de §8bis comme le reste. Pose
 ; au-dessus, il se lirait comme un calque d'UI colle sur le film — exactement
 ; l'argument que porte deja l'impact frame.
 [node name="HudLayer" type="CanvasLayer" parent="."]

@@ -42,12 +42,19 @@ technique. L'univers sci-fi d'*Orbitals* n'est **pas** repris.
 - **Animation en pas** — squelette sur 3s (~20 fps), **position et caméra lisses à 60**.
   Rien à changer dans `player.gd` / `enemy.gd` : la cadence vit dans les fichiers d'animation.
   ⚠️ *« Position »* inclut le **rebond de marche** : voir « La fluidité » plus bas
-- **Post-process léger et permanent** — grain 3–5 % *rafraîchi sur 3s* et vignette chaude.
-  Pas de tremblement d'image ni de saignement chroma (écartés).
-  ⚠️ **La halation a été retirée le 2026-08-16** — elle marchait, mais elle chargeait
-  l'image sans que le jeu y gagne (§15 : lisibilité > détail). Son diagnostic est conservé
-  dans `Pipeline 3D.md` : si on la rebranche, elle ne peut **pas** se seuiller sur la
-  luminance absolue, la palette parchemin étant déjà à ~0,93
+- **Post-process léger et permanent** — **le grain, et rien d'autre** (3–5 %, *rafraîchi
+  sur 3s*). Pas de tremblement d'image ni de saignement chroma (écartés).
+  ⚠️ **La halation a été retirée le 2026-08-16, la vignette chaude le 2026-08-17** — les
+  deux marchaient, les deux chargeaient l'image sans que le jeu y gagne (§15 :
+  lisibilité > détail). Le test à appliquer à un effet de post n'est pas son rendu isolé :
+  **il doit se remarquer quand on le COUPE.** Leurs réglages sont conservés en commentaire
+  dans `retro_post.gdshader`, et le diagnostic de la halation dans `Pipeline 3D.md` : si on
+  la rebranche, elle ne peut **pas** se seuiller sur la luminance absolue, la palette
+  parchemin étant déjà à ~0,93.
+  🔍 **La vignette a été mesurée avant d'être coupée** : soupçonnée de fabriquer des lignes
+  parasites, elle donnait en fait une rampe **parfaitement lisse**, sans un contour de
+  banding, sur les deux coins bas des frames du jeu. **Des lignes parasites ne se cherchent
+  pas dans le post** — il ne reste qu'un bruit par cellule de 1,5 px
 
 > Toute la donnée de style traverse le glTF via **un seul attribut de couleur de sommet
 > `Attr_Style`** (R = épaisseur du trait, G = biais d'ombre peinte, B = masque d'accent).
@@ -403,7 +410,7 @@ zeucozy/
 │   │   ├── ui_style.gd             # ⭐ Le style de l'interface — palette, polices, cadence
 │   │   ├── locale.gd               # ⭐ TOUS les textes du jeu — français + anglais
 │   │   ├── settings_store.gd       # Préférences du joueur sur disque (user://settings.cfg)
-│   │   ├── impact_frame.gd         # Flash ambré plein cadre, 2 frames
+│   │   ├── impact_frame.gd         # 💤 Flash ambré plein cadre — DÉBRANCHÉ, gardé entier
 │   │   └── hit_burst.gd            # Éclat de collision, 8 poses
 │   ├── ui/
 │   │   └── hud.gd       # 🖥️ Le HUD + les cartons, construits EN CODE depuis ui_style
@@ -420,7 +427,7 @@ zeucozy/
                      # dust_bunny (le mouton de poussière — touffe cernée posée au sol)
 │                     # cel_paws (bouts de pattes + les 3 griffes dessinées)
 │                     # cel_ground (parquet peint), cel_rug (tapis)
-│                     # hit_burst (éclat de collision), impact_frame (flash)
+│                     # hit_burst (éclat de collision), impact_frame (flash, en sommeil)
 │                     # claw_slash (la griffure — 3 traits cernés, billboard dirigé)
 │                     # breath_aura (l'haleine puante — volutes cernées, décalque AU SOL)
 │                     # cel_core + cel_floor (includes, fonctions pures)
@@ -1032,7 +1039,7 @@ morsure. `scripts/systems/shout_fx.gd` + la clé `skill.<id>.shout` dans `locale
   est **partie**, pas qu'elle a touché. Six secondes de recharge gaspillées doivent se voir
   aussi clairement qu'une brute croquée.
 - **C'est un `Label3D` billboard planté dans le MONDE**, pas un `Control` en `CanvasLayer` :
-  il passe donc **sous `RetroPost`** et reçoit le grain et la vignette (§8bis) — même
+  il passe donc **sous `RetroPost`** et reçoit le grain (§8bis) — même
   argument que le HUD (layer −2) et l'impact frame (−1). Au-dessus, il se lirait comme un
   calque d'UI collé sur le film.
 - **Il prend la police et les couleurs de `ui_style`** sans être de l'interface : `ui_style`
@@ -1194,7 +1201,7 @@ tables / plantes / coussins en boîtes pastel, croquettes en cubes.
 **Passe rétro anime — faite le 2026-08-16.** `Attr_Style` peint et câblé, trait à
 épaisseur variable **des deux côtés du pont** (Godot par `cel_outline.gdshader`, Blender par
 `tools/build_outline.py`), ombres peintes, bord de cluster irrégulier, accent de brillance,
-et le post-process §8bis (grain sur 3s + vignette) dans `shaders/retro_post.gdshader`.
+et le post-process §8bis (le grain sur 3s, seul restant) dans `shaders/retro_post.gdshader`.
 
 > ⚠️ **Le `.blend` du chat est une SOURCE, sans garde-fou.** Il a été retrouvé le
 > 2026-08-16 réenregistré sur un état antérieur à la passe tuxedo — matériau
@@ -1224,21 +1231,33 @@ l'oreille proche émerge davantage. Conséquences à connaître : le chat mesure
 
 ### FX de collision — faits le 2026-08-16
 
-Le chat touché par un ennemi déclenche **deux** effets, et §8 les demande ensemble
-(*« hit → petites étoiles chaudes + flash ambre »*). Ils se partagent le travail au lieu
-de se doubler : **l'éclat dit OÙ ça a cogné, l'impact frame dit que c'était un coup.**
+> ⛔ **LE FLASH PLEIN CADRE EST DÉBRANCHÉ DEPUIS LE 2026-08-17** (demande directe) —
+> deux frames d'ambre sur toute l'image se lisaient comme un à-coup d'affichage, pas comme
+> un coup encaissé. `impact_frame.gd`, sa scène, son shader et le nœud `$ImpactFrame` sont
+> gardés **entiers**, sur le modèle du projectile : seul l'appel a disparu de
+> `_on_player_hit`. Le rebrancher tient en une ligne.
+
+Le chat touché par un ennemi déclenchait **deux** effets, et §8 les demandait ensemble
+(*« hit → petites étoiles chaudes + flash ambre »*). Ils se partageaient le travail au lieu
+de se doubler : **l'éclat dit OÙ ça a cogné, l'impact frame disait que c'était un coup.**
+C'est ce partage qui rend le débranchement tenable — **c'est la couche globale qui part,
+celle qui porte l'information qui reste.**
 
 | Effet | Portée | Durée | Couleur |
 |---|---|---|---|
 | **Éclat** `hit_burst` | local, planté au point de contact | 8 poses sur 2s (~267 ms) | rose-rouge `#D45870` + cœur crème |
-| **Impact frame** `impact_frame` | plein cadre | 2 frames, coupe franche | ambre `#D4A860` |
+| ~~**Impact frame** `impact_frame`~~ 💤 | plein cadre | 2 frames, coupe franche | ambre `#D4A860` |
 
 - Déclenchés par `player.hit(contact_position)`. L'ennemi passe sa position à
   `take_damage`, le **chat** en déduit le point de contact — l'éclat doit se lire comme
   posé sur lui, pas sur l'agresseur.
-- L'impact frame est en **layer −1**, donc *sous* `RetroPost` : c'est une frame de
-  l'**image**, le grain et la vignette de §8bis doivent passer par-dessus. Au-dessus,
-  elle se lirait comme un calque d'UI collé sur le film.
+- L'impact frame est en **layer −1**, donc *sous* `RetroPost` : c'était une frame de
+  l'**image**, le grain de §8bis devait passer par-dessus. Au-dessus,
+  elle se serait lue comme un calque d'UI collé sur le film. *(L'argument reste vrai le
+  jour où on la rebranche — le nœud n'a pas bougé de layer.)*
+- 🅿️ **L'éclat est désormais SEUL à dire le dégât, et il n'est pas fini** : il recouvre le
+  chat et se lit toujours comme une fleur (défaut noté dès le 2026-08-16). C'était déjà la
+  condition posée en acceptant que la morsure prenne le rouge — c'est devenu prioritaire.
 - **Rallonger un FX se fait en ajoutant des POSES, jamais en ralentissant la cadence** —
   §8 veut les FX *plus rapides* que les personnages, c'est ce qui leur donne du claquant.
   4 poses ne suffisaient pas à comprendre ce qu'on voyait ; 8 (le plafond de §7) oui.
@@ -1293,7 +1312,7 @@ C'est leur **contraste** qui fabrique l'événement, pas la taille des cartons.
   qui porte à elle seule le registre anime TV — c'est la *lettre* qui datait l'image, pas
   l'alphabet.
 - **Le HUD est en `layer = -2`**, donc *sous* l'impact frame (−1) et *sous* `RetroPost` (0) :
-  il fait partie de l'**image** et reçoit le grain et la vignette. Même argument que
+  il fait partie de l'**image** et reçoit le grain. Même argument que
   l'impact frame — au-dessus, il se lirait comme un calque d'UI collé sur le film.
 - **La plaque est SOMBRE**, à l'inverse de l'ancien §9. Pas un goût : le sol est en
   parchemin `#F5ECD8` et en blé `#E8D4A8`, une plaque parchemin ne s'y lit pas.
@@ -1618,8 +1637,40 @@ silhouette lâche.
 > z-buffer avec elle, ce qui marbre l'aplat. `cel_style.make_outlined()` retire donc le
 > `next_pass` sous 0 — et `cel_prop` ne suppose plus qu'il existe.
 
+### Le rai de soleil au sol — retiré le 2026-08-17
+
+Le parquet et les tapis portaient une **flaque de lumière peinte** : un champ anisotrope
+étiré à 30°, seuillé franc, partagé par `cel_ground` et `cel_rug` via `cel_floor.gdshaderinc`.
+Elle est **retirée** — sol et tapis sont désormais éclairés **uniformément**, chacun sur sa
+couleur de palette.
+
+> ⛔ **CE QUI L'A TUÉE EST SON ANCRAGE, PAS SON DESSIN.** §2ter·2 veut une lumière
+> *dessinée* sur un sol plat, puisqu'une normale constante n'en produit aucune. Mais une
+> ombre peinte sur un **personnage** voyage avec lui, alors qu'une lumière peinte sur le
+> **sol** est ancrée au monde — et la caméra suit le chat. Elle **défilait** donc à
+> l'écran dès qu'on marchait : une grande bande claire en diagonale sur toute la largeur
+> du cadre, qui se lisait comme un **artefact d'affichage** et non comme du soleil.
+>
+> ⚠️ **Aucun réglage ne rattrapait ça** — agrandir `pool_scale` ne fait qu'allonger la
+> bande, et la seule façon de l'empêcher de défiler serait de l'ancrer à la **caméra**,
+> soit une tache de soleil qui suit le chat. C'est ce qui en fait une règle et non un
+> retour en arrière : **une forme peinte doit être ancrée à ce qui la porte.** Les petites
+> formes tiennent quand même — les joints du parquet ne posent aucun problème.
+
+- **`light_pool()` reste dans `cel_floor.gdshaderinc`, non appelée**, et c'est délibéré :
+  si la lumière peinte revient, elle doit revenir **à un seul endroit** partagé par le sol
+  et les tapis. Deux réimplémentations divergentes sont exactement le défaut que cet
+  include existe pour empêcher — la supprimer, c'est les garantir.
+- **`CelStyle.POOL` et `_apply_pool()` ont disparu** avec elle. Ce qu'elles disaient reste
+  vrai de toute lumière de sol à venir : une seule source, recopiée telle quelle des deux
+  côtés, sinon le bord de la flaque saute au passage d'un tapis.
+- ✅ **Identifié en A/B, pas en lisant le code** : la bande n'était attribuable ni au
+  post-process ni aux lignes de vitesse du carton (qui sont enfants du carton et
+  disparaissent avec lui). Une capture avec `pool_level` poussé hors de portée l'a fait
+  disparaître d'un coup — c'est ce qui a tranché.
+
 **Prochaines priorités :**
-0. 🅿️ **Le squash du `hit`** — l'impact frame est faite, mais §7 demande aussi un
+0. 🅿️ **Le squash du `hit`** — l'impact frame est débranchée, mais §7 demande aussi un
    squash/stretch franc sur le squelette quand le chat encaisse. C'est du travail
    Blender (`tools/build_animations.py`), pas du shader.
 1. **Le meuble comme terrain de jeu** — le chat saute sur le canapé, les ennemis sont
