@@ -15,67 +15,92 @@ const FxCadence := preload("res://scripts/systems/fx_cadence.gd")
 ## La morsure, pose par pose. Poses TENUES puis coupe franche (§8).
 ##
 ## Le sens de lecture est celui d'une machoire : elle s'ouvre grand, claque, puis
-## se rouvre a peine en se dissipant. Le CLAQUEMENT est la pose 3 — la plus
-## fermee et la plus epaisse — et c'est sur elle que la morsure blesse.
+## se rouvre a peine en se dissipant. Le CLAQUEMENT est la pose 2 — celle ou les
+## pointes passent la ligne mediane — et c'est sur elle que la morsure blesse.
 ##
-## La dissipation se fait par `thick` qui tombe et `taper` qui monte, jamais par
-## l'alpha : §8 interdit le fondu.
+## La dissipation se fait par `thick` et `tooth_len` qui tombent et `taper` qui
+## monte, jamais par l'alpha : §8 interdit le fondu.
 ##
-## HUIT poses, mais des DUREES INEGALES — voir `hold`. Le geste tient ~500 ms au
-## total, tres en dessous du cooldown le plus court (4,2 s) : deux morsures ne
-## peuvent pas se chevaucher.
-## ⚠️ `thick` a ETE DOUBLE apres la premiere capture. A 0,07-0,09 les deux arcs
-## sortaient en traits de un a deux pixels : ils se lisaient comme un coup de
-## ciseaux, et ni le brun ni le creme n'apparaissaient — le cluster 2 tons
-## n'existait que dans le fichier. Une machoire est une MASSE ; c'est son
-## epaisseur qui la separe d'une griffure, pas sa courbure.
+## ─── L'OUVERTURE SE LIT SUR LES DENTS, PLUS SUR LES GENCIVES (2026-08-17) ───
+##
+## Avant, la gueule se fermait en faisant se CHEVAUCHER les deux arcs : a la pose
+## de claquement `gape` (0,015) tombait tres en dessous de `thick` (0,215), donc
+## les deux bandes s'interpenetraient de 0,2 et fusionnaient en une masse. Toute
+## denture y disparaissait — impossible de dessiner des dents dans une machoire
+## qui se referme sur elle-meme.
+##
+## Le geste est donc inverse : les gencives restent ECARTEES (gape − thick reste
+## positif du debut a la fin) et ce sont les DENTS qui traversent la ligne
+## mediane. C'est ce que fait une vraie gueule, et c'est ce qui rend l'engrenement
+## visible — voir `phase` dans le shader.
+##
+##   pointe des dents = gape − thick − tooth_len
+##   pose 0 : +0,115   grand ouvert
+##   pose 2 : −0,020   les pointes se croisent → le degat tombe ici
+##   pose 7 : +0,233   rouvert, et deja presque efface
+##
+## ⚠️ ET C'EST `thick` QUI DOIT MAIGRIR POUR QUE `tooth_len` GROSSISSE. Les deux
+## se disputent la meme borne (`gape + thick ≤ 0,395`, et la pointe doit atteindre
+## la mediane) : une gencive epaisse mange l'ouverture, donc raccourcit les dents,
+## donc les rend trapues — c'est ainsi que la premiere capture avait sorti des
+## dents de scie. Deux passes l'ont descendue, 0,120 → 0,095 → **0,075** au
+## claquement, et les crocs ont suivi dans l'autre sens : 0,175 → 0,225 → **0,262**.
+##
+## ⚠️ La pointe de la canine reste au MEME endroit (elle croise la mediane de
+## 0,023), alors que le croc a gagne 16 % de longueur : ce qu'il gagne, il le
+## gagne du cote de la RACINE, la gencive ayant recule. C'est ce qui permet
+## d'allonger les crocs sans jamais toucher a l'engrenement, qui est le seul
+## chiffre que le geste doit tenir.
+##
 ## ⚠️ `gape + thick` EST BORNE A 0,395, DES DEUX COTES — voir `jaw_offset` dans
 ## le shader. Trop grand, le haut de la machoire est tranche net par le bord du
 ## quad ; trop grand aussi, le bas retombe sur le chat et le personnage se
-## retrouve dans la gueule. L'ouverture n'est donc pas un choix de dessin, c'est
-## ce que l'encadrement laisse.
-##
-## ⚠️ HUIT poses depuis le 2026-08-17, contre cinq — la morsure ne restait pas
-## assez longtemps a l'ecran (~167 ms). RALLONGER UN FX SE FAIT EN AJOUTANT DES
-## POSES, JAMAIS EN RALENTISSANT LA CADENCE : §8 veut les FX plus rapides que les
-## personnages, c'est ce qui leur donne du claquant, et l'eclat de collision avait
-## deja tranche exactement ce cas (4 poses → 8). Huit est le plafond de §7.
+## retrouve dans la gueule. Les huit poses sont a 0,38-0,395 : l'ouverture n'est
+## pas un choix de dessin, c'est ce que l'encadrement laisse.
+## ⚠️ `tooth_len` N'ENTRE PAS dans cette borne — les dents poussent vers
+## l'interieur de la gueule. C'est la seule dimension du dessin qui soit libre,
+## et c'est pour ca que la lisibilite passe par elle.
 ##
 ## ⚠️ `hold` — CHAQUE POSE A SA PROPRE DUREE, en multiples de `FxCadence.FX_POSE`.
 ##
-## C'est la troisieme correction de duree, et les deux premieres etaient de
-## mauvaises pistes :
+## Deux leviers de duree sont interdits, et les avoir essayes vaut d'etre garde :
 ##
 ##   • RALENTIR LA CADENCE est exclu — §8 veut les FX plus rapides que les
 ##     personnages, c'est ce qui leur donne du claquant ;
 ##   • AJOUTER DES POSES est plafonne a 8 (§7), et on y est.
 ##
-## La bonne reponse etait dans §7 depuis le debut : *"des poses TENUES coupees
-## par des transitions rapides — le personnage s'arrete vraiment"*. Une cadence
-## uniforme est un metronome, pas de l'animation posee. Le claquement (pose 2)
-## tient donc QUATRE fois plus longtemps que l'ouverture, et le geste passe de
-## 267 a ~500 ms sans qu'une seule pose s'ajoute ni que la cadence de base bouge.
+## Le troisieme etait dans §7 depuis le debut : *"des poses TENUES coupees par des
+## transitions rapides"*. Une cadence uniforme est un metronome, pas de
+## l'animation posee.
 ##
-## Les poses 2, 3 et 4 sont la machoire fermee : le geste claque, puis il RESTE.
-## Une morsure qui se rouvre aussitot ne se lit pas comme une prise.
+## 26 crans au total, soit ~830 ms — contre 500 ms avant le 2026-08-17, ou la
+## morsure passait encore trop vite pour qu'on la voie. C'est tres en dessous du
+## cooldown le plus court (4,2 s) : deux morsures ne peuvent pas se chevaucher.
+##
+## Les poses 2, 3 et 4 sont la gueule fermee, soit 15 crans sur 26 : le geste
+## claque, puis il RESTE. Une morsure qui se rouvre aussitot ne se lit pas comme
+## une prise.
 const POSES := [
-	{"gape": 0.235, "thick": 0.160, "taper": 1.5, "hold": 1},
-	{"gape": 0.130, "thick": 0.185, "taper": 1.4, "hold": 1},
-	{"gape": 0.015, "thick": 0.215, "taper": 1.3, "hold": 4},
-	{"gape": 0.008, "thick": 0.220, "taper": 1.3, "hold": 3},
-	{"gape": 0.025, "thick": 0.205, "taper": 1.4, "hold": 2},
-	{"gape": 0.070, "thick": 0.160, "taper": 1.7, "hold": 2},
-	{"gape": 0.120, "thick": 0.100, "taper": 2.3, "hold": 1},
-	{"gape": 0.170, "thick": 0.044, "taper": 3.2, "hold": 1},
+	{"gape": 0.352, "thick": 0.043, "tooth_len": 0.196, "taper": 1.5, "hold": 2},
+	{"gape": 0.336, "thick": 0.059, "tooth_len": 0.226, "taper": 1.4, "hold": 2},
+	{"gape": 0.320, "thick": 0.075, "tooth_len": 0.262, "taper": 1.3, "hold": 6},
+	{"gape": 0.313, "thick": 0.079, "tooth_len": 0.262, "taper": 1.3, "hold": 5},
+	{"gape": 0.320, "thick": 0.075, "tooth_len": 0.256, "taper": 1.4, "hold": 4},
+	{"gape": 0.335, "thick": 0.060, "tooth_len": 0.221, "taper": 1.7, "hold": 3},
+	{"gape": 0.351, "thick": 0.043, "tooth_len": 0.163, "taper": 2.3, "hold": 2},
+	{"gape": 0.363, "thick": 0.024, "tooth_len": 0.099, "taper": 3.2, "hold": 2},
 ]
 
-## La pose qui CLAQUE — machoires fermees, trait le plus epais. Le degat tombe
-## sur elle, comme la morsure de l'haleine puante tombe sur sa pose pleine : le
-## joueur voit le coup au moment exact ou il coute de la vie.
+## La pose qui CLAQUE — les pointes passent la ligne mediane, la gencive est a son
+## epaisseur maximale. Le degat tombe sur elle, comme la morsure de l'haleine
+## puante tombe sur sa pose pleine : le joueur voit le coup au moment exact ou il
+## coute de la vie.
 ##
-## Deux poses, soit 4 frames (~67 ms) apres le clic. C'est en dessous du seuil ou
-## un retard se sent, et ca vaut mieux qu'un degat sur la pose 0 : un coup qui
-## part avant que le dessin ait commence se lit comme un bug.
+## ⚠️ Elle arrive maintenant apres 4 crans (~133 ms) et non 2 (~67 ms) : l'ouverture
+## a ete allongee parce qu'une gueule qui s'ouvre est la moitie du geste, et qu'a
+## 67 ms personne ne la voyait. C'est un DELAI D'ANTICIPATION, pas de la latence —
+## la cible etant fixee au clic (voir `bite_skill`), rien de ce que fait l'ennemi
+## pendant ces 133 ms ne change le resultat.
 const BITE_POSE := 2
 
 ## Hauteur du dessin, en metres. A mi-corps du chat (il fait 1,86), comme la
@@ -88,8 +113,13 @@ const DRAW_HEIGHT := 0.9
 ## ⚠️ MONTE de 1,5 a 2,0 le 2026-08-17 : la gueule etait beaucoup trop petite a
 ## taille de jeu. A 2,0 le quad fait exactement DEUX fois la portee, donc une
 ## unite de quad vaut la portee elle-meme — et le bord superieur du dessin
-## (`jaw_offset + gape + thick` ≈ 1,0) tombe pile sur les 2,6 m ou la morsure
-## mord.
+## (`jaw_offset + gape + thick` ≈ 0,98) tombe pile sur la distance ou la morsure
+## mord, quel que soit le palier.
+##
+## ⚠️ C'est ce qui fait que le DEGAGEMENT DU CHAT se resserre quand la portee
+## grandit : il vaut `(jaw_offset − gape − thick) × portee`, soit 0,49 m a 2,6 m
+## de portee et 0,68 m a 3,6 m. Il travaille donc dans le bon sens — allonger la
+## portee eloigne la gueule du chat au lieu de la lui rentrer dedans.
 ##
 ## Ce n'est pas un agrandissement gratuit : c'est le dessin qui rejoint la
 ## portee reelle. La regle du projet est que la portee et le dessin ne peuvent
@@ -157,6 +187,7 @@ func _show(pose: int) -> void:
 	var values: Dictionary = POSES[pose]
 	_material.set_shader_parameter("gape", values["gape"])
 	_material.set_shader_parameter("thick", values["thick"])
+	_material.set_shader_parameter("tooth_len", values["tooth_len"])
 	_material.set_shader_parameter("taper", values["taper"])
 
 

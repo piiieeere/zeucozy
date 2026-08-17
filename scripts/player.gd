@@ -66,6 +66,21 @@ signal died
 ## de 3. Changer l'un sans l'autre rendrait le chat immortel.
 @export var max_health: int = 100
 
+## ⛔ MODE TEST — LE CHAT NE PEUT PAS MOURIR. À REPASSER À `false`.
+##
+## Posé le 2026-08-17 pour pouvoir juger les FX, les compétences et la montée en
+## difficulté sans que la run s'arrête. **C'est un état temporaire**, pas une
+## option de jeu : il n'y a ni réglage, ni argument de ligne de commande, et
+## c'est délibéré — un mode de triche qu'on peut activer est un mode qu'on
+## oublie d'éteindre. Ici il n'y a qu'une constante, et elle est fausse ou vraie.
+##
+## ⚠️ IL N'EST PAS SILENCIEUX, et il ne doit jamais le devenir. `_ready` lève un
+## avertissement au lancement, et la barre de vie reste clouée à 100/100 : c'est
+## la seule chose qui empêchera de croire à un équilibrage qui tient alors que
+## rien ne peut tuer. Le précédent est dans ce fichier même — la montée des
+## dégâts de contact était morte pendant des mois sans que rien ne le dise.
+const IMMORTAL := true
+
 ## Hauteur du plan de visee, en metres au-dessus des pattes du chat.
 ##
 ## Le curseur est un point 2D : pour en tirer un point du MONDE il faut un
@@ -162,6 +177,9 @@ var aim_direction := Vector3.BACK
 func _ready() -> void:
 	add_to_group("player")
 	health = max_health
+
+	if IMMORTAL:
+		push_warning("MODE TEST : le chat est IMMORTEL (player.gd, const IMMORTAL).")
 
 	_base_speed = speed
 	_base_max_health = max_health
@@ -365,7 +383,16 @@ func take_damage(amount: int, attacker_position: Vector3 = Vector3.INF) -> void:
 	if invulnerability_timer > 0.0 or health <= 0:
 		return
 
-	health = max(0, health - max(1, amount))
+	# ⛔ MODE TEST : le chat encaisse le COUP mais pas les DEGATS. Voir `IMMORTAL`.
+	#
+	# La coupure est posee ICI et non au-dessus du garde, et c'est tout ce qui
+	# separe un mode de test utilisable d'un mode de test trompeur : l'eclat de
+	# collision, l'impact frame et l'invulnerabilite de 0,45 s partent quand meme.
+	# Sortir plus tot rendrait le chat INTOUCHABLE au lieu d'immortel — plus aucun
+	# retour de collision a l'ecran, donc plus moyen de juger un FX de hit, ni de
+	# voir qu'on vient de traverser un ennemi.
+	var toll: int = 0 if IMMORTAL else max(1, amount)
+	health = max(0, health - toll)
 	invulnerability_timer = 0.45
 	health_changed.emit(health, max_health)
 	# Emis meme sur le coup fatal : un impact sur la derniere touche est

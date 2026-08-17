@@ -393,7 +393,8 @@ zeucozy/
 │   │   ├── cel_prop.gd             # ⭐ Le style des meubles — .glb sans squelette
 │   │   ├── fx_cadence.gd           # ⭐ Les 3 durées de pose des FX (§7) — source unique
 │   │   ├── breath_aura.gd          # 💨 L'haleine puante — aura lootable, poses + morsure
-│   │   ├── bite_fx.gd              # 🦷 Les mâchoires de la morsure — 5 poses, dents dessinées
+│   │   ├── bite_fx.gd              # 🦷 Les mâchoires de la morsure — 8 poses, crocs dessinés
+│   │   ├── shout_fx.gd             # 💥 L'onomatopée des ACTIFS — CHOMP, en pas, dans le monde
 │   │   ├── ui_style.gd             # ⭐ Le style de l'interface — palette, polices, cadence
 │   │   ├── locale.gd               # ⭐ TOUS les textes du jeu — français + anglais
 │   │   ├── settings_store.gd       # Préférences du joueur sur disque (user://settings.cfg)
@@ -408,7 +409,7 @@ zeucozy/
 ├── shaders/          # cel_toon, cel_outline, cel_face, cel_paws, retro_post
 │                     # ui_frame (plaque grise, angles droits + repères d'angle)
 │                     # ui_speedlines (lignes de vitesse)
-│                     # bite (la morsure — 2 mâchoires dentées qui claquent)
+│                     # bite (la morsure — gencives rouges + crocs de chat qui s'engrènent)
 │                     # cel_paws (bouts de pattes + les 3 griffes dessinées)
 │                     # cel_ground (parquet peint), cel_rug (tapis)
 │                     # hit_burst (éclat de collision), impact_frame (flash)
@@ -462,7 +463,7 @@ Le réglage à bouger en premier si le chat paraît trop petit est `distance` da
 |---|---|---|---|
 | **Griffure** *(dégât / cadence / portée)* | 3 · 1,10 s · 5,2 m | 4 · 0,94 s · 5,65 m | 5 · 0,80 s · 6,1 m |
 | **Boule de poils** *(dégât / cadence / portée)* | 2 · 1,60 s · 11 m | 3 · 1,35 s · 13 m | 4 · 1,10 s · 15 m |
-| **Morsure** *(dégât / portée / recharge)* | 7 · 2,6 m · 6,0 s | 10 · 2,9 m · 5,0 s | 14 · 3,2 m · 4,2 s |
+| **Morsure** *(dégât / portée / recharge)* | 7 · 3,6 m · 6,0 s | 10 · 4,0 m · 5,0 s | 14 · 4,4 m · 4,2 s |
 | **Haleine** *(rayon / dégât par morsure)* | 2,8 m · 1 | 3,35 m · 2 | 3,9 m · 3 |
 
 Arc frontal de griffure **120°, à tous les paliers** — l'ancienne description promettait un
@@ -741,6 +742,8 @@ moment-to-moment : le placement et la visée sont continus, un actif est ponctue
 - **`active_skill.gd` porte le cooldown**, pas chaque compétence. Six décomptes séparés,
   ce sont six façons pour une pastille de mentir sur ce qui est prêt.
 - **Le cooldown est une valeur de palier** comme le reste — absolue, donc rien à soustraire.
+- **Chaque actif porte une ONOMATOPÉE** — voir « Les onomatopées » plus bas. C'est le
+  socle qui la déclenche, pas chaque compétence, et elle est réservée aux actifs.
 - **Deux pastilles au HUD, en bas à droite**, et **aucune** tant que le chat n'a pas de
   compétence active : une pastille éteinte annoncerait une touche qui ne fait rien.
   Elles se remplissent **en 5 crans**, jamais en continu — un remplissage lisse serait le
@@ -756,17 +759,18 @@ moment-to-moment : le placement et la visée sont continus, un actif est ponctue
 | Déclenchement | **clic gauche** | cadence automatique |
 | Visée | le joueur | **automatique, plus proche** |
 | Cibles | **une seule** | une seule |
-| Arc | **90°** frontal | — |
-| Portée T1→T3 | 2,6 / 2,9 / 3,2 m | 11 / 13 / 15 m |
+| Arc | **70°** frontal | — |
+| Portée T1→T3 | 3,6 / 4,0 / 4,4 m | 11 / 13 / 15 m |
 | Dégâts T1→T3 | **7 / 10 / 14** | 2 / 3 / 4 |
 | Recharge | 6 / 5 / 4,2 s | 1,6 / 1,35 / 1,1 s |
 
 - **La morsure porte MOINS LOIN que la griffure** (5,2 m) et frappe deux fois plus fort :
-  un croc se paye en distance, pas seulement en cooldown. 7 dégâts au T1 = exactement la
+  un croc se paye en distance, pas seulement en cooldown. L'ordre tient à **tous** les
+  paliers — morsure T3 (4,4 m) sous griffure T1 (5,2 m). 7 dégâts au T1 = exactement la
   vie d'une brute de départ, donc un effet lisible dès la première prise.
-- **La cible est fixée au déclenchement, pas au claquement.** Deux poses passent entre les
-  deux (~67 ms) et un chaser parcourt 25 cm : la chercher au claquement ferait mordre un
-  ennemi que le joueur ne visait pas. Une morsure doit toucher ce qu'elle **montre**.
+- **La cible est fixée au déclenchement, pas au claquement.** Quatre crans passent entre
+  les deux (~133 ms) : la chercher au claquement ferait mordre un ennemi que le joueur ne
+  visait pas. Une morsure doit toucher ce qu'elle **montre**.
 - **La boule de poils réveille le projectile**, en sommeil depuis la griffure, et rouvre la
   fantasy « chat sniper » que le manifeste §11 notait sans support. Coût proche de zéro :
   scène, script et `spawn_projectile` étaient restés entiers.
@@ -821,6 +825,144 @@ moment-to-moment : le placement et la visée sont continus, un actif est ponctue
 > ⚠️ `MARGIN` n'est rendue qu'**une** fois par pose, pas une par cran — c'est une tolérance
 > de seuil, pas une durée.
 
+### La morsure refaite — une vraie gueule de chat (2026-08-17)
+
+Le dessin ne convenait toujours pas. Il est repris en entier : **plus de portée**, un geste
+**deux fois plus long**, des **dents de chat** et un **rouge** à la place du brun. Le
+squelette du shader (billboard dirigé, SDF, cluster 2 tons + encre) n'a pas bougé.
+
+| | Avant | Après |
+|---|---|---|
+| Portée T1→T3 | 2,6 / 2,9 / 3,2 m | **3,6 / 4,0 / 4,4 m** |
+| Arc | 90° | **70°** |
+| Durée du geste | ~500 ms | **867 ms**, mesurées |
+| Dents | feston creusé dans le bord | **crocs unis à la gencive** |
+| Cluster 2 tons | brun + éclat crème | **gencive rouge + émail crème** |
+
+- ⚠️ **LES DEUX TONS SONT DEVENUS DEUX MATIÈRES.** Avant, le crème était un reflet posé au
+  milieu d'une mâchoire brune — il ne désignait rien. Maintenant c'est la gencive contre
+  l'émail : le 2ᵉ ton n'est plus un ornement, c'est la forme qui se sépare. §2bis est tenu,
+  et pour une raison.
+- **Les dents sont de la FORME, plus un creux.** La denture en feston (`sin²` sur le bord
+  intérieur) ne se lisait pas à taille de jeu : on voyait deux bandes qui se rapprochaient.
+  Les crocs sont maintenant des cônes **unis** à l'arc (`min` de deux champs), la rangée du
+  bas décalée d'une **demi-dent** pour qu'elle **s'engrène** au lieu de se cogner bout à
+  bout. Le zigzag de la gueule fermée est ce qui dit « morsure ».
+- **UNE DENTURE DE CHAT : deux grandes canines, de petites dents entre elles.** Une rangée
+  régulière est une **scie**, quelle que soit la forme de chaque dent prise à part — ce qui
+  fait lire « chat » est le **contraste d'échelle dans la rangée**, exactement le geste que
+  §9.3 applique au texte des cartons. Les dents restent sur une grille régulière : chez un
+  chat aussi, ce qui varie d'une dent à l'autre est la taille, pas l'écartement.
+- **La canine est repérée par un RANG, pas par une position.** Exprimée en fraction de
+  corde, elle tombait entre deux dents dès qu'on changeait leur nombre : deux dents à demi
+  grandies au lieu d'un croc. ⚠️ Et le **décalage d'une demi-dent déplace aussi la canine
+  du bas** — reprendre la position du haut telle quelle donnait deux demi-canines en bas.
+- **Le rouge est assumé même s'il ressemble à l'éclat de collision.** L'argument d'origine
+  (« le terracotta est à deux points du rose de hit feedback ») reste vrai ; ce qui a
+  tranché est que le brun était la couleur du **décor** (parquet, encre, bois), et qu'une
+  gueule ne peut pas être de la même famille que le sol sur lequel elle se peint. L'éclat
+  sera retravaillé ensuite. Le trait a suivi (`#3D2B1A` → `#3A1410`) : un aplat qui change
+  de teinte force son encre à se teinter vers lui, sinon le trait cesse d'appartenir à
+  l'objet — la règle déjà payée sur le chat tuxedo.
+- **L'arc est revenu à 70°, et c'est encore le dessin qui décide.** Le 90° avait été ouvert
+  la veille pour donner de la place à un dessin qui ne tenait pas, la largeur étant alors
+  la seule dimension libre. Les dents ayant repris ce travail **vers l'intérieur**, l'arc
+  peut revenir à ce que la compétence voulait dire — *un croc pique, il ne balaie pas*.
+
+> ⚠️ **Ce que la portée coûte, et qui n'est pas un détail :** la marge au-dessus de la
+> distance de contact ennemi (~1,55 m) passe de **1,05 m à 2,05 m**. Mordre reste plus
+> risqué que griffer, nettement moins qu'avant. C'est le **dessin** qui l'a demandé — la
+> gueule se dimensionne sur la portée, et à 2,6 m elle était trop petite pour y lire des
+> dents. Agrandir le dessin seul aurait promis une portée inexistante.
+
+> 🔍 **Trois défauts, tous trouvés en AGRANDISSANT les frames, aucun en lisant le code — et
+> les trois disent la même chose : ce qui casse un croc n'est pas sa pointe.**
+> - **Les crocs sortaient en CLOUS.** Le trajet d'une dent commence *dans* la gencive, où
+>   son champ est le plus large et où la boîte qui le borne se termine **à plat**. La
+>   silhouette n'en montrait rien — l'union avec la gencive la recouvre — mais **l'émail se
+>   peignait dessus** : tête plate et large, puis tige fine. L'émail est donc borné à la
+>   partie **émergée**. Ce n'est pas un correctif de dessin, c'est ce que fait une dent.
+> - **Les dents sortaient en DENTS DE SCIE.** Non par leur pointe, mais par leur **base** :
+>   à 0,34 d'écartement elles faisaient 0,164 de large pour 0,175 de long — des triangles
+>   quasi équilatéraux, donc une gueule de requin. Un croc se reconnaît à son élancement,
+>   il lui faut au moins 1,7 fois plus long que large.
+> - **Le nombre de dents est borné par le TRAIT.** À six par mâchoire, l'écart entre une
+>   dent du haut et sa voisine du bas tombait sous *deux fois* l'épaisseur du cerne pendant
+>   l'engrenement : les deux traits se rejoignaient, le rouge disparaissait, la denture
+>   sortait en **treillis sombre**. Même borne que sur le petit texte de l'ATH (§9) — un
+>   cerne se dose sur ce qu'il cerne, jamais en valeur partagée.
+>
+> ⚠️ **Et `thick` a dû MAIGRIR pour que les dents grandissent.** Gencive et crocs se
+> disputent la même borne (`gape + thick ≤ 0,395`, et la pointe doit atteindre la médiane) :
+> une gencive épaisse mange l'ouverture, donc raccourcit les dents, donc les rend trapues.
+> C'est ainsi que la première capture avait sorti des dents de scie.
+
+> 🅿️ **L'éclat de collision reste à retravailler** — c'était la condition posée en
+> acceptant que la morsure prenne le rouge.
+
+**Passe de réglage, même jour :** gencives **plus fines** (0,095 → **0,075** au claquement)
+et canines **plus longues** (+16 %). ⚠️ La pointe de la canine, elle, **n'a pas bougé** :
+elle croise toujours la médiane de 0,023. Ce que le croc gagne, il le gagne du côté de la
+**racine**, la gencive ayant reculé — c'est ce qui permet d'allonger les crocs sans jamais
+toucher à l'engrenement, le seul chiffre que le geste doit tenir. Et `incisor_len` est
+descendu de 0,42 à 0,36 dans le même mouvement : **le rapport et la longueur se règlent
+ensemble**, sinon allonger les canines allonge aussi les incisives et la denture reste la
+même, juste plus grande.
+
+### Les onomatopées — le bruit des ACTIFS, écrit dans l'image (2026-08-17)
+
+Chaque compétence **active** porte une onomatopée : le bruit du coup en grosses lettres
+posées dans le cadre, à la manière de l'anime TV 80–90 et du manga. **`CHOMP`** pour la
+morsure. `scripts/systems/shout_fx.gd` + la clé `skill.<id>.shout` dans `locale.gd`.
+
+- ⚠️ **C'est le socle qui le porte** (`active_skill.shout()`), pas la morsure. Toute
+  compétence active à venir criera sans avoir une ligne à écrire pour ça, et la clé se
+  déduit de l'`id` — rien à tenir synchronisé à la main, comme les titres et descriptions.
+- ⚠️ **RÉSERVÉE AUX ACTIFS, jamais aux AUTO.** Un actif est le seul type qui soit une
+  décision d'**instant** (§2.4), et l'onomatopée est ce qui rend cet instant lisible. Six
+  armes automatiques qui crient à leur propre cadence rempliraient l'écran de texte en
+  permanence, et le mot cesserait d'annoncer quoi que ce soit. Même partage que les
+  pastilles de cooldown du HUD.
+- ⚠️ **Elle N'EST PAS appelée par `trigger()`, et c'est le seul travail que ce socle laisse
+  à la sous-classe.** *« Quand le coup part »* et *« quand le coup fait du bruit »* ne sont
+  pas le même instant : la morsure claque **4 crans après le clic**, et un CHOMP sur des
+  mâchoires encore grandes ouvertes est un contresens qu'aucun réglage ne rattrape. Le
+  socle ne peut pas deviner ce moment — il appartient au geste.
+- **Le mot part même quand la morsure mord dans le vide** : le bruit dit que la compétence
+  est **partie**, pas qu'elle a touché. Six secondes de recharge gaspillées doivent se voir
+  aussi clairement qu'une brute croquée.
+- **C'est un `Label3D` billboard planté dans le MONDE**, pas un `Control` en `CanvasLayer` :
+  il passe donc **sous `RetroPost`** et reçoit le grain et la vignette (§8bis) — même
+  argument que le HUD (layer −2) et l'impact frame (−1). Au-dessus, il se lirait comme un
+  calque d'UI collé sur le film.
+- **Il prend la police et les couleurs de `ui_style`** sans être de l'interface : `ui_style`
+  est la source unique du crème et de l'encre du projet, et en fabriquer un second jeu pour
+  l'onomatopée serait fabriquer exactement la divergence de constantes que ce projet passe
+  son temps à réparer.
+- **Inclinaison et dérive tirées au hasard** à chaque cri, comme le `seed` des shaders :
+  posée d'aplomb, une onomatopée redevient un sous-titre, et deux CHOMP de suite ne doivent
+  pas être le même tampon.
+- **6 poses, ~440 ms**, calées pour tenir **sous** le geste qui l'a déclenchée (867 ms) : le
+  bruit finit avant le mouvement, jamais l'inverse. Elle arrive **trop grande** (×1,42),
+  rebondit sous sa taille, revient — le squash/stretch de §7 appliqué à un mot. ⚠️ Elle
+  grandit depuis son **pied** : centrée, la pose de dépassement lui ferait écraser le chat.
+
+> ⚠️ **Elle est dans `locale.gd` bien que « CHOMP » s'écrive pareil dans les deux langues.**
+> Une onomatopée est un **son transcrit**, et sa transcription change d'une langue à
+> l'autre — le chat français fait *miaou*, l'anglais *meow*. Le jour où l'une divergera, la
+> place existe déjà ; l'écrire en dur aujourd'hui, c'est garantir qu'on ne la retrouvera pas.
+
+> ⚠️ **Trop petite à la première capture, et l'erreur était de raisonner en unités d'UI.**
+> À 0,52 m le mot faisait ~21 px de capitale, soit exactement le corps d'un **titre de
+> carte** (§9.3) — donc la taille d'un élément d'interface. Une onomatopée n'est pas une
+> légende, c'est un **événement** : au manga elle occupe une part du cadre. À 0,80 m elle
+> pèse autant que la tête du chat, ce qui est le rapport de la référence.
+
+> **Elle recouvre parfois la gueule, et c'est voulu.** Au manga l'onomatopée se peint
+> **par-dessus** l'action — c'est précisément à ça que sert son gros cerne d'encre. Ne pas
+> aller lui chercher un placement qui évite le décalque : ce serait de la complexité pour un
+> non-problème, et le mot cesserait d'être dans l'image.
+
 > ⚠️ **Ne pas confondre morsure et BOND.** Le bond a d'abord été écrit comme attaque
 > (dash + traînée de lignes de vitesse), puis **retiré le 2026-08-17** : il sera un
 > **déplacement vertical**, pas une attaque. `shaders/pounce_trail.gdshader` et son script
@@ -871,6 +1013,20 @@ Le rig de caméra fait exception : il bouge dans `_process`, donc son interpolat
 ---
 
 ## État actuel
+
+> ⛔ **MODE TEST ACTIF — LE CHAT EST IMMORTEL** (`player.gd`, `const IMMORTAL := true`,
+> posé le 2026-08-17 à la demande). **À repasser à `false`.** Tant qu'il est là, aucun
+> chiffre d'équilibrage ni aucune courbe de difficulté ne veut dire quoi que ce soit.
+>
+> - **Il n'a ni réglage ni argument de ligne de commande**, et c'est délibéré : un mode de
+>   triche qu'on peut activer est un mode qu'on oublie d'éteindre. Une constante, vraie ou
+>   fausse, qu'on croise en lisant le fichier.
+> - **La coupure est DANS `take_damage`, après le garde**, pas avant : l'éclat de collision,
+>   l'impact frame et l'invulnérabilité de 0,45 s partent quand même. Sortir plus tôt
+>   rendrait le chat **intouchable** au lieu d'immortel — plus aucun retour de collision à
+>   l'écran, donc plus moyen de juger un FX de hit ni de voir qu'on traverse un ennemi.
+> - **Il n'est pas silencieux** : `push_warning` au lancement, et la barre reste clouée à
+>   100/100. ✅ Vérifié en capture sur 8 s de run avec ennemis au contact.
 
 **Systèmes en place :** mouvement 8 directions, **visée souris indépendante**, spawn
 ennemis, **attaque de griffure au corps à corps**, **aura d'haleine puante**, XP/niveaux,

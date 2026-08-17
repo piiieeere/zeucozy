@@ -137,10 +137,27 @@ const STRINGS := {
 		"en": "Spits more often, faster and further still.",
 	},
 
+	# ── Onomatopees ──────────────────────────────────────────────────────────
+	#
+	# Le bruit d'une competence ACTIVE, ecrit dans l'image en grosses lettres a la
+	# maniere de l'anime TV 80-90. Une par actif, sous la cle `skill.<id>.shout` —
+	# `active_skill.shout()` la deduit de l'id, il n'y a rien a tenir a jour.
+	#
+	# ⚠️ Elles sont DANS `locale.gd` comme tout le reste, et pas en dur dans la
+	# competence, meme si "CHOMP" s'ecrit pareil dans les deux langues. Une
+	# onomatopee est un SON transcrit, et sa transcription change d'une langue a
+	# l'autre — le chat francais fait "miaou", l'anglais "meow". Le jour ou l'une
+	# d'elles divergera, la place existe deja ; l'ecrire en dur aujourd'hui, c'est
+	# garantir qu'on ne la retrouvera pas.
+	#
+	# ⚠️ EN CAPITALES, toujours. C'est la seule chose que le mot partage avec
+	# l'ATH (§9) : une onomatopee en bas de casse se lit comme une legende.
+	"skill.bite.shout": {"fr": "CHOMP", "en": "CHOMP"},
+
 	"skill.bite.title": {"fr": "Morsure", "en": "Bite"},
 	"skill.bite.t1.desc": {
-		"fr": "Clic gauche : croque ce qui est juste devant. Fort, mais au contact.",
-		"en": "Left click: chomps whatever is right ahead. Strong, but up close.",
+		"fr": "Clic gauche : croque ce qui passe devant. Fort, mais de près.",
+		"en": "Left click: chomps whatever comes in front. Strong, but up close.",
 	},
 	"skill.bite.t2.desc": {
 		"fr": "Mord plus fort, un peu plus loin, et récupère plus vite.",

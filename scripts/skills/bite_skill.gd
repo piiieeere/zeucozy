@@ -14,16 +14,17 @@ extends "res://scripts/skills/active_skill.gd"
 ## |---|---|---|
 ## | Declenchement | cadence automatique | **le joueur, sur une touche** |
 ## | Cibles | tout l'arc | **UNE seule, la plus proche** |
-## | Portee | 5,2 m | **2,6 m** — au contact |
+## | Portee | 5,2 m | **3,6 m** — de pres |
 ## | Degats | 3 | **7** — une brute de depart d'un coup |
 ##
 ## La griffure est un metronome qu'on oriente ; la morsure est une carte qu'on
 ## garde en main. Elles ne se remplacent pas : l'une nettoie, l'autre execute.
 ##
-## ⚠️ ELLE PORTE MOINS LOIN QUE LA GRIFFURE, et c'est le prix de ses degats. Mordre
-## demande d'entrer dans la bande ou l'ennemi mord aussi (contact a ~1,55 m) :
-## 1 m de marge. C'est la meme logique que l'haleine puante — ce qui frappe fort
-## se paye en distance, jamais en cooldown seul.
+## ⚠️ ELLE PORTE MOINS LOIN QUE LA GRIFFURE, et c'est le prix de ses degats. C'est
+## la meme logique que l'haleine puante — ce qui frappe fort se paye en distance,
+## jamais en cooldown seul. La portee a ete allongee le 2026-08-17 pour que le
+## dessin puisse porter une denture lisible ; le rapport de rang est intact, la
+## marge de risque a fondu. Voir `skill_definitions.gd`.
 ##
 ## ─── UNE SEULE CIBLE, CHOISIE A L'INSTANT DU CLIC ───
 ##
@@ -38,13 +39,29 @@ const BITE_SCENE := preload("res://scenes/fx/bite.tscn")
 ## un croc pique, il ne balaie pas. C'est ce qui empeche la morsure d'attraper un
 ## ennemi qu'on n'avait pas l'intention de viser.
 ##
-## ⚠️ OUVERT de 70° a 90° le 2026-08-17, et c'est le DESSIN qui l'a impose. La
-## gueule etait trop petite a taille de jeu ; vers l'avant elle ne peut pas
-## grandir (le quad d'un cote, le chat de l'autre), donc elle a grandi en
-## largeur — et une gueule plus large que son arc de degats montrerait une portee
-## qu'elle n'a pas. Les deux se suivent : 2 × 2,6 × sin 45° = 3,74 m, la corde
-## exacte du dessin.
-const ARC_DEGREES := 90.0
+## ⚠️ IL A FAIT L'ALLER-RETOUR 70° → 90° → 70° DANS LA MEME JOURNEE, et les deux
+## fois c'est le DESSIN qui a decide — jamais l'equilibrage. Ca vaut d'etre garde,
+## parce que le premier mouvement s'etait trompe de dimension :
+##
+##   • 70° → 90° : la gueule etait trop petite a taille de jeu. Vers l'avant elle
+##     ne peut pas grandir (le bord du quad d'un cote, le chat de l'autre), donc
+##     on l'a fait grandir en LARGEUR — et l'arc a du suivre, une gueule plus
+##     large que son arc de degats montrant une portee qu'elle n'a pas.
+##   • 90° → 70° : la vraie dimension libre etait l'INTERIEUR de la gueule. Des
+##     dents qui poussent vers le centre n'ont aucune borne, et elles ont rendu au
+##     dessin toute la lisibilite qu'on etait alle chercher en largeur. A 90° la
+##     gueule faisait cinq fois la hauteur du chat et se lisait comme une bouche
+##     autonome ; l'arc peut donc revenir a ce que la competence voulait dire.
+##
+## Les deux restent lies par une seule egalite, a verifier si l'un des deux bouge :
+##   corde de l'arc    = 2 × portee × sin(ARC/2)
+##   corde du dessin   = 2 × `bite.jaw_half_width` × portee
+## soit `jaw_half_width` = sin(ARC/2) = 0,574 pour 70°.
+##
+## ⚠️ La PORTEE n'entre pas dans cette egalite — elle se simplifie des deux cotes.
+## C'est ce qui lui a permis de passer de 2,6 a 3,6 m sans qu'aucun des deux
+## chiffres bouge.
+const ARC_DEGREES := 70.0
 
 
 ## Le coup part : on choisit la cible MAINTENANT, et le dessin la garde.
@@ -66,6 +83,14 @@ func _fire() -> void:
 	# Sans ca, l'interpolation physique fait partir le decalque de l'origine du
 	# monde sur sa premiere frame — et sa premiere frame est un cinquieme de sa vie.
 	fx.reset_physics_interpolation()
+
+	# CHOMP — au claquement, jamais au clic. Voir `active_skill.shout()`.
+	#
+	# ⚠️ Il part meme quand la morsure mord dans le vide, et c'est volontaire :
+	# le bruit dit que la competence est PARTIE, pas qu'elle a touche. Le joueur
+	# qui vient de gaspiller six secondes de recharge doit le voir aussi
+	# clairement que celui qui a croque une brute.
+	fx.snapped.connect(shout)
 
 	var target := _pick_target(aim, reach)
 

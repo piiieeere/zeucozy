@@ -156,18 +156,30 @@ const DEFINITIONS: Array[Dictionary] = [
 		"id": "bite",
 		"kind": Kind.ACTIVE,
 		"script": "res://scripts/skills/bite_skill.gd",
-		# ⚠️ Elle porte MOINS LOIN que la griffure (5,2 m) et frappe deux fois plus
-		# fort : un croc se paye en distance, pas seulement en cooldown. A 2,6 m,
-		# mordre demande d'entrer dans la bande ou l'ennemi mord aussi (~1,55 m).
+		# ⚠️ Elle porte MOINS LOIN que la griffure et frappe deux fois plus fort :
+		# un croc se paye en distance, pas seulement en cooldown. L'ordre tient a
+		# TOUS les paliers — la morsure T3 (4,4 m) reste sous la griffure T1
+		# (5,2 m), ce qui est la seule facon de garantir que le rang ne s'inverse
+		# jamais au fil d'une run.
+		#
+		# ⚠️ ALLONGEE le 2026-08-17 (2,6 / 2,9 / 3,2 → 3,6 / 4,0 / 4,4), et c'est
+		# le DESSIN qui l'a demande, pas l'equilibrage. La gueule se dimensionne
+		# sur la portee (`bite_fx.DRAW_SIZE`) : a 2,6 m elle etait trop petite
+		# pour qu'on y lise des dents, et la portee et le dessin ne peuvent pas
+		# diverger. Grandir le dessin seul aurait promis une portee inexistante.
+		#
+		# Ce que ca coute, et c'est assume : la marge au-dessus de la distance de
+		# contact ennemi (~1,55 m) passe de 1,05 m a 2,05 m. Mordre reste plus
+		# risque que griffer, mais nettement moins qu'avant.
 		#
 		# 7 degats au T1, soit exactement la vie d'une brute de depart : la
 		# competence a un effet LISIBLE des sa premiere prise. Plus tard dans la
 		# run les brutes montent a 21, et elle redevient un gros coup parmi
 		# d'autres — c'est la courbe voulue pour un outil d'execution.
 		"tiers": [
-			{"damage": 7, "range": 2.60, "cooldown": 6.0},
-			{"damage": 10, "range": 2.90, "cooldown": 5.0},
-			{"damage": 14, "range": 3.20, "cooldown": 4.2},
+			{"damage": 7, "range": 3.60, "cooldown": 6.0},
+			{"damage": 10, "range": 4.00, "cooldown": 5.0},
+			{"damage": 14, "range": 4.40, "cooldown": 4.2},
 		],
 		"ultimates": [],
 	},
