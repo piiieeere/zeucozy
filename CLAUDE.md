@@ -673,7 +673,8 @@ reste à faire, et sa place est déjà prévue (`aim_source`).
 passée du placeholder Godot (police par défaut, panneaux arrondis, textes de debug) au
 registre anime TV 80–90, **d'après un relevé image d'*Orbitals*** et non de mémoire : HUD
 nu et minuscule dans un coin, cartons chanfreinés qui s'ouvrent en pas, deux polices
-gothiques japonaises sous-ensemblées à 73 Ko. §9 de la DA a été réécrit dans la foulée.
+gothiques japonaises sous-ensemblées. §9 de la DA a été réécrit dans la foulée.
+Les kana décoratifs, eux, ont été retirés le 2026-08-17.
 
 **Visuels :** le **chat est dans le jeu**, cel-shadé, contour, visage peint et **griffes
 dessinées** compris, et il se lit à taille de jeu — désormais en **tuxedo noir et blanc**,
@@ -774,12 +775,15 @@ registre **anime TV 80–90**.
 C'est leur **contraste** qui fabrique l'événement, pas la taille des cartons.
 
 - **Polices : Dela Gothic One** (moments) + **Zen Kaku Gothic New** (information), OFL,
-  sous-ensembles `latin` + `latin-ext` + `kana` — **73 Ko au total**. Récupérées par
+  sous-ensembles `latin` + `latin-ext` — **~67 Ko au total**. Récupérées par
   `tools/fetch_fonts.ps1`, **rejouable** : une police est un geste de style, pas un
   binaire tombé du ciel.
-- **Kana décoratif seulement**, toujours le plus petit corps de l'écran. ⚠️ Le fichier
-  `kana` ne porte **que** les caractères listés dans le script : un kana ajouté à
-  `ui_style.KANA` sans être ajouté à `fetch_fonts.ps1` rend un **carré vide, en silence**.
+- ⚠️ **Les kana décoratifs ont été RETIRÉS le 2026-08-17** (demande directe). Il n'y a
+  plus de sous-ensemble `kana`, plus de dictionnaire `KANA`, plus de `make_kana_label()` :
+  rien dans l'UI ne demande de glyphe japonais. Ce que les cartons perdent est le petit
+  accent d'époque qui coiffait leur titre ; ce qu'ils gardent est la **gothique lourde**,
+  qui porte à elle seule le registre anime TV — c'est la *lettre* qui datait l'image, pas
+  l'alphabet.
 - **Le HUD est en `layer = -2`**, donc *sous* l'impact frame (−1) et *sous* `RetroPost` (0) :
   il fait partie de l'**image** et reçoit le grain et la vignette. Même argument que
   l'impact frame — au-dessus, il se lirait comme un calque d'UI collé sur le film.
@@ -796,7 +800,7 @@ C'est leur **contraste** qui fabrique l'événement, pas la taille des cartons.
 > - **Un uniform `rect_size` recâblé sur `resized` arrive en retard**, et d'un facteur
 >   *différent par plaque* — donc aucune plaque juste pour servir de témoin. Les shaders
 >   déduisent désormais leurs pixels de **`fwidth(UV)`** et ne dépendent plus de rien.
-> - **2 px de cerne sur un glyphe de 12 px le remplissent.** Le kana sortait en bouillie.
+> - **2 px de cerne sur un glyphe de 12 px le remplissent.** Le petit texte sortait en bouillie.
 >   Un cerne se dose en fraction de la hauteur d'x, jamais en valeur absolue partagée.
 > - **Le volet d'entrée est dans le shader de la plaque, donc il ne coupe pas ses
 >   enfants.** Le texte s'affichait entier pendant que la plaque s'ouvrait encore —
@@ -867,13 +871,13 @@ premier réglage ; le carton est fait pour en recevoir d'autres.
 > par défaut) quand `main._ready()` s'exécute. C'est `_refresh_text()` qui les remet dans
 > la bonne. Un chemin qui ne servirait qu'au menu casserait sans qu'on s'en aperçoive.
 
-> 🔍 **Le kana `セッティング` rend juste, et par CHANCE, pas par construction.** Google
-> Fonts renvoie sur `text=` un morceau de sous-ensemble **plus large que demandé**.
-> Vérification faite à l'image : `レベルアップ` s'affiche depuis toujours alors que
-> `ア`, `ッ` et `プ` **n'ont jamais été** dans `$Kana` — le garde-fou de `fetch_fonts.ps1`
-> était donc déjà contourné sans que personne le sache. Les deux listes sont remises
-> d'accord ; ne pas compter sur cette marge pour un kana futur.
-> ⚠️ `FontFile.has_char()` **ne répond pas** sur ces woff2 (faux partout, y compris pour
+> 🔍 **Leçon gardée du kana, retiré depuis** (voir §9.4) : le garde-fou de
+> `fetch_fonts.ps1` — « un kana absent de `$Kana` sort en carré vide » — **était déjà
+> contourné sans que personne le sache**. `レベルアップ` s'affichait depuis toujours alors
+> que `ア`, `ッ` et `プ` n'avaient **jamais** été demandés : Google Fonts renvoie sur
+> `text=` un morceau de sous-ensemble plus large que la liste. Si un glyphe non latin
+> revient un jour, ne pas se fier à la liste pour savoir ce que le fichier porte.
+> ⚠️ Et `FontFile.has_char()` **ne répond pas** sur ces woff2 (faux partout, y compris pour
 > un glyphe qui s'affiche) : la seule vérification qui vaut est de **regarder la frame**.
 
 **Réglages : où ils s'ouvrent, et où ils ne s'ouvrent pas.** Pendant le carton de niveau

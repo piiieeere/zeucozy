@@ -9,12 +9,15 @@
 # Pourquoi des sous-ensembles et pas les .ttf complets : les deux familles
 # portent tout le japonais, soit 14 Mo et 3,7 Mo. Le sous-ensemble `latin` de
 # Google fait 32 Ko et 9 Ko, couvre U+0000-00FF — donc TOUS les accents
-# francais — et `latin-ext` ajoute l'oe lie pour 2 Ko. Le kana, lui, est
-# DECORATIF et se reduit aux quelques mots ci-dessous : on le demande par
-# `text=`, ce qui rend un fichier de quelques centaines d'octets.
+# francais — et `latin-ext` ajoute l'oe lie pour 2 Ko.
 #
-# ⚠️ Ajouter un kana a l'UI sans l'ajouter a $Kana donne un carre vide (tofu)
-# a l'ecran, silencieusement. Les deux listes doivent bouger ensemble.
+# ⚠️ LE SOUS-ENSEMBLE `kana` A ETE RETIRE le 2026-08-17 : les kana decoratifs ont
+# quitte l'UI, plus rien ne demande un glyphe japonais. Si on en remet un jour,
+# ne pas se fier a une liste de caracteres pour savoir ce que le fichier porte —
+# Google renvoie sur `text=` un morceau PLUS LARGE que demande, et `レベルアップ`
+# s'est affiche pendant des semaines alors que trois de ses glyphes n'avaient
+# jamais ete demandes. `FontFile.has_char()` ne repond pas sur ces woff2 : la
+# seule verification qui vaut est de regarder la frame.
 
 $ErrorActionPreference = "Stop"
 
@@ -25,9 +28,6 @@ New-Item -ItemType Directory -Force $OutDir | Out-Null
 # Une UA moderne : sans elle, l'API rend le .ttf complet au lieu des woff2
 # decoupes par script. C'est TOUTE la difference entre 14 Mo et 32 Ko.
 $UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-
-# Les kana decoratifs reellement dessines par l'UI. Voir ui_style.gd (KANA).
-$Kana = "タイムレベルアップライフゲームオーバーつづくネコセッティング"
 
 # ⚠️ Shippori Mincho B1 a ete ESSAYEE puis ECARTEE le 2026-08-16, apres analyse
 # image d'Orbitals (4 min de gameplay en 720p60) : il n'y a AUCUNE mincho dans
@@ -57,14 +57,6 @@ foreach ($f in $Families) {
         Write-Output ("{0,-26} {1,-10} {2,5} Ko" -f $f.Name, $subset, [math]::Round((Get-Item $out).Length / 1KB, 1))
     }
 
-    # Le kana, demande caractere par caractere. `text=` rend UN seul @font-face.
-    $enc = [System.Uri]::EscapeDataString($Kana)
-    $cssKana = (Invoke-WebRequest -Uri "https://fonts.googleapis.com/css2?family=$($f.Query)&text=$enc" `
-        -UseBasicParsing -UserAgent $UA -TimeoutSec 60).Content
-    $urlKana = [regex]::Match($cssKana, 'src:\s*url\((https://[^)]+)\)').Groups[1].Value
-    $outKana = Join-Path $OutDir "$($f.Name).kana.woff2"
-    Invoke-WebRequest -Uri $urlKana -OutFile $outKana -UseBasicParsing -TimeoutSec 60
-    Write-Output ("{0,-26} {1,-10} {2,5} Ko" -f $f.Name, "kana", [math]::Round((Get-Item $outKana).Length / 1KB, 1))
 }
 
 # La licence OFL EXIGE d'accompagner les fichiers redistribues. Ce n'est pas

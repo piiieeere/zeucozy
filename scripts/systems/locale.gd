@@ -69,9 +69,7 @@ const STRINGS := {
 		"fr": "Survie %d:%02d  ·  Niveau %d",
 		"en": "Survived %d:%02d  ·  Level %d",
 	},
-	# "つづく" — a suivre, la formule de fin d'episode. Le kana est decoratif et
-	# reste dans les deux langues (§9.4) ; seul le mot latin bascule.
-	"card.restart": {"fr": "つづく  ·  RELANCER", "en": "つづく  ·  RESTART"},
+	"card.restart": {"fr": "RELANCER", "en": "RESTART"},
 
 	# ── Parametres ───────────────────────────────────────────────────────────
 	"settings.title": {"fr": "RÉGLAGES", "en": "SETTINGS"},

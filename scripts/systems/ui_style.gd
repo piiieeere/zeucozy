@@ -50,7 +50,7 @@ const PLATE := Color("#241A11")
 ## une image entierement chaude se lit comme une erreur d'affichage (§5).
 const CREAM := Color("#F7EFE0")
 
-## Creme assourdi : legendes, kana decoratif, telemetrie. Une hierarchie de
+## Creme assourdi : legendes, sous-titres de carton, telemetrie. Une hierarchie de
 ## texte se fait a la VALEUR avant de se faire a la taille.
 const CREAM_DIM := Color("#C9BCA6")
 
@@ -78,38 +78,25 @@ const HIT_ROSE := Color("#D45870")   # alerte, vie basse
 #   • CORPS (Zen Kaku Gothic New) — l'INFORMATION. Tient a 13 px sur une image
 #     chargee, ce qu'aucune display ne fait.
 #
-# Les deux portent le kana, ce qui evite une 3e famille pour les accents.
+# ⚠️ LES KANA DECORATIFS ONT ETE RETIRES le 2026-08-17 (demande directe). Il n'y
+# a donc plus de sous-ensemble `kana` : les deux familles ne portent plus que le
+# latin, et rien dans l'UI ne demande un glyphe japonais.
+#
+# Ce que les cartons perdent : le petit accent d'epoque qui coiffait leur titre.
+# Ce qu'ils gardent : la gothique lourde, qui porte a elle seule le registre
+# anime TV — c'est la LETTRE qui datait l'image, pas l'alphabet.
 #
 # ⚠️ Les fichiers sont des SOUS-ENSEMBLES (tools/fetch_fonts.ps1) : `latin`
-# couvre U+0000-00FF (tous les accents francais), `latin-ext` ajoute l'oe lie,
-# `kana` ne porte QUE les caracteres de KANA ci-dessous. Un kana ajoute ici sans
-# etre ajoute au script rend un carre vide, en silence.
+# couvre U+0000-00FF (tous les accents francais), `latin-ext` ajoute l'oe lie.
 
 const _DISPLAY_LATIN := preload("res://assets/fonts/DelaGothicOne.latin.woff2")
 const _DISPLAY_EXT := preload("res://assets/fonts/DelaGothicOne.latin-ext.woff2")
-const _DISPLAY_KANA := preload("res://assets/fonts/DelaGothicOne.kana.woff2")
 
 const _BODY_LATIN := preload("res://assets/fonts/ZenKakuGothicNew-Medium.latin.woff2")
 const _BODY_EXT := preload("res://assets/fonts/ZenKakuGothicNew-Medium.latin-ext.woff2")
-const _BODY_KANA := preload("res://assets/fonts/ZenKakuGothicNew-Medium.kana.woff2")
 
 const _BOLD_LATIN := preload("res://assets/fonts/ZenKakuGothicNew-Bold.latin.woff2")
 const _BOLD_EXT := preload("res://assets/fonts/ZenKakuGothicNew-Bold.latin-ext.woff2")
-const _BOLD_KANA := preload("res://assets/fonts/ZenKakuGothicNew-Bold.kana.woff2")
-
-## Les kana decoratifs, en un seul endroit. Le francais porte TOUTE
-## l'information ; ceux-ci n'ajoutent que l'epoque, en petit et en creme
-## assourdi. Aucun n'est necessaire a la comprehension du jeu.
-const KANA := {
-	"time": "タイム",
-	"level": "レベル",
-	"life": "ライフ",
-	"level_up": "レベルアップ",
-	"game_over": "ゲームオーバー",
-	"to_be_continued": "つづく",
-	"cat": "ネコ",
-	"settings": "セッティング",
-}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Metriques
@@ -135,7 +122,6 @@ const SHADOW_OFFSET := Vector2i(2, 2)
 # qui correspond a un corps de ~17 px sur cette gothique.
 const SIZE_TIME := 34       ## L'horloge — le seul gros chiffre du HUD.
 const SIZE_LABEL := 15      ## Legendes en capitales ("NIVEAU", "ENNEMIS").
-const SIZE_KANA := 12       ## Kana decoratif — toujours le plus petit de l'ecran.
 const SIZE_TELEMETRY := 12  ## Le releve de build, en bas.
 const SIZE_CARD_TITLE := 40 ## Le mot des cartons ("NIVEAU 3", "K.O.").
 const SIZE_CARD_SUB := 14
@@ -177,21 +163,21 @@ static var _bold: FontFile
 static func display_font() -> FontFile:
 	if _display == null:
 		_display = _DISPLAY_LATIN
-		_display.fallbacks = [_DISPLAY_EXT, _DISPLAY_KANA]
+		_display.fallbacks = [_DISPLAY_EXT]
 	return _display
 
 
 static func body_font() -> FontFile:
 	if _body == null:
 		_body = _BODY_LATIN
-		_body.fallbacks = [_BODY_EXT, _BODY_KANA]
+		_body.fallbacks = [_BODY_EXT]
 	return _body
 
 
 static func bold_font() -> FontFile:
 	if _bold == null:
 		_bold = _BOLD_LATIN
-		_bold.fallbacks = [_BOLD_EXT, _BOLD_KANA]
+		_bold.fallbacks = [_BOLD_EXT]
 	return _bold
 
 
@@ -233,9 +219,9 @@ static func make_label(
 	if outline > 0:
 		# `outline` est l'epaisseur REELLE en px, pas un multiplicateur.
 		# ⚠️ Elle doit suivre le corps : 2 px de cerne sur un glyphe de 11 px le
-		# REMPLISSENT — mesure faite sur une capture du jeu, le kana sortait en
-		# bouillie. Un cerne se dose en fraction de la hauteur d'x, jamais en
-		# valeur absolue partagee par tous les corps.
+		# REMPLISSENT — mesure faite sur une capture du jeu. Un cerne se dose en
+		# fraction de la hauteur d'x, jamais en valeur absolue partagee par tous
+		# les corps.
 		label.add_theme_constant_override("outline_size", outline)
 		label.add_theme_color_override("font_outline_color", INK)
 
@@ -252,15 +238,6 @@ static func make_label(
 ## reste a l'ecran en permanence passe par la.
 static func make_hud_label(text: String, size: int = SIZE_LABEL, color: Color = CREAM) -> Label:
 	return make_label(text, bold_font(), size, color, TRACKING_LABEL, 2, true)
-
-
-## Le kana decoratif : le plus petit corps de l'ecran, en creme assourdi, jamais
-## porteur d'information.
-##
-## Cerne a 1 px SEULEMENT. Un kana est bien plus dense qu'une capitale latine du
-## meme corps ; le cerne du HUD le bouchait entierement.
-static func make_kana_label(key: String) -> Label:
-	return make_label(KANA[key], body_font(), SIZE_KANA, CREAM_DIM, TRACKING_LABEL, 1, false)
 
 
 ## Une plaque de carton : fond sombre, filet d'encre, coins coupes.

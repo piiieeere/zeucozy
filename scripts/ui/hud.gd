@@ -108,10 +108,6 @@ func _build_corner_block() -> void:
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(column)
 
-	# Le kana coiffe le chiffre, en tout petit — l'accent d'epoque, jamais
-	# porteur d'information (§9.4).
-	column.add_child(UiStyle.make_kana_label("time"))
-
 	_time_value = UiStyle.make_label(
 		"0:00", UiStyle.display_font(), UiStyle.SIZE_TIME, UiStyle.CREAM, 0, 3, true
 	)
@@ -335,10 +331,6 @@ func _build_level_card() -> void:
 
 	var column: VBoxContainer = parts["column"]
 
-	var kana := UiStyle.make_kana_label("level_up")
-	kana.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	column.add_child(kana)
-
 	_level_title = UiStyle.make_label(
 		Locale.t("hud.level") % 2, UiStyle.display_font(), UiStyle.SIZE_CARD_TITLE,
 		UiStyle.CREAM, UiStyle.TRACKING_TITLE, 4, true
@@ -439,10 +431,6 @@ func _build_game_over_card() -> void:
 
 	var column: VBoxContainer = parts["column"]
 
-	var kana := UiStyle.make_kana_label("game_over")
-	kana.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	column.add_child(kana)
-
 	var title := UiStyle.make_label(
 		"K.O.", UiStyle.display_font(), UiStyle.SIZE_CARD_TITLE + 8,
 		UiStyle.TERRACOTTA, UiStyle.TRACKING_TITLE, 4, true
@@ -457,8 +445,6 @@ func _build_game_over_card() -> void:
 	_game_over_summary.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(_game_over_summary)
 
-	# "つづku" — a suivre. La formule de fin d'episode, qui dit exactement ce que
-	# fait le bouton : ca continue.
 	_restart_button = _make_wide_button(Locale.t("card.restart"))
 	column.add_child(_restart_button)
 	_restart_button.pressed.connect(func() -> void: restart_pressed.emit())
@@ -487,10 +473,6 @@ func _build_settings_card() -> void:
 	_settings_card.set_meta("content", parts["content"])
 
 	var column: VBoxContainer = parts["column"]
-
-	var kana := UiStyle.make_kana_label("settings")
-	kana.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	column.add_child(kana)
 
 	_settings_title = UiStyle.make_label(
 		Locale.t("settings.title"), UiStyle.display_font(), UiStyle.SIZE_CARD_TITLE - 6,
