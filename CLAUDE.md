@@ -357,6 +357,40 @@ Lire ces fichiers avant toute tâche concernant le domaine correspondant :
 > `Pipeline Sprites.md`, `Convention de Nommage Sprites.md`, `Prompts de Génération.md`,
 > `Template Intégration Assets.md`.
 
+### Le manuel Godot, en local (2026-08-17)
+
+Les **398 pages** de `https://docs.godotengine.org/en/latest/tutorials/` sont converties en
+Markdown dans le vault : `05 - Godot Docs/`, index racine `Tutorials.md`, **25 sections**
+(2D, 3D, Animation, Physics, Shaders, Scripting, UI, Performance, Navigation, Export…).
+
+**À consulter AVANT d'implémenter, pas seulement quand on est bloqué.** C'est là que vivent
+les bonnes pratiques du moteur, les pièges d'API et les raisons derrière une signature.
+Chercher coûte une commande ; se tromper de nœud coûte une refonte.
+
+```bash
+# Chercher dans tout le manuel (le dossier a un espace : garder les guillemets)
+grep -rn "move_and_slide" "C:/Users/tibo/ThibsVault/02 — Projets/jeu-video-godot/05 - Godot Docs"
+```
+
+- Chaque note porte en frontmatter son `source` — l'URL d'origine, pour citer ou vérifier.
+- Les **admonitions sont des callouts** (`> [!WARNING]`, `> [!NOTE]`) : le manuel y range ses
+  pièges. Ce sont les premières lignes à lire d'une page, pas les dernières.
+- Les blocs de code sont **étiquetés GDScript / C#** — ne pas recopier le C# par distraction.
+
+> ⚠️ **LA RÉFÉRENCE DE CLASSES N'Y EST PAS.** `classes/` — l'API proprement dite (`Node2D`,
+> `CharacterBody3D`, la liste des méthodes, propriétés et signaux) — n'a pas été récupérée,
+> soit ~4 000 pages générées. Les renvois vers une classe sont donc des **URL externes** vers
+> docs.godotengine.org. **Ne pas conclure d'une recherche infructueuse que le manuel ne
+> couvre pas le sujet** : la réponse est peut-être dans l'API, qui est en ligne.
+
+> ⚠️ **Les images ne sont pas copiées**, elles pointent en lien distant. Une page se lit hors
+> ligne, ses captures non.
+
+> ⚠️ **C'est la doc de `latest`, donc de la version EN DÉVELOPPEMENT** (branche `master` de
+> `godotengine/godot-docs`, récupérée le 2026-08-17), pas de la 4.7.1 stable du projet.
+> L'écart est mince, mais c'est sur une API récente qu'il se loge — en cas de doute sur une
+> fonction fraîche, vérifier dans Godot avant de s'y fier.
+
 ---
 
 ## Architecture
@@ -1100,6 +1134,11 @@ Le rig de caméra fait exception : il bouge dans `_process`, donc son interpolat
 
 - **Fournir des scripts complets** lors de modifications, jamais des extraits partiels.
 - **Ne pas complexifier** — architecture simple et modulaire, pas d'abstractions spéculatives.
+- **Lire ce que dit la doc Godot avant de coder** — le manuel est en local, dans
+  `05 - Godot Docs/` du vault (voir « Le manuel Godot, en local »). Sur une API, un cycle de
+  vie de nœud, une question de perf ou un choix de nœud, on **vérifie au lieu de supposer** ;
+  et quand le manuel recommande une façon de faire, c'est elle qu'on suit — les pièges de ce
+  projet montrent assez ce que coûte un comportement du moteur découvert après coup.
 - **Respecter l'arborescence** : `scenes/`, `scripts/`, `assets/`.
 - **Langue UI : français ET anglais depuis le 2026-08-17.** Le français reste la langue
   d'écriture — on rédige en français, on traduit ensuite. ⚠️ **Aucun texte affichable ne
