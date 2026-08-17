@@ -15,6 +15,7 @@ const PROJECTILE_SCENE := preload("res://scenes/projectile.tscn")
 const HIT_BURST_SCENE := preload("res://scenes/fx/hit_burst.tscn")
 const Locale := preload("res://scripts/systems/locale.gd")
 const SettingsStore := preload("res://scripts/systems/settings_store.gd")
+const SkillDefinitions := preload("res://scripts/systems/skill_definitions.gd")
 
 ## Aire de jeu, en metres. Environ 4 largeurs d'ecran de large — le meme
 ## rapport qu'avant entre l'arene et le cadre.
@@ -104,7 +105,9 @@ func _apply_ui_preview() -> void:
 				# competence a son palier max en sort, une neuve n'y entre pas si
 				# ses slots sont pleines). Un tirage tire du catalogue seul
 				# montrerait des cartes que le jeu refuserait ensuite.
-				current_upgrade_choices = player.roll_skill_choices(3)
+				current_upgrade_choices = _forced_choices()
+				if current_upgrade_choices.is_empty():
+					current_upgrade_choices = player.roll_skill_choices(3)
 				hud.show_level_card(3, current_upgrade_choices)
 			"gameover":
 				game_over = true
@@ -112,6 +115,38 @@ func _apply_ui_preview() -> void:
 				hud.show_game_over(96.0, 4)
 			"settings":
 				_open_settings()
+
+
+## `--ui-choices=claw:2,bite:1,toughness:1` impose les trois cartes du carton de
+## niveau, au lieu de les tirer.
+##
+## ⚠️ CE N'EST PAS UN CONFORT, c'est le pendant de `--autofire` et de `--walk`.
+## Le tirage est pondere (AUTO x3, ACTIF x2, PASSIF x1) : une capture au hasard
+## sort trois AUTO une fois sur deux, et le code couleur de type — dont TOUT
+## l'objet est de separer les trois familles — serait juge sur une image ou une
+## seule famille est presente. Une carte de passif n'a par ailleurs pas de
+## vignette, donc c'est aussi la seule facon de voir la carte SANS fenetre a cote
+## de deux qui en ont.
+##
+## Une competence inconnue leve, comme partout ailleurs : une faute de frappe
+## dans un id doit se voir tout de suite, pas se traduire par une carte manquante.
+func _forced_choices() -> Array[Dictionary]:
+	var choices: Array[Dictionary] = []
+
+	for argument in OS.get_cmdline_user_args():
+		if not argument.begins_with("--ui-choices="):
+			continue
+
+		for token in argument.trim_prefix("--ui-choices=").split(",", false):
+			var parts := token.split(":")
+			var id := parts[0].strip_edges()
+			SkillDefinitions.find(id)
+			choices.append({
+				"id": id,
+				"tier": int(parts[1]) if parts.size() > 1 else 1,
+			})
+
+	return choices
 
 
 ## `--lang=en` force la langue au lancement, SANS toucher au fichier de

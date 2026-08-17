@@ -76,6 +76,17 @@ const STRINGS := {
 	"card.tier_new": {"fr": "NOUVEAU", "en": "NEW"},
 	"card.tier": {"fr": "PALIER %d", "en": "TIER %d"},
 	"card.tier_ultimate": {"fr": "ULTIME", "en": "ULTIMATE"},
+
+	# Le type de competence, sur le bandeau en tete de carte — §9.9.
+	#
+	# ⚠️ CE SONT DES MOTS DE JEU, pas du jargon d'implementation. L'enum s'appelle
+	# `Kind.AUTO / ACTIVE / PASSIVE` ; le joueur, lui, lit ce qu'il doit FAIRE.
+	# "ACTIF" est ce qui demande une touche, "AUTO" ce qui se debrouille seul,
+	# "PASSIF" ce qui ne se voit jamais. C'est la meme raison qui a fait ecrire
+	# "NOUVEAU" plutot que "PALIER 1" juste au-dessus.
+	"skill.kind.auto": {"fr": "AUTO", "en": "AUTO"},
+	"skill.kind.active": {"fr": "ACTIF", "en": "ACTIVE"},
+	"skill.kind.passive": {"fr": "PASSIF", "en": "PASSIVE"},
 	"card.game_over_summary": {
 		"fr": "Survie %d:%02d  ·  Niveau %d",
 		"en": "Survived %d:%02d  ·  Level %d",

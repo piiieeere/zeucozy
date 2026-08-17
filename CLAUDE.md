@@ -399,6 +399,7 @@ zeucozy/
 │   │   ├── shout_fx.gd             # 💥 L'onomatopée des ACTIFS — CHOMP, en pas, dans le monde
 │   │   ├── hiss_ring.gd            # 💢 L'onde du feulement — 6 poses, pousse par le FRONT
 │   │   ├── dust_bunny.gd           # 🌫️ Une touffe — naissance / repos / pouf, 3 cadences
+│   │   ├── skill_thumb.gd          # 🖼️ La vignette d'une compétence — le VRAI FX en SubViewport
 │   │   ├── ui_style.gd             # ⭐ Le style de l'interface — palette, polices, cadence
 │   │   ├── locale.gd               # ⭐ TOUS les textes du jeu — français + anglais
 │   │   ├── settings_store.gd       # Préférences du joueur sur disque (user://settings.cfg)
@@ -411,7 +412,8 @@ zeucozy/
 │       ├── prop_test.gd # Banc des meubles : 8 directions + rapport de taille au chat
 │       └── motion_probe.gd # ⏱️ Fluidité : temps de frame + battement sur 3 frames
 ├── shaders/          # cel_toon, cel_outline, cel_face, cel_paws, retro_post
-│                     # ui_frame (plaque grise, angles droits + repères d'angle)
+│                     # ui_frame (plaque grise, angles droits, repères d'angle,
+│                     #           + le RELIEF : biseau, facette, ombre portée dure)
 │                     # ui_speedlines (lignes de vitesse)
 │                     # bite (la morsure — gencives rouges + crocs de chat qui s'engrènent)
                      # hiss_ring (le feulement — onde crème/encre, le seul FX sans chroma)
@@ -1378,6 +1380,44 @@ posé sur l'image** plutôt que comme un calque de logiciel.
 > visible, ça rend visibles **ses défauts de composition**. En attendre d'autres au
 > prochain élément ajouté.
 
+### Les cartes de choix — volume, type, vignette (2026-08-17)
+
+La carte de choix porte désormais un **onglet de type**, une **fenêtre** sur le FX de la
+compétence, puis le marqueur de palier, le titre et la description. Détail complet et
+journal des pièges dans la DA, §9.9.
+
+| | Ce qui a changé | La contrainte de DA qu'il a fallu tenir |
+|---|---|---|
+| **Volume** | biseau 3 px + facette de dessus + ombre portée **dure** | §9.1 r.2 interdit le dégradé — tout est à **bord franc**, comme le cluster 2 tons de §2bis |
+| **Type** | onglet sauge (AUTO) / brique (ACTIF) / **sans teinte** (PASSIF) + le mot | §9.1 r.4 — un seul accent saturé. Les deux teintes sont **sous** l'ambre, qui garde le survol |
+| **Vignette** | une pose du **vrai shader** du FX, en `SubViewport` + caméra ortho | Zéro divergence : une vignette redessinée en UI serait un 2ᵉ jeu de couleurs à synchroniser |
+
+> ⛔ **C'EST LA VALEUR QUI DÉCIDE DU RELIEF, PAS LE BISEAU.** Les cartes étaient en
+> `PLATE_LOW` (0,16) sur un carton à 0,23 — plus sombres que ce qui les porte, donc lues
+> comme des **trous**, biseau ou pas. D'où `PLATE_RAISED` `#504F4B`, et la règle qui en
+> sort : **dans un carton, ce qu'on peut prendre est plus clair que son fond, ce qui reçoit
+> est plus sombre.** Les jauges et les pastilles de cooldown restent plates et sombres —
+> `relief` est **`false` par défaut** dans `make_plate`.
+
+> ⛔ **LE FOND DE LA VIGNETTE EST CLAIR.** Sur le registre bas des cartons (0,13), la
+> griffure sortait en **trois fentes lumineuses** : son corps anthracite (0,22) et son encre
+> (0,08) disparaissaient ensemble. Ces six FX sont dosés pour se lire sur le **parquet**
+> (~0,84) et contre aucun autre fond — d'où un blé assourdi `#C4B594`, la seule couleur
+> chaude admise dans un carton. Ce n'est pas de l'UI, c'est le **monde vu au travers**.
+
+> ⚠️ **Le `size` de la vignette est celui du JEU.** Trois FX expriment leur trait **en
+> mètres** : réduire `size` pour « faire tenir » le dessin épaissirait son cerne en
+> proportion. C'est la **caméra** qui cadre (`frame`, en mètres).
+
+> ⚠️ **`return` est interdit dans `fragment()`**, et l'échec est presque muet : la plaque
+> retombe sur le shader canvas par défaut, qui rend le `modulate` du `ColorRect` — blanc.
+> **Toute l'interface est sortie en blanc pur**, cartons compris.
+
+> ⚠️ **Un `VBoxContainer` à court de place écrase ses enfants SOUS leur
+> `custom_minimum_size`**, sans rien signaler : la fenêtre carrée est sortie en 86 × 65.
+> Même piège que la piste d'XP, vu par l'autre bout. **Toute retouche de `CHOICE_SIZE` se
+> revérifie en capture.**
+
 **Juger l'UI sans jouer** — les cartons n'apparaissent pas dans une capture passive :
 
 ```bash
@@ -1386,6 +1426,11 @@ posé sur l'image** plutôt que comme un calque de logiciel.
 #   --ui-card=level      le carton de niveau et ses 3 choix
 #   --ui-card=gameover   le carton de K.O.
 #   --ui-card=settings   le carton de réglages (langue)
+#   --ui-choices=claw:2,hiss:1,toughness:1
+#                        impose les 3 cartes. ⚠️ PAS un confort : le tirage est
+#                        pondéré (AUTO x3), une capture au hasard sort trois AUTO
+#                        une fois sur deux — et le code couleur de type serait
+#                        jugé sur une image où une seule famille est présente
 #   --lang=en            force la langue de la capture, SANS toucher au fichier
 #                        de préférences — une image n'est pas un choix du joueur
 ```

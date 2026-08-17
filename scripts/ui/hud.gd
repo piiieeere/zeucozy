@@ -44,19 +44,31 @@ const UiStyle := preload("res://scripts/systems/ui_style.gd")
 const FxCadence := preload("res://scripts/systems/fx_cadence.gd")
 const Locale := preload("res://scripts/systems/locale.gd")
 const SkillDefinitions := preload("res://scripts/systems/skill_definitions.gd")
+const SkillThumb := preload("res://scripts/systems/skill_thumb.gd")
 
 ## Le carton s'ouvre en 3 poses. §9.3 regle 4 : en pas, jamais en fondu — un
 ## panneau qui glisse en `tween` serait le seul element de l'image a ne pas etre
 ## en cellulo, et ca se voit immediatement.
 const CARD_POSES: Array[float] = [0.0, 0.34, 0.72, 1.0]
 
-const CARD_SIZE := Vector2(560.0, 300.0)
+## ⚠️ +92 px de haut le 2026-08-17 (300 → 392), et c'est la VIGNETTE qui l'a
+## demande, pas le confort. La largeur, elle, ne bouge pas : 3 x 168 + 2 x 12 =
+## 528, exactement l'interieur du carton.
+##
+## ⚠️ LA PREMIERE VALEUR ESSAYEE (352) DEBORDAIT, et le debordement etait MUET :
+## un VBoxContainer a court de place ecrase ses enfants SOUS leur
+## `custom_minimum_size` au lieu de se plaindre. La fenetre de vignette, declaree
+## carree, est sortie en 86 x 65 — et rien, ni erreur ni avertissement, ne disait
+## que la carte etait trop petite. C'est exactement le piege de la piste d'XP
+## (`custom_minimum_size` est un minimum, il ne garantit rien), vu par l'autre
+## bout. Toute retouche de `CHOICE_SIZE` se REVERIFIE en capture.
+const CARD_SIZE := Vector2(560.0, 392.0)
 const GAME_OVER_SIZE := Vector2(440.0, 260.0)
 const SETTINGS_SIZE := Vector2(460.0, 250.0)
-## +20 px de haut le 2026-08-17 : la carte porte une ligne de plus, le marqueur
-## de palier. Le carton, lui, ne bouge pas — CARD_SIZE laissait 176 px a la
-## rangee, il en reste 156 de marge apres coup.
-const CHOICE_SIZE := Vector2(168.0, 148.0)
+## +20 px le 2026-08-17 pour le marqueur de palier, puis +86 le meme jour pour le
+## bandeau de type et la vignette. Compte tenu : bandeau 18 + marge 10 + fenetre
+## 84 + trois blocs de texte et leurs separations.
+const CHOICE_SIZE := Vector2(168.0, 254.0)
 const LANGUAGE_SIZE := Vector2(150.0, 44.0)
 
 ## Une pastille de cooldown d'ACTIF. Carree — §9.3 regle 6, angles droits sans
@@ -458,7 +470,13 @@ func _build_card(card_size: Vector2) -> Dictionary:
 	# taille du noeud lui-meme — ici le HUD plein cadre. Le carton s'etalait sur
 	# tout l'ecran, reperes d'angle compris, et le seul indice etait un avertissement
 	# de shadowing que rien n'obligeait a lire.
-	var plate := UiStyle.make_plate()
+	# ⚠️ EN RELIEF, et pas seulement pour faire joli : les cartes qu'il contient
+	# le sont depuis le 2026-08-17. Une plaque plate portant trois plaques en
+	# volume met le contenant EN ARRIERE de son contenu, et le carton cesse d'etre
+	# ce qui prend l'ecran (§9.3 regle 2).
+	var plate := UiStyle.make_plate(
+		UiStyle.PLATE, UiStyle.RULE, UiStyle.TICK, UiStyle.BORDER, true
+	)
 	plate.set_anchors_preset(Control.PRESET_CENTER)
 	plate.custom_minimum_size = card_size
 	plate.size = card_size
@@ -542,19 +560,105 @@ func _make_choice_slot(index: int) -> Control:
 	var slot := Control.new()
 	slot.custom_minimum_size = CHOICE_SIZE
 
-	var plate := UiStyle.make_plate(UiStyle.PLATE_LOW, UiStyle.RULE, UiStyle.TICK, 1.0)
+	# ⚠️ `relief` — la carte a du VOLUME depuis le 2026-08-17 (§9.9). Biseau,
+	# facette 2 tons et ombre portee dure, tout a bord franc : c'est le cluster
+	# 2 tons du chat (§2bis) applique a une plaque d'interface, et surtout pas un
+	# degrade, que §9.1 regle 2 interdit.
+	#
+	# C'est la SEULE plaque du jeu qui doit dire "prends-moi". Les cartons, eux,
+	# n'ont rien a offrir qu'on puisse saisir : ils portent le relief pour ne pas
+	# etre plus plats que ce qu'ils contiennent, jamais pour appeler le clic.
+	var plate := UiStyle.make_plate(
+		UiStyle.PLATE_RAISED, UiStyle.RULE, UiStyle.TICK, 1.0, true
+	)
 	plate.set_anchors_preset(Control.PRESET_FULL_RECT)
 	slot.add_child(plate)
 
+	# ── Le bandeau de type, en tete de carte ─────────────────────────────────
+	#
+	# AUTO / ACTIF / PASSIF ne se lisaient nulle part : trois cartes identiques,
+	# et le joueur devait deduire le type de la description. Or le type decide de
+	# tout — une slot occupee, une touche a presser, ou un chiffre qu'on ne verra
+	# jamais (§2.1).
+	#
+	# ⚠️ IL EST EN TETE, PAS EN PIED, et pleine largeur. C'est la premiere chose
+	# que le balayage rencontre, donc la premiere qui trie les trois cartes ; en
+	# legende sous le titre il aurait ete une precision de plus, apres coup.
+	#
+	# ⚠️ IL NE VA PAS D'UN BORD A L'AUTRE, et ce n'est pas une preference : pleine
+	# largeur, il RECOUVRE LES DEUX REPERES D'ANGLE DU HAUT. La carte se retrouve
+	# alors avec deux L en bas et rien en haut, ce qui ne se lit plus comme un
+	# cartouche mais comme un cadre inacheve. Constate en capture.
+	#
+	# Il est donc rentre de `TICK_INSET + TICK`, exactement de quoi les degager —
+	# et il y gagne : un bandeau rentre est un ONGLET, donc un objet pose sur la
+	# carte, ce qui va avec le relief qu'elle vient de prendre. Pleine largeur, il
+	# n'etait qu'une bande de couleur.
+	var band_inset := UiStyle.TICK_INSET + UiStyle.TICK
+	var band := ColorRect.new()
+	band.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	band.offset_left = band_inset
+	band.offset_top = 1.0
+	band.offset_right = -(band_inset + UiStyle.PLATE_SHADOW)
+	band.offset_bottom = 1.0 + UiStyle.BAND_HEIGHT
+	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slot.add_child(band)
+
+	var band_label := UiStyle.make_label(
+		"", UiStyle.bold_font(), UiStyle.SIZE_CARD_SUB,
+		UiStyle.KIND_LABEL, UiStyle.TRACKING_LABEL, 0, false
+	)
+	band_label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	band_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	band_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	band.add_child(band_label)
+
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	for side in ["left", "top", "right", "bottom"]:
+	for side in ["left", "right", "bottom"]:
 		margin.add_theme_constant_override("margin_" + side, 10)
+	margin.add_theme_constant_override("margin_top", int(UiStyle.BAND_HEIGHT) + 10)
 	slot.add_child(margin)
 
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 6)
+	# ⚠️ CENTRE VERTICALEMENT, et c'est la vignette qui l'impose. Un passif n'en
+	# a pas : sa carte perd 76 px d'un coup, et calee en haut elle laisserait un
+	# trou beant sous sa description. Centree, la carte se referme sur son
+	# contenu quel qu'il soit.
+	column.alignment = BoxContainer.ALIGNMENT_CENTER
 	margin.add_child(column)
+
+	# ── La vignette du FX ────────────────────────────────────────────────────
+	#
+	# Une pose du VRAI shader de la competence, rendue dans un SubViewport — voir
+	# `skill_thumb.gd`, qui explique pourquoi elle n'est pas redessinee en UI.
+	#
+	# Sa fenetre est CREUSEE, pas posee : plaque `BACKING` sans relief, a l'exact
+	# inverse de la carte qui la porte. C'est le meme partage que la piste d'une
+	# jauge contre la carte — ce qui est en creux recoit, ce qui est en relief se
+	# prend.
+	#
+	# ⚠️ Son filet est L'ENCRE, pas le gris de regle des cartons. Le gris etait
+	# invisible sur un fond a 0,72, et surtout il n'a rien a faire la : ce cadre
+	# ne borde pas de l'interface, il borde le MONDE. L'encre `#3D2B1A` est
+	# exactement celle qui cerne le chat, les meubles et les six FX qu'on voit
+	# dedans — la fenetre est cernee du meme trait que ce qu'elle montre.
+	var window := UiStyle.make_plate(
+		SkillThumb.BACKING, UiStyle.INK, UiStyle.NO_TICK, 2.0
+	)
+	window.custom_minimum_size = Vector2(SkillThumb.SIZE + 8, SkillThumb.SIZE + 8)
+	window.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	window.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	column.add_child(window)
+
+	var thumb := SkillThumb.make()
+	thumb.set_anchors_preset(Control.PRESET_CENTER)
+	thumb.offset_left = -SkillThumb.SIZE * 0.5
+	thumb.offset_top = -SkillThumb.SIZE * 0.5
+	thumb.offset_right = SkillThumb.SIZE * 0.5
+	thumb.offset_bottom = SkillThumb.SIZE * 0.5
+	window.add_child(thumb)
 
 	# Le marqueur de palier — "NOUVEAU", "PALIER 2", "ULTIME".
 	#
@@ -593,7 +697,10 @@ func _make_choice_slot(index: int) -> Control:
 	button.focus_mode = Control.FOCUS_NONE
 	slot.add_child(button)
 
-	var entry := {"slot": slot, "plate": plate, "tier": tier_label, "title": title, "desc": desc}
+	var entry := {
+		"slot": slot, "plate": plate, "tier": tier_label, "title": title, "desc": desc,
+		"band": band, "band_label": band_label, "window": window, "thumb": thumb,
+	}
 
 	button.pressed.connect(func() -> void: choice_selected.emit(index))
 	button.mouse_entered.connect(_set_slot_hover.bind(entry, true))
@@ -730,7 +837,11 @@ func _make_language_slot(code: String) -> Control:
 	var slot := Control.new()
 	slot.custom_minimum_size = LANGUAGE_SIZE
 
-	var plate := UiStyle.make_plate(UiStyle.PLATE_LOW, UiStyle.RULE, UiStyle.TICK, 1.0)
+	# En relief comme les cartes de choix : c'est le meme geste — un aplat sur
+	# lequel on clique. Les jauges du HUD restent plates, elles ne se cliquent pas.
+	var plate := UiStyle.make_plate(
+		UiStyle.PLATE_RAISED, UiStyle.RULE, UiStyle.TICK, 1.0, true
+	)
 	plate.set_anchors_preset(Control.PRESET_FULL_RECT)
 	slot.add_child(plate)
 
@@ -852,11 +963,49 @@ func show_level_card(level: int, choices: Array) -> void:
 			entry["tier"].text = _tier_marker(id, tier)
 			entry["title"].text = Locale.skill_title(id).to_upper()
 			entry["desc"].text = Locale.skill_description(id, tier)
+			_set_slot_kind(entry, SkillDefinitions.kind_of(id))
+
+			# La fenetre disparait quand la competence n'a rien a montrer, elle ne
+			# reste pas vide. Un cadre noir sur une carte de passif se lirait comme
+			# une image qui n'a pas fini de charger — et §2.10 vaut aussi ici : une
+			# carte ne doit rien promettre qu'elle ne tienne.
+			var window: Control = entry["window"]
+			window.visible = SkillThumb.configure(entry["thumb"], id)
+
 			_set_slot_hover(entry, false)
 		else:
 			slot.visible = false
 
+	# ⚠️ AVANT `_open_card`, pas apres. Le carton s'ouvre en 4 poses pendant
+	# lesquelles le contenu est masque ; allumer le rendu a la fin ferait
+	# apparaitre trois fenetres NOIRES a la derniere pose, le temps que le
+	# SubViewport rende sa premiere frame. Le lancer d'abord lui donne les quatre
+	# poses d'avance qu'il faut, et c'est gratuit puisqu'on est en pause.
+	_set_thumbs_running(true)
 	_open_card(_level_card)
+
+
+## Le bandeau de type : sa couleur et son mot, ensemble.
+##
+## ⚠️ LES DEUX, JAMAIS L'UN SANS L'AUTRE. La couleur se lit d'un balayage mais
+## elle s'apprend ; le mot se lit toujours mais il se lit lentement. Un joueur
+## qui decouvre le jeu suit le mot, un joueur qui l'a en main suit la couleur, et
+## personne n'a a choisir. C'est aussi ce qui rend le code couleur sans risque
+## pour qui distingue mal le vert du rouge — les deux teintes retenues n'etant,
+## de surcroit, ni l'une ni l'autre saturees.
+func _set_slot_kind(entry: Dictionary, kind: SkillDefinitions.Kind) -> void:
+	var band: ColorRect = entry["band"]
+
+	match kind:
+		SkillDefinitions.Kind.AUTO:
+			band.color = UiStyle.KIND_AUTO
+			entry["band_label"].text = Locale.t("skill.kind.auto")
+		SkillDefinitions.Kind.ACTIVE:
+			band.color = UiStyle.KIND_ACTIVE
+			entry["band_label"].text = Locale.t("skill.kind.active")
+		_:
+			band.color = UiStyle.KIND_PASSIVE
+			entry["band_label"].text = Locale.t("skill.kind.passive")
 
 
 ## Ce que la carte annonce en legende : un DEBLOCAGE, un renfort, ou le moment
@@ -883,12 +1032,23 @@ func show_game_over(elapsed: float, level: int) -> void:
 	_open_card(_game_over_card)
 
 
+## ⚠️ LES VIGNETTES SE COUPENT AVEC LE CARTON, et ce n'est pas une economie de
+## frames : un SubViewport laisse en `UPDATE_ALWAYS` continue de rendre derriere
+## un carton ferme, indefiniment, pendant toute la run. Trois quads de 76 px ne
+## se verront pas au profileur — c'est precisement pour ca qu'il faut les couper
+## ici plutot que de compter dessus pour s'en apercevoir un jour.
 func hide_level_card() -> void:
 	_level_card.visible = false
+	_set_thumbs_running(false)
 
 
 func is_level_card_open() -> bool:
 	return _level_card.visible
+
+
+func _set_thumbs_running(running: bool) -> void:
+	for entry in _choice_slots:
+		SkillThumb.set_running(entry["thumb"], running)
 
 
 ## L'ouverture en pas. Chaque pose TIENT une duree, elle ne s'interpole pas —

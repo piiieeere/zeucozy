@@ -82,9 +82,29 @@ const INK := Color("#3D2B1A")
 ## la valeur, le filet ne fait que la finir.
 const PLATE := Color("#3A3A38")
 
-## Le second gris, plus sombre : piste de jauge, carte de choix, pastille de
-## langue. Tout ce qui doit se poser DANS un carton sans se confondre avec lui.
+## Le second gris, plus sombre : piste de jauge, pastille de cooldown. Tout ce
+## qui est CREUSE dans un carton.
 const PLATE_LOW := Color("#2A2A28")
+
+## Le gris des plaques EN RELIEF : cartes de choix, pastilles de langue.
+##
+## ⚠️ IL EST PLUS CLAIR QUE `PLATE`, ET C'EST TOUT SON OBJET. Les cartes etaient
+## en `PLATE_LOW` (0,16) sur un carton a 0,23 : plus sombres que ce qui les
+## porte, donc lues comme des TROUS. On peut leur ajouter tous les biseaux qu'on
+## veut, un objet plus sombre que son fond s'enfonce — c'est la premiere chose
+## que dit une image, avant tout dessin de bord.
+##
+## La regle qui en sort, et qui vaut pour tout ce qu'on ajoutera : dans un
+## carton, CE QU'ON PEUT PRENDRE EST PLUS CLAIR QUE SON FOND, ce qui recoit est
+## plus sombre. Le partage n'est plus "contenant / contenu" mais "en relief /
+## en creux", et il se lit sans avoir a le savoir.
+##
+## ⚠️ 0,30 de luma, et le premier essai a 0,27 NE SUFFISAIT PAS : la facette lui
+## reprend `facet_drop` sur toute sa face avant, ce qui la ramenait a 0,24 —
+## soit la valeur du carton a 0,23, au point pres. La carte redevenait invisible
+## sauf par son filet. Une plaque en relief se dimensionne APRES sa facette, pas
+## avant : c'est la face sombre qui doit rester au-dessus du fond, pas la claire.
+const PLATE_RAISED := Color("#504F4B")
 
 ## Le filet et les reperes d'angle des cartons. Assez clair pour se lire sur la
 ## plaque, assez sombre pour ne pas concurrencer le texte.
@@ -119,6 +139,44 @@ const TERRACOTTA := Color("#D46858") # vie
 const GOLD := Color("#E8C040")       # XP
 const MINT := Color("#60C498")       # soin, bonus
 const HIT_ROSE := Color("#D45870")   # alerte, vie basse
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Le code de type des competences — §9.9 (2026-08-17)
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# AUTO, ACTIF et PASSIF ne se distinguaient que par la lecture de la
+# description : trois cartes identiques, et le joueur devait deduire le type des
+# mots. C'est un bandeau en tete de carte qui le dit maintenant, et il le dit
+# TROIS FOIS — par sa couleur, par son mot, et par la presence ou l'absence de
+# vignette dessous.
+#
+# ⚠️ LES TEINTES SONT FRANCHEMENT SOUS LA SATURATION DE L'AMBRE, et c'est la
+# condition qui rend le code couleur compatible avec §9.1 regle 4 ("un seul
+# accent sature, et il DESIGNE"). L'ambre garde le survol : il doit rester le
+# plus sature de l'ecran, sinon le joueur ne voit plus quelle carte il pointe.
+#   sauge   #7E9A80 — 18 % de saturation
+#   brique  #A86A56 — 49 %, mais a 0,42 de valeur : sombre, il ne claque pas
+#   ambre   #D4A860 — 55 % a 0,83 de valeur, le seul qui saute aux yeux
+#
+# ⚠️ AUCUNE des deux ne tire au FROID (§5), sauge comprise : son vert est tire
+# vers le jaune, pas vers le bleu. C'est la meme contrainte qui avait fait passer
+# le corps de la griffure de #383E42 a #37393B.
+#
+# ⚠️ LE PASSIF N'A PAS DE TEINTE, et ce n'est pas une economie. Un passif n'est
+# JAMAIS dessine dans le jeu (`skill_definitions.gd`) — c'est ce qui justifie
+# qu'il ne coute ni slot ni pixel. Lui donner une couleur d'arme dirait le
+# contraire, et l'absence de couleur est ici l'information exacte : deux teintes
+# neuves seulement, au lieu de trois.
+const KIND_AUTO := Color("#7E9A80")
+const KIND_ACTIVE := Color("#A86A56")
+const KIND_PASSIVE := RULE
+
+## Le lettrage POSE SUR un bandeau de type. Le registre bas, pas l'encre : le
+## cerne brun est le trait du MONDE, et §9.8 l'a retire de l'interieur des
+## cartons. Ici il n'y a rien a detacher, juste des lettres sombres sur un aplat.
+const KIND_LABEL := PLATE_LOW
+
+const BAND_HEIGHT := 18.0
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Typographie — §9.4
@@ -185,6 +243,50 @@ const TICK_WIDTH := 2.0
 ## n'a aucun sens, et §9.6 leur demande le meme dessin qu'entre elles, pas le
 ## meme qu'un carton.
 const NO_TICK := 0.0
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Le relief des plaques — §9.9 (2026-08-17)
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Les cartes de choix etaient trois aplats poses sur un aplat : rien ne disait
+# qu'on pouvait les prendre. Le volume se fait en BANDES DE VALEUR A BORD FRANC
+# (§9.1 regle 2 interdit le degrade) — biseau + facette + ombre portee dure, le
+# detail est dans `ui_frame.gdshader`.
+#
+# ⚠️ IL N'EST PAS UNIVERSEL, et c'est la ligne de partage : le relief va a ce qui
+# est POSE SUR l'image (cartons, cartes, pastilles de langue), jamais a ce qui y
+# est CREUSE (pistes de jauge, pastilles de cooldown). Une jauge en relief se
+# lirait comme un bouton, donc comme quelque chose sur quoi cliquer.
+
+## ⚠️ 3 px et non 2, et l'ecart de valeur a monte avec. A 2 px sur `PLATE_LOW`
+## (0,16), le biseau ne se voyait tout simplement pas en capture — une plaque
+## sombre absorbe une bande claire etroite, la ou une plaque claire l'aurait
+## rendue criarde. Le biseau se dose sur CE QU'IL CERNE, comme le trait du chat,
+## comme le cerne d'un glyphe de 12 px : jamais en valeur absolue partagee.
+const BEVEL := 3.0
+const BEVEL_LIFT := 0.14
+const BEVEL_DROP := 0.10
+
+## La coupe de la facette, en fraction de la hauteur.
+##
+## ⚠️ 0,13 ET NON 0,42, et l'ecart entre les deux est toute la difference entre
+## un volume et un motif. A 0,42 la carte sortait en DEUX RECTANGLES EMPILES —
+## une moitie haute claire, une moitie basse sombre, et la coupe tombait au
+## milieu du texte sans que rien ne l'explique. C'est le defaut annonce dans le
+## commentaire de `face_split`, simplement decale d'un cran.
+##
+## Une face de dessus est ETROITE : c'est la tranche d'un objet vu de trois
+## quarts, pas la moitie de sa facade. A 0,13 le bandeau clair se lit comme
+## l'epaisseur eclairee du haut de la plaque — le meme geste que les deux ombres
+## portees peintes du canape, qui font lire son volume de dessus (§4).
+const FACET_SPLIT := 0.13
+const FACET_LIFT := 0.045
+const FACET_DROP := 0.030
+
+## Le decalage de l'ombre portee. Meme sens que `SHADOW_OFFSET` du texte (bas
+## droite), et a peine plus grand : deux ombres qui partiraient de cotes
+## differents donneraient deux soleils dans la meme image.
+const PLATE_SHADOW := 3.0
 
 ## Le decalage de l'ombre, en px. Deux suffisent : au-dela ca ne lit plus comme
 ## un defaut de registre mais comme une ombre portee, et on retombe sur l'UI de
@@ -336,11 +438,16 @@ static func make_hud_label(text: String, size: int = SIZE_LABEL, color: Color = 
 ## d'UI est opaque ou n'existe pas. Une opacite partielle est TOUJOURS la
 ## solution de facilite au meme probleme — "cet element est trop present" — et la
 ## vraie reponse est de le rendre plus petit, plus sombre, ou de le supprimer.
+##
+## `relief` donne a la plaque son volume — biseau, facette et ombre portee. Il
+## est FAUX par defaut : voir le bloc « Le relief des plaques », le relief va a
+## ce qui est pose sur l'image, jamais a ce qui y est creuse.
 static func make_frame(
 	plate: Color = PLATE,
 	ink: Color = RULE,
 	tick: float = TICK,
-	border: float = BORDER
+	border: float = BORDER,
+	relief: bool = false
 ) -> ShaderMaterial:
 	var mat := ShaderMaterial.new()
 	mat.shader = FRAME_SHADER
@@ -351,6 +458,19 @@ static func make_frame(
 	mat.set_shader_parameter("tick_inset_px", TICK_INSET)
 	mat.set_shader_parameter("tick_width_px", TICK_WIDTH)
 	mat.set_shader_parameter("reveal", 1.0)
+
+	# A plat, on ne pose RIEN : les uniforms de relief valent zero dans le shader
+	# et la plaque retombe exactement sur son dessin d'avant le 2026-08-17.
+	if relief:
+		mat.set_shader_parameter("bevel_px", BEVEL)
+		mat.set_shader_parameter("bevel_lift", BEVEL_LIFT)
+		mat.set_shader_parameter("bevel_drop", BEVEL_DROP)
+		mat.set_shader_parameter("face_split", FACET_SPLIT)
+		mat.set_shader_parameter("facet_lift", FACET_LIFT)
+		mat.set_shader_parameter("facet_drop", FACET_DROP)
+		mat.set_shader_parameter("shadow_px", PLATE_SHADOW)
+		mat.set_shader_parameter("shadow_color", VEIL)
+
 	return mat
 
 
@@ -365,11 +485,12 @@ static func make_plate(
 	plate: Color = PLATE,
 	ink: Color = RULE,
 	tick: float = TICK,
-	border: float = BORDER
+	border: float = BORDER,
+	relief: bool = false
 ) -> ColorRect:
 	var rect := ColorRect.new()
 	rect.color = Color(1, 1, 1, 1)
-	rect.material = make_frame(plate, ink, tick, border)
+	rect.material = make_frame(plate, ink, tick, border, relief)
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return rect
 
