@@ -1,0 +1,16 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Shader" path="res://shaders/bite.gdshader" id="1_bite"]
+[ext_resource type="Script" path="res://scripts/systems/bite_fx.gd" id="2_bite"]
+
+[sub_resource type="QuadMesh" id="QuadMesh_bite"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_bite"]
+render_priority = 1
+shader = ExtResource("1_bite")
+
+[node name="Bite" type="MeshInstance3D"]
+cast_shadow = 0
+mesh = SubResource("QuadMesh_bite")
+material_override = SubResource("ShaderMaterial_bite")
+script = ExtResource("2_bite")

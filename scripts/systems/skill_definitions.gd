@@ -113,6 +113,26 @@ const DEFINITIONS: Array[Dictionary] = [
 		"ultimates": [],
 	},
 	{
+		# La boule de poils REVEILLE le projectile, en sommeil depuis le passage a
+		# la griffure. Elle rouvre la fantasy "chat sniper" que le manifeste §11
+		# notait sans support, et pour un cout proche de zero : scene, script et
+		# `spawn_projectile` etaient restes entiers.
+		#
+		# Elle ne se vise PAS — la slot n°1 est reservee a l'arme dirigee (§2.3),
+		# et deux armes qui obeissent au meme curseur ne feraient qu'une arme.
+		"id": "hairball",
+		"kind": Kind.AUTO,
+		"script": "res://scripts/skills/hairball_skill.gd",
+		# Peu de degats sur UNE cible, mais a 11 m — le double de la griffure.
+		# Elle porte loin, elle ne nettoie pas.
+		"tiers": [
+			{"damage": 2, "interval": 1.60, "speed": 17.5, "range": 11.0},
+			{"damage": 3, "interval": 1.35, "speed": 19.0, "range": 13.0},
+			{"damage": 4, "interval": 1.10, "speed": 21.0, "range": 15.0},
+		],
+		"ultimates": [],
+	},
+	{
 		"id": "breath",
 		"kind": Kind.AUTO,
 		"script": "res://scripts/skills/breath_skill.gd",
@@ -123,6 +143,31 @@ const DEFINITIONS: Array[Dictionary] = [
 			{"radius": 2.80, "damage": 1},
 			{"radius": 3.35, "damage": 2},
 			{"radius": 3.90, "damage": 3},
+		],
+		"ultimates": [],
+	},
+
+	# ── ACTIF ─────────────────────────────────────────────────────────────────
+	#
+	# Le seul type qui ajoute une DECISION a la boucle moment-to-moment (§2.4) :
+	# le placement et la visee sont continus, un actif est ponctuel. Le joueur
+	# choisit un INSTANT.
+	{
+		"id": "bite",
+		"kind": Kind.ACTIVE,
+		"script": "res://scripts/skills/bite_skill.gd",
+		# ⚠️ Elle porte MOINS LOIN que la griffure (5,2 m) et frappe deux fois plus
+		# fort : un croc se paye en distance, pas seulement en cooldown. A 2,6 m,
+		# mordre demande d'entrer dans la bande ou l'ennemi mord aussi (~1,55 m).
+		#
+		# 7 degats au T1, soit exactement la vie d'une brute de depart : la
+		# competence a un effet LISIBLE des sa premiere prise. Plus tard dans la
+		# run les brutes montent a 21, et elle redevient un gros coup parmi
+		# d'autres — c'est la courbe voulue pour un outil d'execution.
+		"tiers": [
+			{"damage": 7, "range": 2.60, "cooldown": 6.0},
+			{"damage": 10, "range": 2.90, "cooldown": 5.0},
+			{"damage": 14, "range": 3.20, "cooldown": 4.2},
 		],
 		"ultimates": [],
 	},

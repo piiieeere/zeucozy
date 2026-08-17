@@ -379,9 +379,12 @@ zeucozy/
 │   ├── arena.gd      # Décor : sol, tapis, mobilier, mur de bordure
 │   ├── camera_rig.gd # Vue plongeante 45°, suit le joueur, bornée à l'arène
 │   ├── skills/       # ⭐ LES COMPÉTENCES — une par fichier, toutes au même contrat
-│   │   ├── skill.gd        # Le contrat : setup / set_tier / tick. Aucune n'a de _process
-│   │   ├── claw_skill.gd   # ⚔️ La griffure — slot AUTO n°1, l'arme DIRIGÉE
-│   │   └── breath_skill.gd # 🌀 L'haleine puante — pilote l'aura, pas son dessin
+│   │   ├── skill.gd         # Le contrat : setup / set_tier / tick. Aucune n'a de _process
+│   │   ├── active_skill.gd  # Le socle des ACTIFS — cooldown, garde à froid, charge
+│   │   ├── claw_skill.gd    # ⚔️ La griffure — slot AUTO n°1, l'arme DIRIGÉE
+│   │   ├── hairball_skill.gd # 🌀 La boule de poils — AUTO à distance, auto-visée
+│   │   ├── bite_skill.gd    # 🦷 La morsure — le 1ᵉʳ ACTIF, cible unique
+│   │   └── breath_skill.gd  # 💨 L'haleine puante — pilote l'aura, pas son dessin
 │   ├── systems/
 │   │   ├── skill_definitions.gd    # ⭐ LE catalogue — types, paliers, poids de tirage
 │   │   ├── skill_set.gd            # ⭐ Ce que le chat PORTE — build + horloge des compétences
@@ -389,7 +392,8 @@ zeucozy/
 │   │   ├── cel_model.gd            # ⭐ Le style du chat — partagé jeu ↔ banc de test
 │   │   ├── cel_prop.gd             # ⭐ Le style des meubles — .glb sans squelette
 │   │   ├── fx_cadence.gd           # ⭐ Les 3 durées de pose des FX (§7) — source unique
-│   │   ├── breath_aura.gd          # 🌀 L'haleine puante — aura lootable, poses + morsure
+│   │   ├── breath_aura.gd          # 💨 L'haleine puante — aura lootable, poses + morsure
+│   │   ├── bite_fx.gd              # 🦷 Les mâchoires de la morsure — 5 poses, dents dessinées
 │   │   ├── ui_style.gd             # ⭐ Le style de l'interface — palette, polices, cadence
 │   │   ├── locale.gd               # ⭐ TOUS les textes du jeu — français + anglais
 │   │   ├── settings_store.gd       # Préférences du joueur sur disque (user://settings.cfg)
@@ -404,6 +408,7 @@ zeucozy/
 ├── shaders/          # cel_toon, cel_outline, cel_face, cel_paws, retro_post
 │                     # ui_frame (plaque grise, angles droits + repères d'angle)
 │                     # ui_speedlines (lignes de vitesse)
+│                     # bite (la morsure — 2 mâchoires dentées qui claquent)
 │                     # cel_paws (bouts de pattes + les 3 griffes dessinées)
 │                     # cel_ground (parquet peint), cel_rug (tapis)
 │                     # hit_burst (éclat de collision), impact_frame (flash)
@@ -411,6 +416,7 @@ zeucozy/
 │                     # breath_aura (l'haleine puante — volutes cernées, décalque AU SOL)
 │                     # cel_core + cel_floor (includes, fonctions pures)
 ├── tools/
+│   ├── setup_input_map.gd  # ⌨️ La carte d'entrées (WASD + clics), rejouable
 │   ├── export_cat.py       # ⚠️ LE SEUL chemin d'export du chat (voir piège n°6)
 │   ├── build_animations.py # Construit idle/walk posées en pas, dans le .blend
 │   ├── paint_tuxedo.py     # Pelage noir/blanc : matériau des extrémités + couleurs
@@ -455,6 +461,8 @@ Le réglage à bouger en premier si le chat paraît trop petit est `distance` da
 | | T1 | T2 | T3 |
 |---|---|---|---|
 | **Griffure** *(dégât / cadence / portée)* | 3 · 1,10 s · 5,2 m | 4 · 0,94 s · 5,65 m | 5 · 0,80 s · 6,1 m |
+| **Boule de poils** *(dégât / cadence / portée)* | 2 · 1,60 s · 11 m | 3 · 1,35 s · 13 m | 4 · 1,10 s · 15 m |
+| **Morsure** *(dégât / portée / recharge)* | 7 · 2,6 m · 6,0 s | 10 · 2,9 m · 5,0 s | 14 · 3,2 m · 4,2 s |
 | **Haleine** *(rayon / dégât par morsure)* | 2,8 m · 1 | 3,35 m · 2 | 3,9 m · 3 |
 
 Arc frontal de griffure **120°, à tous les paliers** — l'ancienne description promettait un
@@ -632,6 +640,8 @@ remplacement (chantier 2) ne sont **pas** écrits.
   Le carton « quoi remplacer ? » n'existe pas — proposer une 7ᵉ arme serait proposer
   quelque chose que le jeu ne sait pas faire.
 - **Tirage pondéré** AUTO ×3 · ACTIF ×2 · PASSIF ×1, sans doublon dans le tirage.
+- **Le catalogue actuel** : `claw` (AUTO dirigé, de départ) · `hairball` (AUTO auto-visé) ·
+  `breath` (AUTO de zone) · `bite` (ACTIF) · `move_speed` · `max_health` · `pickup_radius`.
 - **La carte de choix porte un marqueur de palier** — `NOUVEAU` / `PALIER 2` / `ULTIME`, en
   légende de 10 px au-dessus d'un titre de 17 (le contraste d'échelle de DA §9.3 règle 5,
   pas une nuance de gris de plus). Il reste en crème assourdi **même au survol** : l'ambre
@@ -680,7 +690,141 @@ le chat frappe simplement un peu moins fort qu'il ne devrait.
 #   --build-report      paliers + chiffres de corps + relevé d'ATH + 8 tirages
 #   --skill=<id>:<n>    n'importe quelle compétence à n'importe quel palier
 #   --breath=<n>        gardé tel quel — il sert déjà aux captures
+#   --autofire          les 2 slots d'ACTIF partent dès qu'elles sont prêtes
 ```
+
+> ⚠️ **`--autofire` n'est pas un confort.** Une compétence active attend un clic, et dans
+> un `--write-movie` **la souris ne clique jamais** : sans lui, la première compétence
+> active du jeu serait strictement incapturable, donc jugée sans avoir été vue.
+
+### Les contrôles — WASD + les deux clics (2026-08-17)
+
+Premier changement de contrôles du projet. `tools/setup_input_map.gd` pose la carte
+d'entrées, et il est **rejouable** : une carte d'entrées est un geste de conception, pas
+un binaire tombé du ciel.
+
+| Action | Touche |
+|---|---|
+| Déplacement | **W A S D** (+ flèches en second) |
+| Visée | souris |
+| ACTIF slot 1 | **clic gauche** |
+| ACTIF slot 2 | **clic droit** |
+| Réglages | Échap |
+
+- **Les touches sont posées en code PHYSIQUE**, pas logique. Godot les résout par leur
+  **position** : sur l'AZERTY de ce projet, les mêmes trois touches sous les doigts
+  s'appellent Z, Q, S, D et marchent sans qu'on déclare quoi que ce soit. Un `keycode`
+  logique aurait demandé deux cartes.
+- **`move_*` remplace `ui_*` dans `player.gd`.** Garder `ui_*` laissait aussi `ui_accept`
+  (Espace) activer les boutons de l'UI dans le dos du jeu.
+
+> ⚠️ **LE CLIC GAUCHE EST PARTAGÉ avec les boutons de l'interface** — cartes d'upgrade,
+> RELANCER, pastilles de langue. Le déclenchement des actifs est donc dans
+> **`_unhandled_input`**, jamais en sondage de `Input` : un Control en `MOUSE_FILTER_STOP`
+> (les cartons) **consomme** l'événement, et l'actif ne le voit jamais. Godot règle le
+> partage, pas une condition qu'on aurait pu oublier.
+>
+> Une première version sondait `Input` dans `_process`. Elle aurait lu le même clic
+> **deux fois** : choisir une amélioration aurait dépensé la morsure dans la foulée, sur
+> la frame où la run reprend et où la garde de pause ne protège plus. **6 s de cooldown
+> perdues à chaque level-up, sans que rien ne le signale.**
+>
+> ⚠️ Le HUD permanent, lui, ne consomme rien (racine et labels en `MOUSE_FILTER_IGNORE`) :
+> un actif part même quand le curseur survole l'ATH — c'est-à-dire précisément quand on
+> regarde ses pastilles de cooldown.
+
+### Les ACTIFS — la décision d'instant (2026-08-17)
+
+Le troisième type existe enfin. C'est le seul qui ajoute une **décision** à la boucle
+moment-to-moment : le placement et la visée sont continus, un actif est ponctuel.
+
+- **`active_skill.gd` porte le cooldown**, pas chaque compétence. Six décomptes séparés,
+  ce sont six façons pour une pastille de mentir sur ce qui est prêt.
+- **Le cooldown est une valeur de palier** comme le reste — absolue, donc rien à soustraire.
+- **Deux pastilles au HUD, en bas à droite**, et **aucune** tant que le chat n'a pas de
+  compétence active : une pastille éteinte annoncerait une touche qui ne fait rien.
+  Elles se remplissent **en 5 crans**, jamais en continu — un remplissage lisse serait le
+  seul élément lisse de l'image. Le filet passe à l'**ambre** à pleine charge : l'accent
+  désigne ce sur quoi le joueur peut agir, comme le survol d'une carte.
+- ⚠️ **C'est le HUD qui quantifie, pas le jeu.** `main` pousse une valeur continue à chaque
+  frame ; le découpage en pas est une décision de **dessin**.
+
+### La morsure — le 1ᵉʳ ACTIF, et la boule de poils
+
+| | Morsure (ACTIF) | Boule de poils (AUTO) |
+|---|---|---|
+| Déclenchement | **clic gauche** | cadence automatique |
+| Visée | le joueur | **automatique, plus proche** |
+| Cibles | **une seule** | une seule |
+| Arc | **90°** frontal | — |
+| Portée T1→T3 | 2,6 / 2,9 / 3,2 m | 11 / 13 / 15 m |
+| Dégâts T1→T3 | **7 / 10 / 14** | 2 / 3 / 4 |
+| Recharge | 6 / 5 / 4,2 s | 1,6 / 1,35 / 1,1 s |
+
+- **La morsure porte MOINS LOIN que la griffure** (5,2 m) et frappe deux fois plus fort :
+  un croc se paye en distance, pas seulement en cooldown. 7 dégâts au T1 = exactement la
+  vie d'une brute de départ, donc un effet lisible dès la première prise.
+- **La cible est fixée au déclenchement, pas au claquement.** Deux poses passent entre les
+  deux (~67 ms) et un chaser parcourt 25 cm : la chercher au claquement ferait mordre un
+  ennemi que le joueur ne visait pas. Une morsure doit toucher ce qu'elle **montre**.
+- **La boule de poils réveille le projectile**, en sommeil depuis la griffure, et rouvre la
+  fantasy « chat sniper » que le manifeste §11 notait sans support. Coût proche de zéro :
+  scène, script et `spawn_projectile` étaient restés entiers.
+- **Elle ne se vise PAS**, délibérément : la slot n°1 est réservée à l'arme dirigée, et
+  deux armes qui obéissent au même curseur ne font qu'une arme.
+
+> ⚠️ **Quatre défauts du dessin de la morsure, tous trouvés en AGRANDISSANT les frames —
+> aucun visible à taille de jeu, aucun en lisant le code :**
+> - **Les mâchoires n'avaient pas de masse.** À `thick` 0,07 elles sortaient en traits de
+>   1 à 2 px et se lisaient comme un **coup de ciseaux**. Une mâchoire est une masse ;
+>   c'est son épaisseur qui la sépare d'une griffure, pas sa courbure. Doublée.
+> - **Le cluster 2 tons n'existait que dans le fichier.** À `core_w` = ink + 0,26 × thick,
+>   le crème n'apparaissait **pas une seule frame** — l'encre et le brun se rejoignaient.
+>   Passé à 0,40.
+> - **La gueule avalait le chat.** `jaw_offset` (0,30) était plus petit que la demi-ouverture :
+>   la mâchoire supérieure passait derrière le centre du chat. ⚠️ Et le décalage est
+>   **plafonné par le quad** — `jaw_offset + gape + thick` doit rester sous 1,0, sinon le
+>   haut est tranché net par le bord du décalque.
+> - **Les dents sortaient en dents de scie.** `abs(sin)` a un point de rebroussement à
+>   chaque zéro — un V, donc un angle vif, ce que §3 interdit. Remplacé par `sin²`, lisse
+>   partout : les creux deviennent des vallées, les dents des bosses.
+>
+> 🔍 **La leçon commune :** à taille de jeu, la morsure et la griffure se ressemblaient
+> assez pour qu'on les croie correctes toutes les deux. **Un FX se règle en agrandissant
+> la frame, pas en la regardant.**
+
+> ⚠️ **Puis elle était TROP PETITE et TROP BRÈVE** (retour direct, 2026-08-17). Deux
+> problèmes distincts, deux leviers distincts, et les fausses pistes valent d'être gardées :
+>
+> **La taille — elle ne pouvait PAS grandir vers l'avant.** Le décalque est pris en
+> tenaille : le bord du quad d'un côté, le chat de l'autre. Agrandir `DRAW_SIZE` seul a
+> aussitôt fait **rentrer le chat dans la gueule** ; reculer l'ouverture pour l'en sortir
+> l'a rendue **plate**. La sortie était de grandir **en largeur** — rien ne l'y borne que
+> la portée qu'elle promet. L'arc de dégâts a donc été **ouvert de 70° à 90°** dans le même
+> mouvement, pour que la corde du dessin (3,74 m) soit exactement celle de l'arc à sa
+> portée. *C'est le dessin qui a fait bouger l'équilibrage, pas l'inverse.*
+>
+> ⚠️ **Et le dégagement se calcule À L'ÉCRAN, pas au sol.** Le décalque est un billboard :
+> son décalage vers l'avant vit dans le plan de l'image, où le chat occupe ~0,5 m de rayon.
+> Raisonner en mètres de terrain — l'erreur de la deuxième tentative — donne un chiffre
+> plausible et faux. D'où l'encadrement qui fixe désormais toutes les poses :
+> `0,19 ≤ jaw_offset ± (gape + thick) ≤ 0,98`.
+>
+> **La durée — deux leviers étaient interdits, le troisième était dans §7 depuis le début.**
+> Ralentir la cadence est exclu (§8 : les FX doivent être *plus rapides* que les
+> personnages) ; ajouter des poses plafonne à 8, et on y était. La réponse est que **chaque
+> pose a sa propre durée** : §7 demande *« des poses tenues coupées par des transitions
+> rapides »*, et une cadence uniforme est un métronome, pas de l'animation posée. Le
+> claquement tient **4 crans** contre 1 pour l'ouverture — le geste passe de 267 à
+> **500 ms** sans qu'une pose s'ajoute ni que la cadence de base bouge.
+> ✅ Mesuré sur les frames : visible 30 frames à 60 fps, avec un plateau plat au milieu.
+> ⚠️ `MARGIN` n'est rendue qu'**une** fois par pose, pas une par cran — c'est une tolérance
+> de seuil, pas une durée.
+
+> ⚠️ **Ne pas confondre morsure et BOND.** Le bond a d'abord été écrit comme attaque
+> (dash + traînée de lignes de vitesse), puis **retiré le 2026-08-17** : il sera un
+> **déplacement vertical**, pas une attaque. `shaders/pounce_trail.gdshader` et son script
+> ont été supprimés — ne pas les reprendre pour une arme.
 
 ### XP (xp_orb.gd)
 - Magnétisme déclenché à < 5 m du joueur
@@ -736,10 +880,15 @@ arène large. Toute la logique de gameplay tourne — le passage en 3D ne l'a pa
 **Le socle des compétences est posé le 2026-08-17** — voir « Les compétences » plus haut.
 Les 7 upgrades à plat ont cédé la place aux trois types (AUTO / ACTIF / PASSIF), aux
 paliers T1→T3, aux slots et au tirage pondéré de `Gameplay et Progression` §2. La griffure
-et l'haleine sont devenues **deux instances du même contrat** : c'est ce qui rend le reste
-écrivable en donnée plutôt qu'en code. **Restent à faire :** les ACTIFS (aucun n'existe),
-le carton de remplacement quand une famille de slots est pleine, les ultimes T4, et le
-contenu (~10 auto, ~6 actifs).
+et l'haleine sont devenues **deux instances du même contrat**.
+
+**Et les trois types sont jouables depuis le même jour.** Le runtime des ACTIFS existe
+(deux slots, deux clics, cooldown, pastilles au HUD en pas), et deux compétences témoins
+l'éprouvent : la **morsure** (le 1ᵉʳ actif) et la **boule de poils** (1ᵉʳ AUTO auto-visé,
+qui réveille le projectile). Les contrôles sont passés à **WASD + les deux clics**.
+
+**Restent à faire :** le carton de remplacement quand une famille de slots est pleine
+(chantier 2), les ultimes T4, et le reste du contenu (~7 auto, ~5 actifs de plus).
 
 **Le jeu est bilingue depuis le 2026-08-17** — voir « Le jeu est bilingue » plus haut.
 Français et anglais, un carton de réglages ouvert par Échap, et le choix conservé d'une

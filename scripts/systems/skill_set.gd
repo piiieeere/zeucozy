@@ -41,6 +41,44 @@ func tick(delta: float) -> void:
 		node.tick(delta)
 
 
+## Les competences ACTIVES, DANS L'ORDRE OU ELLES ONT ETE PRISES.
+##
+## ⚠️ L'ordre vient de `_tiers`, et il n'est pas un hasard d'implementation : un
+## Dictionary GDScript conserve son ordre d'insertion. La premiere competence
+## active prise occupe donc la slot 1 (clic gauche) et y reste — une slot qui se
+## reordonnerait toute seule ferait changer de touche une competence en pleine
+## run, ce qu'aucun joueur ne peut suivre.
+func active_slots() -> Array:
+	var slots: Array = []
+
+	for id in _tiers:
+		if SkillDefinitions.kind_of(id) == SkillDefinitions.Kind.ACTIVE and _nodes.has(id):
+			slots.append(_nodes[id])
+
+	return slots
+
+
+## Le joueur a presse la touche d'une slot. Une slot vide ou une competence a
+## froid ne font RIEN — pas de son, pas de decompte relance, rien.
+func trigger_slot(index: int) -> void:
+	var slots := active_slots()
+
+	if index < slots.size():
+		slots[index].trigger()
+
+
+## Ce que le HUD dessine : une charge par slot active, de 0 a 1. Vide tant que le
+## chat n'a aucune competence active — auquel cas aucune pastille ne s'affiche,
+## parce qu'une pastille eteinte annoncerait une touche qui ne fait rien.
+func charge_report() -> Array[float]:
+	var charges: Array[float] = []
+
+	for skill in active_slots():
+		charges.append(skill.charge_ratio())
+
+	return charges
+
+
 func has(id: String) -> bool:
 	return _tiers.has(id)
 

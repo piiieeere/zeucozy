@@ -210,6 +210,11 @@ func _process(delta: float) -> void:
 
 	_update_time_label()
 	_update_objective_text()
+	# Poussee a chaque frame, contrairement au reste de l'ATH : un cooldown est
+	# la seule valeur du jeu qui change en continu sans qu'aucun evenement ne le
+	# signale. Le HUD, lui, la QUANTIFIE en crans — le decoupage en pas est une
+	# decision de dessin, pas de jeu.
+	hud.set_charges(player.skills.charge_report())
 
 
 func is_run_paused() -> bool:

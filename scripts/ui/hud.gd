@@ -59,6 +59,14 @@ const SETTINGS_SIZE := Vector2(460.0, 250.0)
 const CHOICE_SIZE := Vector2(168.0, 148.0)
 const LANGUAGE_SIZE := Vector2(150.0, 44.0)
 
+## Une pastille de cooldown d'ACTIF. Carree — §9.3 regle 6, angles droits sans
+## exception — et minuscule, comme tout le HUD permanent (§9.1).
+const CHARGE_PIP := Vector2(20.0, 20.0)
+
+## Le nombre de crans de remplissage. §2.4 demande "4-5 poses, jamais une barre
+## lisse" : cinq crans, et le passage de l'un a l'autre est franc.
+const CHARGE_STEPS := 5
+
 signal choice_selected(index: int)
 signal restart_pressed
 ## Le joueur a choisi une langue. Le HUD ne l'applique PAS lui-meme : il ne sait
@@ -81,6 +89,10 @@ var _level_value: Label
 var _objective: Label
 var _enemy_count: Label
 var _telemetry: Label
+
+## Une entree par slot d'ACTIF : {track, fill}. Masquees tant que le chat n'a
+## pas la competence correspondante.
+var _charge_slots: Array[Dictionary] = []
 
 var _level_card: Control
 var _level_title: Label
@@ -105,6 +117,7 @@ func _ready() -> void:
 
 	_build_corner_block()
 	_build_status_block()
+	_build_charge_block()
 	_build_telemetry()
 	_build_level_card()
 	_build_game_over_card()
@@ -231,6 +244,97 @@ func _build_status_block() -> void:
 	)
 	_objective.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	column.add_child(_objective)
+
+
+## Les pastilles de cooldown des ACTIFS, en bas a droite — §2.4.
+##
+## Une pastille par slot active, et AUCUNE tant que le chat n'a pas de
+## competence active : une pastille eteinte annoncerait une touche qui ne fait
+## rien, ce qui est le meme mensonge a l'ecran que `projectile_speed`.
+##
+## En BAS A DROITE, et c'est le seul coin qui restait : le haut gauche porte la
+## survie, le haut droit la vague, le bas gauche le releve de build. C'est aussi
+## le coin le plus proche de la main qui clique.
+##
+## ⚠️ ELLES SE REMPLISSENT EN PAS, jamais en continu (§2.4). Un remplissage lisse
+## serait le SEUL element lisse de l'image — exactement l'erreur du grain qui
+## battait en bloc, et le contraire de tout ce que §7 demande. La charge est donc
+## quantifiee en 5 crans, et le passage d'un cran au suivant est franc.
+func _build_charge_block() -> void:
+	var row := HBoxContainer.new()
+	row.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	row.offset_left = -180.0
+	row.offset_top = -(CHARGE_PIP.y + UiStyle.MARGIN)
+	row.offset_right = -UiStyle.MARGIN
+	row.offset_bottom = -UiStyle.MARGIN
+	row.alignment = BoxContainer.ALIGNMENT_END
+	row.add_theme_constant_override("separation", 8)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(row)
+
+	for _index in range(SkillDefinitions.MAX_ACTIVE_SLOTS):
+		# Meme dessin que les jauges de vie et d'XP : piste opaque, filet
+		# d'ENCRE, angles droits, pas de repere d'angle. Elles flottent sur le
+		# jeu, elles appartiennent donc au registre nu du HUD — celui qui se
+		# detache par son cerne (§9.6).
+		var track := UiStyle.make_plate(
+			UiStyle.PLATE_LOW, UiStyle.INK, UiStyle.NO_TICK, 1.0
+		)
+		track.custom_minimum_size = CHARGE_PIP
+		# Sans ca, le HBoxContainer etire la pastille a la hauteur de la rangee —
+		# le piege deja paye sur la piste d'XP, invisible en lisant le code.
+		track.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		track.visible = false
+		row.add_child(track)
+
+		var fill := ColorRect.new()
+		fill.color = UiStyle.AMBER
+		fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		track.add_child(fill)
+
+		_charge_slots.append({"track": track, "fill": fill})
+
+
+## La charge de chaque slot active, de 0 a 1. Une liste vide efface les pastilles.
+##
+## ⚠️ C'est le HUD qui QUANTIFIE, pas l'appelant. `main` pousse une valeur
+## continue a chaque frame ; le decoupage en crans est une decision de DESSIN
+## (§7), et la laisser au jeu, c'est la voir un jour diverger d'un element a
+## l'autre — exactement ce que `fx_cadence.gd` existe pour empecher.
+func set_charges(charges: Array) -> void:
+	var inner: Vector2 = CHARGE_PIP - Vector2(2.0, 2.0)
+
+	for index in range(_charge_slots.size()):
+		var entry: Dictionary = _charge_slots[index]
+		var track: ColorRect = entry["track"]
+
+		if index >= charges.size():
+			track.visible = false
+			continue
+
+		track.visible = true
+
+		var charge := clampf(float(charges[index]), 0.0, 1.0)
+		# Pleine charge : la pastille CLAQUE (§2.4). Le cran plein est teste a
+		# part et non deduit de l'arrondi — sans ca, un cooldown a 99,5 % rendrait
+		# le meme dessin qu'un cooldown pret, et le joueur cliquerait dans le vide.
+		var charged := charge >= 0.999
+		var stepped := 1.0 if charged else floorf(charge * float(CHARGE_STEPS)) / float(CHARGE_STEPS)
+
+		var fill: ColorRect = entry["fill"]
+		# Elle se remplit PAR LE BAS : une jauge qui monte se lit comme une
+		# reserve qui se refait, une qui descend comme un compte a rebours. Ici
+		# c'est bien une reserve.
+		fill.size = Vector2(inner.x, inner.y * stepped)
+		fill.position = Vector2(1.0, 1.0 + inner.y * (1.0 - stepped))
+
+		# Le filet passe a l'ambre quand c'est pret — l'accent DESIGNE ce sur quoi
+		# le joueur peut agir (§9.3 regle 4). Meme dispositif que le survol d'une
+		# carte et que la pastille de langue active : trois facons differentes de
+		# dire "c'est celui-la" obligeraient a apprendre l'interface trois fois.
+		track.material.set_shader_parameter(
+			"ink_color", UiStyle.AMBER if charged else UiStyle.INK
+		)
 
 
 ## Le releve de build, en bas a gauche.

@@ -62,6 +62,8 @@ const STRINGS := {
 		"en": "CLAW %d · RATE %.2f s · RANGE %.1f m · SPEED %.1f m/s · MAGNET %.1f m",
 	},
 	"stats.breath": {"fr": " · HALEINE %.1f/s SUR %.1f m", "en": " · BREATH %.1f/s OVER %.1f m"},
+	"stats.hairball": {"fr": " · BOULE %d À %.0f m", "en": " · HAIRBALL %d AT %.0f m"},
+	"stats.bite": {"fr": " · MORSURE %d / %.1f s", "en": " · BITE %d / %.1f s"},
 
 	# ── Cartons de moment ────────────────────────────────────────────────────
 	"card.level_sub": {"fr": "Choisis une amélioration.", "en": "Choose an upgrade."},
@@ -119,6 +121,34 @@ const STRINGS := {
 	"skill.claw.t3.desc": {
 		"fr": "Griffe encore plus fort, plus vite et plus loin.",
 		"en": "Claws harder, faster and further still.",
+	},
+
+	"skill.hairball.title": {"fr": "Boule de poils", "en": "Hairball"},
+	"skill.hairball.t1.desc": {
+		"fr": "Crache une boule sur l'ennemi le plus proche, de très loin.",
+		"en": "Spits a ball at the nearest enemy, from far away.",
+	},
+	"skill.hairball.t2.desc": {
+		"fr": "Crache plus souvent, plus vite et plus loin.",
+		"en": "Spits more often, faster and further.",
+	},
+	"skill.hairball.t3.desc": {
+		"fr": "Crache encore plus souvent, plus vite et plus loin.",
+		"en": "Spits more often, faster and further still.",
+	},
+
+	"skill.bite.title": {"fr": "Morsure", "en": "Bite"},
+	"skill.bite.t1.desc": {
+		"fr": "Clic gauche : croque ce qui est juste devant. Fort, mais au contact.",
+		"en": "Left click: chomps whatever is right ahead. Strong, but up close.",
+	},
+	"skill.bite.t2.desc": {
+		"fr": "Mord plus fort, un peu plus loin, et récupère plus vite.",
+		"en": "Bites harder, a little further, and recovers faster.",
+	},
+	"skill.bite.t3.desc": {
+		"fr": "Mord encore plus fort et récupère encore plus vite.",
+		"en": "Bites harder still and recovers faster still.",
 	},
 
 	"skill.breath.title": {"fr": "Haleine puante", "en": "Stinky breath"},

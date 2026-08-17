@@ -126,6 +126,14 @@ var skills: SkillSet
 ## courante : il faut savoir d'ou l'on part pour pouvoir tout recalculer a
 ## chaque prise. C'est ce qui rend `_apply_passives` idempotent — et un
 ## recalcul idempotent est le prerequis du retrait de competence a venir.
+## `--autofire` : les deux slots d'ACTIF partent des qu'elles sont pretes.
+##
+## Sans ca, une competence active est INCAPTURABLE : elle attend un clic, et
+## dans un `--write-movie` la souris ne clique jamais. On jugerait donc la
+## premiere competence active du jeu sans l'avoir vue une seule fois — ce que ce
+## projet a deja paye cher sur la griffure et l'haleine.
+var _autofire := false
+
 var _base_speed := 0.0
 var _base_max_health := 0
 var _base_pickup_radius := 0.0
@@ -195,7 +203,9 @@ func _ready() -> void:
 ## captures ; `--skill=` le generalise pour les competences a venir.
 func _apply_skill_preview() -> void:
 	for argument in OS.get_cmdline_user_args():
-		if argument.begins_with("--breath="):
+		if argument == "--autofire":
+			_autofire = true
+		elif argument.begins_with("--breath="):
 			_preview_skill("breath", int(argument.trim_prefix("--breath=")))
 		elif argument.begins_with("--skill="):
 			var parts := argument.trim_prefix("--skill=").split(":")
@@ -258,7 +268,13 @@ func _physics_process(delta: float) -> void:
 		return
 
 	# "up" pousse vers le fond de l'ecran : -Z, l'avant de Godot.
-	var input := Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
+	#
+	# ⚠️ `move_*` et non `ui_*` depuis le 2026-08-17 : le jeu est passe aux
+	# touches WASD, posees en code PHYSIQUE (voir `tools/setup_input_map.gd`).
+	# Les fleches restent branchees en second. Garder `ui_*` aurait fait deux
+	# problemes : le clavier ne serait jamais passe a WASD, et `ui_accept`
+	# (Espace) aurait continue d'activer les boutons de l'UI dans le dos du jeu.
+	var input := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	var input_direction := Vector3(input.x, 0.0, input.y)
 
 	velocity = input_direction * speed
@@ -293,6 +309,35 @@ func _input(event: InputEvent) -> void:
 		aim_source = AimSource.MOUSE
 
 
+## Les deux slots d'ACTIF (§2.4) — clic gauche, clic droit.
+##
+## ⚠️ DANS `_unhandled_input`, ET C'EST LA TOUT L'INTERET — pas dans `_process`
+## par sondage, comme une premiere version le faisait.
+##
+## Le clic gauche sert AUSSI aux boutons de l'interface : les trois cartes
+## d'upgrade, RELANCER, les pastilles de langue. Un sondage de `Input` ne sait
+## rien de ce qui a deja consomme le clic ; il aurait donc lu le meme clic deux
+## fois, et choisir une amelioration aurait depense la morsure dans la foulee —
+## sur la frame ou la run reprend, la garde de pause ne protege plus. Un cooldown
+## de 6 s perdu a chaque level-up, sans que rien ne le signale.
+##
+## Un Control en MOUSE_FILTER_STOP — c'est le cas des cartons — CONSOMME
+## l'evenement, et `_unhandled_input` ne le voit jamais. Le partage du clic gauche
+## est donc regle par Godot, pas par une condition qu'on aurait pu oublier.
+##
+## ⚠️ Le HUD permanent, lui, ne consomme rien : sa racine et ses labels sont en
+## MOUSE_FILTER_IGNORE. Un actif part donc meme quand le curseur survole l'ATH —
+## c'est-a-dire precisement quand on regarde ses pastilles de cooldown.
+func _unhandled_input(event: InputEvent) -> void:
+	if _is_run_paused():
+		return
+
+	if event.is_action_pressed("skill_slot_1"):
+		skills.trigger_slot(0)
+	elif event.is_action_pressed("skill_slot_2"):
+		skills.trigger_slot(1)
+
+
 ## L'HORLOGE DE TOUTES LES COMPETENCES, et le seul endroit ou la pause se teste.
 ##
 ## Chaque competence avait la sienne : un compteur en dur ici pour la griffure,
@@ -305,6 +350,12 @@ func _process(delta: float) -> void:
 		return
 
 	skills.tick(delta)
+
+	# Le declenchement des actifs, lui, est dans `_unhandled_input` — voir plus
+	# bas. Ici il n'y a que le mode capture.
+	if _autofire:
+		skills.trigger_slot(0)
+		skills.trigger_slot(1)
 
 
 ## `attacker_position` est optionnelle : elle sert uniquement a placer l'eclat
@@ -441,9 +492,17 @@ func build_stats_text() -> String:
 		pickup_radius
 	]
 
-	# L'haleine puante n'apparait que si le chat l'a. Une ligne d'ATH qui
+	# Chaque competence n'apparait que si le chat l'a. Une ligne d'ATH qui
 	# annoncerait une arme absente serait le pendant exact du mensonge que
 	# `projectile_speed` faisait a l'ecran — voir `skill_definitions.gd`.
+	if skills.has("hairball"):
+		var hairball := skills.values_of("hairball")
+		line += Locale.t("stats.hairball") % [hairball["damage"], hairball["range"]]
+
+	if skills.has("bite"):
+		var bite := skills.values_of("bite")
+		line += Locale.t("stats.bite") % [bite["damage"], bite["cooldown"]]
+
 	if skills.has("breath"):
 		var breath := skills.values_of("breath")
 		line += Locale.t("stats.breath") % [
