@@ -46,6 +46,12 @@ signal restart_pressed
 ## previent main.gd, qui possede l'etat et repousse tout — le meme partage que
 ## partout ailleurs ici, le HUD dessine, main decide.
 signal language_selected(code: String)
+## Le joueur demande a fermer les reglages. Le HUD ne se ferme PAS lui-meme, et
+## ce n'est pas une precaution de style : fermer la plaque sans prevenir main.gd
+## laisse `run_paused` a true avec plus aucun carton a l'ecran, et le jeu est
+## bloque pour de bon — Échap ne peut plus rien, puisqu'il n'y a plus rien
+## d'ouvert a fermer. C'est arrive, exactement comme ca.
+signal settings_close_requested
 
 var _time_value: Label
 var _health_fill: ColorRect
@@ -504,7 +510,9 @@ func _build_settings_card() -> void:
 
 	_settings_close = _make_wide_button(Locale.t("settings.close"))
 	column.add_child(_settings_close)
-	_settings_close.pressed.connect(close_settings_card)
+	# ⚠️ PAS `close_settings_card` directement — voir `settings_close_requested`.
+	# Le bouton demande, main.gd ferme ET relance le jeu.
+	_settings_close.pressed.connect(func() -> void: settings_close_requested.emit())
 
 
 ## La ligne de reglage : son nom a gauche, ses valeurs a droite.
@@ -673,6 +681,10 @@ func show_game_over(elapsed: float, level: int) -> void:
 
 func hide_level_card() -> void:
 	_level_card.visible = false
+
+
+func is_level_card_open() -> bool:
+	return _level_card.visible
 
 
 ## L'ouverture en pas. Chaque pose TIENT une duree, elle ne s'interpole pas —

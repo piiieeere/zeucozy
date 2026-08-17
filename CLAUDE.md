@@ -876,10 +876,27 @@ premier réglage ; le carton est fait pour en recevoir d'autres.
 > ⚠️ `FontFile.has_char()` **ne répond pas** sur ces woff2 (faux partout, y compris pour
 > un glyphe qui s'affiche) : la seule vérification qui vaut est de **regarder la frame**.
 
-**Réglages : où ils s'ouvrent, et où ils ne s'ouvrent pas.** Échap n'ouvre le carton que
-pendant une run vivante. Pendant le carton de niveau il ne fait rien — ce carton attend
-une décision, et deux cartons empilés sur un voile à moitié transparent ne se lisent
-plus. Pendant le K.O. non plus : il n'offre qu'une action, et elle relance le jeu.
+**Réglages : où ils s'ouvrent, et où ils ne s'ouvrent pas.** Pendant le carton de niveau
+Échap ne fait rien — ce carton attend une décision, et deux cartons empilés sur un voile à
+moitié transparent ne se lisent plus. Pendant le K.O. non plus : il n'offre qu'une action,
+et elle relance le jeu.
+
+> ⚠️ **Un bouton d'UI ne touche JAMAIS à l'état de jeu, il le demande.** Le bouton
+> REPRENDRE a d'abord été câblé sur `hud.close_settings_card()` — qui ne cache que la
+> plaque. `main.gd` n'en savait rien, `run_paused` restait à `true`, **et le jeu se
+> bloquait pour de bon** : plus de carton à l'écran, chat et ennemis figés, temps arrêté.
+> Le bouton passe donc par `settings_close_requested`, comme `restart_pressed` et
+> `choice_selected` avant lui.
+>
+> ⚠️ **Et la cause profonde était ailleurs : `run_paused` servait à la fois d'état de pause
+> ET de droit d'ouvrir les réglages.** Une fois les deux désynchronisés, Échap ne pouvait
+> plus rien — rien d'ouvert à fermer, et la pause interdisait d'ouvrir. La condition porte
+> désormais sur **les cartons affichés**, et la pause n'en est qu'une conséquence : un
+> `run_paused` resté à `true` par erreur ne piège plus personne.
+>
+> ✅ Les trois chemins sont vérifiés par sonde, pas supposés : clic sur REPRENDRE, Échap
+> pour ouvrir, Échap pour fermer — et `elapsed_time` n'avance que sur les fenêtres non
+> pausées (0 → 0,40 → 0,80).
 
 **La sauvegarde est immédiate**, pas différée à la fermeture : une run de survivor se
 termine souvent par un alt-F4, et un réglage perdu là où le joueur croit l'avoir posé est

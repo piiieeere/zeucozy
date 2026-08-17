@@ -71,6 +71,7 @@ func _ready() -> void:
 	hud.choice_selected.connect(_on_upgrade_button_pressed)
 	hud.restart_pressed.connect(_on_restart_button_pressed)
 	hud.language_selected.connect(_on_language_selected)
+	hud.settings_close_requested.connect(_close_settings)
 
 	arena.build(arena_rect)
 	player.global_position = Vector3(arena_rect.get_center().x, 0.0, arena_rect.get_center().y)
@@ -122,20 +123,30 @@ func _apply_language_override() -> void:
 
 ## Échap ouvre et ferme les reglages.
 ##
-## Ils ne s'ouvrent QUE pendant une run vivante. Pendant le carton de niveau,
+## Ils ne s'ouvrent pas par-dessus un autre carton. Pendant le carton de niveau,
 ## Échap ne fait rien : ce carton attend une decision, et deux cartons empiles
 ## sur un voile a moitie transparent ne se lisent plus. Pendant le K.O. non plus
 ## — il n'offre qu'une action, et elle relance le jeu.
+##
+## ⚠️ LA CONDITION PORTE SUR LES CARTONS AFFICHES, PAS SUR `run_paused`, et c'est
+## une correction : `run_paused` etait a la fois l'etat de pause et le droit
+## d'ouvrir les reglages. Le jour ou les deux ont divergé — un bouton qui fermait
+## la plaque sans relancer le jeu — Échap ne pouvait plus RIEN : rien d'ouvert a
+## fermer, et la pause interdisait d'ouvrir. Le jeu etait bloque sans issue.
+##
+## Ici la pause n'est qu'une CONSEQUENCE de ce qui est a l'ecran. Un
+## `run_paused` reste a true par erreur ne piege donc plus personne : Échap
+## ouvre les reglages, et les refermer relance le jeu.
 func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_action_pressed("ui_cancel"):
 		return
 
 	if hud.is_settings_card_open():
 		_close_settings()
-	elif not run_paused and not game_over:
-		_open_settings()
-	else:
+	elif game_over or hud.is_level_card_open():
 		return
+	else:
+		_open_settings()
 
 	get_viewport().set_input_as_handled()
 
