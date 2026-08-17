@@ -1,0 +1,20 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Shader" path="res://shaders/hiss_ring.gdshader" id="1_hissring"]
+[ext_resource type="Script" path="res://scripts/systems/hiss_ring.gd" id="2_hissring"]
+
+[sub_resource type="QuadMesh" id="QuadMesh_hissring"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_hissring"]
+render_priority = 1
+shader = ExtResource("1_hissring")
+
+; La rotation couche le quad A PLAT au sol — meme transform que la couronne de
+; l'haleine puante. Le decalque promet une distance au sol : en billboard il
+; resterait un cercle parfait a l'ecran et mentirait sur la portee.
+[node name="HissRing" type="MeshInstance3D"]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0.06, 0)
+cast_shadow = 0
+mesh = SubResource("QuadMesh_hissring")
+material_override = SubResource("ShaderMaterial_hissring")
+script = ExtResource("2_hissring")

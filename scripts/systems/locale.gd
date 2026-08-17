@@ -153,6 +153,9 @@ const STRINGS := {
 	# ⚠️ EN CAPITALES, toujours. C'est la seule chose que le mot partage avec
 	# l'ATH (§9) : une onomatopee en bas de casse se lit comme une legende.
 	"skill.bite.shout": {"fr": "CHOMP", "en": "CHOMP"},
+	# Le feulement, lui, DIVERGE — et c'est le cas qui justifie la clé. Un chat
+	# qui feule s'écrit "FFFCHH" en français et "HSSSS" en anglais.
+	"skill.hiss.shout": {"fr": "FFFCHH", "en": "HSSSS"},
 
 	"skill.bite.title": {"fr": "Morsure", "en": "Bite"},
 	"skill.bite.t1.desc": {
@@ -182,6 +185,34 @@ const STRINGS := {
 		"en": "The breath reaches further still and bites harder still.",
 	},
 
+	"skill.hiss.title": {"fr": "Feulement", "en": "Hiss"},
+	"skill.hiss.t1.desc": {
+		"fr": "Clic droit : une onde repousse tout autour. Ça ne tue pas, ça dégage.",
+		"en": "Right click: a wave shoves everything back. It doesn't kill, it clears.",
+	},
+	"skill.hiss.t2.desc": {
+		"fr": "L'onde porte plus loin, pique un peu plus et revient plus vite.",
+		"en": "The wave reaches further, stings a little more and returns sooner.",
+	},
+	"skill.hiss.t3.desc": {
+		"fr": "L'onde balaie tout le tour et revient bien plus vite.",
+		"en": "The wave sweeps all around and returns much sooner.",
+	},
+
+	"skill.dust.title": {"fr": "Moutons de poussière", "en": "Dust bunnies"},
+	"skill.dust.t1.desc": {
+		"fr": "Sème des touffes derrière toi. Le premier qui marche dessus le sent passer.",
+		"en": "Drops tufts behind you. Whoever steps on one feels it.",
+	},
+	"skill.dust.t2.desc": {
+		"fr": "Des touffes plus grosses, plus souvent, et qui traînent plus longtemps.",
+		"en": "Bigger tufts, more often, and they linger longer.",
+	},
+	"skill.dust.t3.desc": {
+		"fr": "Une vraie traînée de moutons, et chacun fait deux fois plus mal.",
+		"en": "A proper trail of bunnies, each hurting twice as much.",
+	},
+
 	"skill.move_speed.title": {"fr": "Pas nerveux", "en": "Nervous step"},
 	"skill.move_speed.desc": {"fr": "Court plus vite.", "en": "Runs faster."},
 
@@ -195,6 +226,18 @@ const STRINGS := {
 	"skill.pickup_radius.desc": {
 		"fr": "Ramasse les croquettes de plus loin.",
 		"en": "Picks up kibble from further away.",
+	},
+
+	"skill.xp_gain.title": {"fr": "Gourmandise", "en": "Greedy guts"},
+	"skill.xp_gain.desc": {
+		"fr": "Chaque croquette compte davantage.",
+		"en": "Every kibble counts for more.",
+	},
+
+	"skill.toughness.title": {"fr": "Pelage épais", "en": "Thick coat"},
+	"skill.toughness.desc": {
+		"fr": "Encaisse une partie des coups.",
+		"en": "Soaks up part of every hit.",
 	},
 }
 

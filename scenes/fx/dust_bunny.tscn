@@ -1,0 +1,18 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Shader" path="res://shaders/dust_bunny.gdshader" id="1_dustbunny"]
+[ext_resource type="Script" path="res://scripts/systems/dust_bunny.gd" id="2_dustbunny"]
+
+[sub_resource type="QuadMesh" id="QuadMesh_dustbunny"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_dustbunny"]
+render_priority = 1
+shader = ExtResource("1_dustbunny")
+
+; Couche A PLAT au sol, comme la couronne de l'haleine et l'onde du feulement.
+[node name="DustBunny" type="MeshInstance3D"]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0.045, 0)
+cast_shadow = 0
+mesh = SubResource("QuadMesh_dustbunny")
+material_override = SubResource("ShaderMaterial_dustbunny")
+script = ExtResource("2_dustbunny")

@@ -383,7 +383,9 @@ zeucozy/
 │   │   ├── active_skill.gd  # Le socle des ACTIFS — cooldown, garde à froid, charge
 │   │   ├── claw_skill.gd    # ⚔️ La griffure — slot AUTO n°1, l'arme DIRIGÉE
 │   │   ├── hairball_skill.gd # 🌀 La boule de poils — AUTO à distance, auto-visée
+│   │   ├── dust_skill.gd    # 🌫️ Les moutons — AUTO semé derrière, récompense de BOUGER
 │   │   ├── bite_skill.gd    # 🦷 La morsure — le 1ᵉʳ ACTIF, cible unique
+│   │   ├── hiss_skill.gd    # 💢 Le feulement — ACTIF de RECUL, ne compte pas en dégâts
 │   │   └── breath_skill.gd  # 💨 L'haleine puante — pilote l'aura, pas son dessin
 │   ├── systems/
 │   │   ├── skill_definitions.gd    # ⭐ LE catalogue — types, paliers, poids de tirage
@@ -395,6 +397,8 @@ zeucozy/
 │   │   ├── breath_aura.gd          # 💨 L'haleine puante — aura lootable, poses + morsure
 │   │   ├── bite_fx.gd              # 🦷 Les mâchoires de la morsure — 8 poses, crocs dessinés
 │   │   ├── shout_fx.gd             # 💥 L'onomatopée des ACTIFS — CHOMP, en pas, dans le monde
+│   │   ├── hiss_ring.gd            # 💢 L'onde du feulement — 6 poses, pousse par le FRONT
+│   │   ├── dust_bunny.gd           # 🌫️ Une touffe — naissance / repos / pouf, 3 cadences
 │   │   ├── ui_style.gd             # ⭐ Le style de l'interface — palette, polices, cadence
 │   │   ├── locale.gd               # ⭐ TOUS les textes du jeu — français + anglais
 │   │   ├── settings_store.gd       # Préférences du joueur sur disque (user://settings.cfg)
@@ -410,6 +414,8 @@ zeucozy/
 │                     # ui_frame (plaque grise, angles droits + repères d'angle)
 │                     # ui_speedlines (lignes de vitesse)
 │                     # bite (la morsure — gencives rouges + crocs de chat qui s'engrènent)
+                     # hiss_ring (le feulement — onde crème/encre, le seul FX sans chroma)
+                     # dust_bunny (le mouton de poussière — touffe cernée posée au sol)
 │                     # cel_paws (bouts de pattes + les 3 griffes dessinées)
 │                     # cel_ground (parquet peint), cel_rug (tapis)
 │                     # hit_burst (éclat de collision), impact_frame (flash)
@@ -465,6 +471,8 @@ Le réglage à bouger en premier si le chat paraît trop petit est `distance` da
 | **Boule de poils** *(dégât / cadence / portée)* | 2 · 1,60 s · 11 m | 3 · 1,35 s · 13 m | 4 · 1,10 s · 15 m |
 | **Morsure** *(dégât / portée / recharge)* | 7 · 3,6 m · 6,0 s | 10 · 4,0 m · 5,0 s | 14 · 4,4 m · 4,2 s |
 | **Haleine** *(rayon / dégât par morsure)* | 2,8 m · 1 | 3,35 m · 2 | 3,9 m · 3 |
+| **Moutons** *(dégât / cadence / vie / rayon)* | 3 · 0,55 s · 3,5 s · 0,75 m | 4 · 0,46 s · 4,4 s · 0,85 m | 6 · 0,42 s · 5,0 s · 0,95 m |
+| **Feulement** *(rayon / dégât / recharge)* | 3,6 m · 1 · 11,0 s | 4,3 m · 2 · 9,5 s | 5,0 m · 3 · 8,0 s |
 
 Arc frontal de griffure **120°, à tous les paliers** — l'ancienne description promettait un
 balayage « plus large », le code ne l'a jamais fait.
@@ -641,8 +649,10 @@ remplacement (chantier 2) ne sont **pas** écrits.
   Le carton « quoi remplacer ? » n'existe pas — proposer une 7ᵉ arme serait proposer
   quelque chose que le jeu ne sait pas faire.
 - **Tirage pondéré** AUTO ×3 · ACTIF ×2 · PASSIF ×1, sans doublon dans le tirage.
-- **Le catalogue actuel** : `claw` (AUTO dirigé, de départ) · `hairball` (AUTO auto-visé) ·
-  `breath` (AUTO de zone) · `bite` (ACTIF) · `move_speed` · `max_health` · `pickup_radius`.
+- **Le catalogue actuel — 11 entrées** : `claw` (AUTO dirigé, de départ) · `hairball`
+  (AUTO auto-visé) · `breath` (AUTO de zone) · `dust` (AUTO semé) · `bite` (ACTIF) ·
+  `hiss` (ACTIF de recul) · `move_speed` · `max_health` · `pickup_radius` · `xp_gain` ·
+  `toughness`. Voir « Quatre compétences de plus » plus bas.
 - **La carte de choix porte un marqueur de palier** — `NOUVEAU` / `PALIER 2` / `ULTIME`, en
   légende de 10 px au-dessus d'un titre de 17 (le contraste d'échelle de DA §9.3 règle 5,
   pas une nuance de gris de plus). Il reste en crème assourdi **même au survol** : l'ambre
@@ -692,11 +702,99 @@ le chat frappe simplement un peu moins fort qu'il ne devrait.
 #   --skill=<id>:<n>    n'importe quelle compétence à n'importe quel palier
 #   --breath=<n>        gardé tel quel — il sert déjà aux captures
 #   --autofire          les 2 slots d'ACTIF partent dès qu'elles sont prêtes
+#   --walk              le chat marche en rond tout seul, à vitesse pleine
 ```
+
+> ⚠️ **`--walk` n'est pas un confort, c'est le pendant exact de `--autofire`.** Dans un
+> `--write-movie` **aucune touche n'est pressée** : le chat reste planté, poussé seulement
+> par les ennemis qui le bousculent. Toute compétence dont l'effet dépend du **déplacement**
+> est donc strictement incapturable — les moutons de poussière sont le cas qui l'a imposé,
+> puisqu'ils ne tombent qu'à `MIN_SPACING` d'écart. Sans lui on aurait jugé l'arme sur une
+> seule touffe posée sous le chat.
+>
+> Un **cercle** et non une ligne : il repasse dans le cadre, fait varier la direction sur
+> 360° (donc le cycle de pattes et l'orientation du modèle) et ne finit pas dans un mur.
+> ⚠️ Il pilote **l'entrée**, pas la position : poser `global_position` court-circuiterait
+> `move_and_slide`, donc les collisions, le clamp d'arène et la bascule idle/walk — et la
+> capture montrerait un chat qui glisse.
 
 > ⚠️ **`--autofire` n'est pas un confort.** Une compétence active attend un clic, et dans
 > un `--write-movie` **la souris ne clique jamais** : sans lui, la première compétence
 > active du jeu serait strictement incapturable, donc jugée sans avoir été vue.
+
+### Quatre compétences de plus — le 1ᵉʳ lot de contenu (2026-08-17)
+
+Le catalogue passe de **7 à 11 entrées**. C'est le chantier 3 de `Gameplay et Progression`
+§2.9, dont l'objet n'est pas d'ajouter des chiffres mais de faire exister des **builds**.
+
+| id | Type | Ce qu'elle apporte que rien d'autre n'apportait |
+|---|---|---|
+| `hiss` — **Feulement** | ACTIF | du **recul**. La 1ʳᵉ compétence dont la valeur ne se compte pas en dégâts |
+| `dust` — **Moutons de poussière** | AUTO | récompense de **bouger** — l'exact inverse de l'haleine |
+| `xp_gain` — **Gourmandise** | PASSIF | agit sur la **courbe**, pas sur le combat |
+| `toughness` — **Pelage épais** | PASSIF | la 1ʳᵉ **synergie** : il multiplie `max_health` au lieu de s'y ajouter |
+
+- ⚠️ **Le feulement rend de la PLACE, pas de la puissance.** Le chat avait déjà quatre
+  façons de tuer et **aucune** de sortir d'un encerclement : la seule réponse était de
+  courir, et courir ne repousse rien. Ses dégâts sont dérisoires **exprès** — lui en donner
+  autant qu'à la morsure en aurait fait une morsure de zone, et le chat aurait eu deux
+  boutons pour le même problème. Sa recharge est **la plus longue du jeu** (11 s) : une
+  sortie de secours qui revient vite n'est plus une décision, c'est une touche à marteler.
+- ⚠️ **Le front est l'AGENT, pas un commentaire.** L'onde pousse les ennemis **à mesure
+  qu'elle les atteint**, pose par pose. Une poussée instantanée sur tout le rayon aurait
+  projeté un ennemi du bord avant que le dessin ne soit arrivé sur lui — le défaut exact de
+  la morsure qui cherchait sa cible au claquement.
+  ✅ **Mesuré, pas supposé** : trois ennemis collés au chat (0,01 · 0,03 · 0,05 m) sont à
+  **3,65 m** 0,45 s plus tard, soit **+3,63 m** — la valeur que la conception annonçait.
+- **Les moutons donnent au jeu son 2ᵉ comportement récompensé.** Tant que l'haleine était
+  seule à demander quelque chose au placement, « bien jouer » restait **un** comportement.
+  Deux armes qui demandent l'inverse l'une de l'autre, c'est le début d'un build.
+- **Une touffe = un coup, puis elle n'est plus là.** Pas de zone qui grignote : §2.10 veut
+  qu'un effet continu **batte**, et une touffe consommée d'un coup est le battement le plus
+  lisible qui soit — elle disparaît. Dix zones qui grignotent seraient dix décomptes à
+  suivre, et §2.3 prévient que la lisibilité est le premier mur.
+- ⚠️ **`life / interval` décide du nombre de touffes à l'écran**, pas de la feuille de
+  dégâts. Au T3 le rapport donne douze, plafonné à **dix** (`dust_skill.MAX_BUNNIES`).
+  Baisser `interval` sans baisser `life` remplit le sol.
+- **`xp_gain` se multiplie à la SOURCE**, jamais sur le seuil de niveau. Le seuil grandit
+  de 35 % par niveau : un rabais dessus vaudrait de plus en plus cher à mesure que la run
+  avance, un multiplicateur à la source vaut le même facteur du début à la fin.
+- **`toughness` est une FRACTION, jamais un forfait.** Un « −5 par coup » rendrait le chat
+  invulnérable en début de run et inutile à la fin, quand le chaser tape à 21 — c'est
+  exactement l'argument qui avait fait passer la vie à 100 points.
+
+> ⚠️ **LES SLOTS ACTIVES SONT PLEINES À DEUX**, et c'est ce que ce lot débloque vraiment.
+> Avec `bite` + `hiss`, la famille ACTIF est **saturée** : `roll` cesse de proposer des
+> actifs neufs. Le chantier 2 (le carton « quoi remplacer ? ») devient donc **atteignable
+> en jeu** — il ne l'était pas avec un seul actif. ⚠️ Mais pour l'**exercer** il faudra un
+> **3ᵉ** actif à proposer en remplacement : tant qu'il n'y en a que deux, `roll` n'a rien à
+> offrir et le carton ne s'ouvrira jamais.
+
+> 🔍 **Trois défauts, tous trouvés en CAPTURE, aucun en lisant le code :**
+> - **`vertex()` oublié dans les deux shaders.** Un `QuadMesh` fait **1 × 1** : sans
+>   `VERTEX.xy *= size`, le décalque garde un mètre de côté quel que soit `size`. L'anneau
+>   du feulement — dont le rayon vaut une unité de quad — sortait en **quatre croissants**
+>   tangents aux bords, entièrement mangés par l'encre. Ni erreur, ni avertissement : juste
+>   un dessin qui n'a plus rien à voir avec sa portée.
+> - **`band` est bornée par `front`.** L'épaisseur se prend des **deux** côtés du front :
+>   dès que `band > front`, le bord intérieur passe sous zéro et l'anneau devient un
+>   **disque plein**. Les deux premières poses sortaient en assiette crème posée sous le
+>   chat. Règle : `band ≤ front × 0,35`.
+> - **L'accent du mouton sortait en dégradé d'aérographe** — la seule zone lissée de toute
+>   l'image. Les deux seuils étaient des rampes larges (0,24 et 0,67) ; ils sont désormais
+>   francs à un pixel près. **Un cluster 2 tons se lit à son BORD** (§2bis) : étalé, il n'y
+>   a plus deux tons, il y en a cent.
+
+> ⚠️ **Le recul REMPLACE la poursuite, il ne s'y ajoute pas.** Additionnée, une poussée de
+> 15 m/s contre une course de 3,7 donne 11,3 — le joueur ne verrait pas un recul, il verrait
+> un ennemi qui rame. Remplacée, l'ennemi part en arrière pour de bon **puis** reprend sa
+> marche : deux états nets plutôt qu'un mélange, ce qui est la règle des poses tenues de §7
+> appliquée au déplacement.
+
+> 🅿️ **Effet de bord connu :** au T3 le feulement fait 3 dégâts, soit exactement la vie
+> d'un chaser de départ — il en tue donc en début de run, alors que sa fiche dit « ça ne
+> tue pas ». Ça se corrige tout seul dès que la difficulté monte ; à revoir seulement si un
+> jour on peut avoir un T3 très tôt.
 
 ### Les contrôles — WASD + les deux clics (2026-08-17)
 
@@ -1043,8 +1141,13 @@ et l'haleine sont devenues **deux instances du même contrat**.
 l'éprouvent : la **morsure** (le 1ᵉʳ actif) et la **boule de poils** (1ᵉʳ AUTO auto-visé,
 qui réveille le projectile). Les contrôles sont passés à **WASD + les deux clics**.
 
-**Restent à faire :** le carton de remplacement quand une famille de slots est pleine
-(chantier 2), les ultimes T4, et le reste du contenu (~7 auto, ~5 actifs de plus).
+**Le 1ᵉʳ lot de contenu est posé le 2026-08-17** — le catalogue passe de 7 à **11 entrées**
+(voir « Quatre compétences de plus »). Les slots ACTIVES sont désormais **saturables**,
+donc le chantier 2 devient atteignable en jeu.
+
+**Restent à faire :** un **3ᵉ actif**, sans quoi le carton de remplacement n'a rien à
+proposer et ne s'ouvrira jamais ; puis le carton lui-même (chantier 2), les ultimes T4, et
+le reste du contenu (~6 auto, ~3 actifs de plus).
 
 **Le jeu est bilingue depuis le 2026-08-17** — voir « Le jeu est bilingue » plus haut.
 Français et anglais, un carton de réglages ouvert par Échap, et le choix conservé d'une

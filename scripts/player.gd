@@ -132,6 +132,19 @@ var current_xp := 0
 var xp_to_next := 5
 var invulnerability_timer := 0.0
 
+## Multiplicateur d'XP a la source — le passif "Gourmandise". Voir
+## `skill_definitions.gd` : il est pose sur ce que la croquette RAPPORTE et non
+## sur le seuil de niveau, pour valoir le meme facteur du debut a la fin de run.
+var xp_gain := 1.0
+
+## Fraction des degats absorbee — le passif "Pelage epais". Une FRACTION et
+## jamais un forfait : voir `skill_definitions.gd`.
+##
+## ⚠️ Borne a 0,9 dans `_apply_passives`. Un cumul futur qui atteindrait 1,0
+## rendrait le chat immortel EN SILENCE, ce qui est exactement le defaut que la
+## constante `IMMORTAL` prend soin d'annoncer.
+var damage_reduction := 0.0
+
 ## Ce que le chat porte — armes ET passifs. Cree en `_ready`, jamais exporte :
 ## un build est un etat de RUN, il n'a rien a faire dans la scene.
 var skills: SkillSet
@@ -148,6 +161,24 @@ var skills: SkillSet
 ## premiere competence active du jeu sans l'avoir vue une seule fois — ce que ce
 ## projet a deja paye cher sur la griffure et l'haleine.
 var _autofire := false
+
+## `--walk` : le chat marche en rond tout seul, a vitesse pleine.
+##
+## Le pendant exact de `--autofire`, pour la meme raison et sur l'autre moitie
+## des entrees. Dans un `--write-movie` AUCUNE TOUCHE N'EST PRESSEE : le chat
+## reste plante, pousse seulement par les ennemis qui le bousculent. Toute
+## competence dont l'effet depend du DEPLACEMENT est donc invisible en capture —
+## les moutons de poussiere sont le cas qui l'a impose, puisqu'ils ne tombent
+## qu'a `dust_skill.MIN_SPACING` d'ecart.
+##
+## Un cercle plutot qu'une ligne : il repasse dans le cadre, il fait varier la
+## direction de marche sur 360° (donc le cycle de pattes et l'orientation du
+## modele), et il ne finit pas dans un mur au bout de trois secondes.
+var _walk := false
+## Rayon du cercle de `--walk`, en metres. Assez large pour que la trainee ne se
+## referme pas sur elle-meme au cadrage de jeu.
+const WALK_RADIUS := 9.0
+var _walk_angle := 0.0
 
 var _base_speed := 0.0
 var _base_max_health := 0
@@ -223,6 +254,9 @@ func _apply_skill_preview() -> void:
 	for argument in OS.get_cmdline_user_args():
 		if argument == "--autofire":
 			_autofire = true
+
+		if argument == "--walk":
+			_walk = true
 		elif argument.begins_with("--breath="):
 			_preview_skill("breath", int(argument.trim_prefix("--breath=")))
 		elif argument.begins_with("--skill="):
@@ -294,6 +328,14 @@ func _physics_process(delta: float) -> void:
 	# (Espace) aurait continue d'activer les boutons de l'UI dans le dos du jeu.
 	var input := Input.get_vector("move_left", "move_right", "move_up", "move_down")
 	var input_direction := Vector3(input.x, 0.0, input.y)
+
+	if _walk:
+		# Une direction TANGENTE au cercle : on pilote la meme entree que le
+		# clavier, pas la position. Poser `global_position` court-circuiterait
+		# `move_and_slide`, donc les collisions, le clamp d'arene et la bascule
+		# idle/walk — et la capture montrerait un chat qui glisse.
+		_walk_angle += speed / WALK_RADIUS * delta
+		input_direction = Vector3(-sin(_walk_angle), 0.0, cos(_walk_angle))
 
 	velocity = input_direction * speed
 	move_and_slide()
@@ -391,7 +433,11 @@ func take_damage(amount: int, attacker_position: Vector3 = Vector3.INF) -> void:
 	# Sortir plus tot rendrait le chat INTOUCHABLE au lieu d'immortel — plus aucun
 	# retour de collision a l'ecran, donc plus moyen de juger un FX de hit, ni de
 	# voir qu'on vient de traverser un ennemi.
-	var toll: int = 0 if IMMORTAL else max(1, amount)
+	# Le pelage epais absorbe une fraction du coup. Le plancher a 1 reste : un
+	# coup qui ne coute rien du tout se lirait comme une esquive, or ce passif
+	# n'en promet aucune.
+	var soaked: int = max(1, int(round(float(amount) * (1.0 - damage_reduction))))
+	var toll: int = 0 if IMMORTAL else soaked
 	health = max(0, health - toll)
 	invulnerability_timer = 0.45
 	health_changed.emit(health, max_health)
@@ -426,7 +472,10 @@ func collect_xp(amount: int) -> void:
 	if amount <= 0:
 		return
 
-	current_xp += amount
+	# La gourmandise se multiplie ICI, a la source. Le plancher a 1 garantit
+	# qu'une croquette rapporte toujours quelque chose, quel que soit l'arrondi —
+	# une croquette ramassee qui ne compte pas est le pire retour possible.
+	current_xp += max(1, int(round(float(amount) * xp_gain)))
 
 	if current_xp < xp_to_next:
 		xp_changed.emit(current_xp, xp_to_next, level)
@@ -496,6 +545,8 @@ func _apply_passives() -> void:
 	speed = float(values.get("speed", _base_speed))
 	max_health = int(values.get("max_health", _base_max_health))
 	pickup_radius = float(values.get("pickup_radius", _base_pickup_radius))
+	xp_gain = float(values.get("xp_gain", 1.0))
+	damage_reduction = clampf(float(values.get("damage_reduction", 0.0)), 0.0, 0.9)
 
 	health = mini(health, max_health)
 	_sync_pickup_radius()

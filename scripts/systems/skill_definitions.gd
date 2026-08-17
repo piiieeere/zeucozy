@@ -147,6 +147,27 @@ const DEFINITIONS: Array[Dictionary] = [
 		"ultimates": [],
 	},
 
+	{
+		"id": "dust",
+		"kind": Kind.AUTO,
+		"script": "res://scripts/skills/dust_skill.gd",
+		# Les moutons de poussiere — l'arme qui recompense de BOUGER, l'exact
+		# inverse de l'haleine puante. Voir `dust_skill.gd` : c'est ce contraste
+		# qui la justifie, pas ses chiffres.
+		#
+		# ⚠️ `life / interval` DECIDE DU NOMBRE DE TOUFFES A L'ECRAN, et c'est la
+		# vraie contrainte de ces chiffres. Au T3 le rapport donne douze, plafonne
+		# a dix par `dust_skill.MAX_BUNNIES` — §2.3 previent que la lisibilite
+		# sera le premier mur, avant l'equilibrage. Baisser `interval` sans
+		# baisser `life` remplit le sol, pas la feuille de degats.
+		"tiers": [
+			{"damage": 3, "interval": 0.55, "life": 3.5, "radius": 0.75},
+			{"damage": 4, "interval": 0.46, "life": 4.4, "radius": 0.85},
+			{"damage": 6, "interval": 0.42, "life": 5.0, "radius": 0.95},
+		],
+		"ultimates": [],
+	},
+
 	# ── ACTIF ─────────────────────────────────────────────────────────────────
 	#
 	# Le seul type qui ajoute une DECISION a la boucle moment-to-moment (§2.4) :
@@ -184,12 +205,37 @@ const DEFINITIONS: Array[Dictionary] = [
 		"ultimates": [],
 	},
 
+	{
+		"id": "hiss",
+		"kind": Kind.ACTIVE,
+		"script": "res://scripts/skills/hiss_skill.gd",
+		# ⚠️ SES DEGATS SONT DERISOIRES, ET C'EST LE POINT. Elle ne rend pas de la
+		# puissance, elle rend de la PLACE — c'est la premiere competence dont la
+		# valeur ne se compte pas en points de vie enleves. Lui donner des degats
+		# comparables a la morsure en aurait fait une morsure de zone, et le chat
+		# aurait eu deux boutons pour le meme probleme.
+		#
+		# Le rayon PORTE PLUS LOIN que tout le reste (3,6 m contre 5,2 m de
+		# griffure, mais sur 360°) : c'est ce qui la rend utile quand on est
+		# encercle, cas ou toutes les autres armes ne repondent que d'un cote.
+		#
+		# La recharge est LA PLUS LONGUE du jeu. Une sortie de secours qui revient
+		# vite n'est plus une decision, c'est une touche a marteler.
+		"tiers": [
+			{"radius": 3.60, "damage": 1, "cooldown": 11.0},
+			{"radius": 4.30, "damage": 2, "cooldown": 9.5},
+			{"radius": 5.00, "damage": 3, "cooldown": 8.0},
+		],
+		"ultimates": [],
+	},
+
 	# ── PASSIF ────────────────────────────────────────────────────────────────
 	#
-	# Les trois qui restent, et ils ont un point commun : ils reglent le CORPS du
-	# chat, jamais une arme. C'est ce qui les rend compatibles avec des armes qui
-	# portent desormais leurs propres paliers — aucune montee n'est comptee deux
-	# fois.
+	# Ils ont tous un point commun : ils reglent le CORPS du chat, jamais une
+	# arme. C'est ce qui les rend compatibles avec des armes qui portent
+	# desormais leurs propres paliers — aucune montee n'est comptee deux fois.
+	# La ligne de partage n'est pas negociable : un passif qui reglerait un degat
+	# recreerait le double comptage que §2.9 a fait supprimer.
 	{
 		"id": "move_speed",
 		"kind": Kind.PASSIVE,
@@ -222,6 +268,45 @@ const DEFINITIONS: Array[Dictionary] = [
 			{"pickup_radius": 3.35},
 			{"pickup_radius": 4.20},
 			{"pickup_radius": 5.05},
+		],
+	},
+	{
+		"id": "xp_gain",
+		"kind": Kind.PASSIVE,
+		# La croquette rapporte plus. C'est le seul passif qui n'agit ni sur le
+		# combat ni sur la survie mais sur la COURBE : il ne rend pas la run plus
+		# facile, il la rend plus rapide, donc plus dense en decisions.
+		#
+		# ⚠️ Il se multiplie a la SOURCE, dans `player.collect_xp`, et pas sur le
+		# seuil de niveau. Reduire `xp_to_next` aurait donne le meme resultat en
+		# apparence et un tout autre comportement : le seuil grandit de 35 % par
+		# niveau, donc un rabais dessus vaudrait de plus en plus cher a mesure
+		# que la run avance. Un multiplicateur a la source vaut le meme facteur du
+		# debut a la fin.
+		"tiers": [
+			{"xp_gain": 1.30},
+			{"xp_gain": 1.60},
+			{"xp_gain": 2.00},
+		],
+	},
+	{
+		"id": "toughness",
+		"kind": Kind.PASSIVE,
+		# Le pelage epais : une FRACTION des degats en moins, jamais un forfait.
+		#
+		# ⚠️ Une reduction forfaitaire ("−5 par coup") aurait rendu le chat
+		# invulnerable aux petits coups en debut de run et inutile a la fin, quand
+		# le chaser tape a 21. Une fraction garde la meme valeur sur toute la
+		# courbe — c'est exactement l'argument qui avait fait passer la vie a 100
+		# points, ou l'arrondi ecrasait tout.
+		#
+		# Il complete `max_health` au lieu de le doubler : l'un allonge la barre,
+		# l'autre ralentit sa descente. Pris ensemble ils se multiplient, ce qui
+		# est la premiere synergie de build du jeu (§11, "chat tank").
+		"tiers": [
+			{"damage_reduction": 0.15},
+			{"damage_reduction": 0.27},
+			{"damage_reduction": 0.38},
 		],
 	},
 ]

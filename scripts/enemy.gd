@@ -28,6 +28,18 @@ var current_health := 0
 var target: Node3D
 var damage_cooldown := 0.0
 
+## Le RECUL — vitesse imposee de l'exterieur, qui remplace la poursuite tant
+## qu'elle n'est pas retombee. Posee par `push()`, freinee par `_knockback_drag`.
+##
+## ⚠️ Elle REMPLACE la poursuite au lieu de s'y ajouter, et c'est ce qui la rend
+## lisible : additionnee, une poussee de 15 m/s contre une course de 3,7 m/s
+## donne 11,3 m/s, soit le meme mouvement en un peu moins fort — le joueur ne
+## verrait pas le recul, il verrait un ennemi qui rame. Remplacee, l'ennemi part
+## en arriere pour de bon, puis reprend sa marche : deux etats nets plutot qu'un
+## melange, ce qui est la meme regle que les poses tenues de §7.
+var _knockback := Vector3.ZERO
+var _knockback_drag := 32.0
+
 
 func _ready() -> void:
 	add_to_group("enemies")
@@ -64,7 +76,11 @@ func _physics_process(delta: float) -> void:
 	if damage_cooldown > 0.0:
 		damage_cooldown -= delta
 
-	if is_instance_valid(target):
+	if _knockback.length_squared() > 0.01:
+		# Repousse : la poursuite attend. Voir `_knockback`.
+		velocity = _knockback
+		_knockback = _knockback.move_toward(Vector3.ZERO, _knockback_drag * delta)
+	elif is_instance_valid(target):
 		# Poursuite a plat : tout le jeu vit dans le plan XZ.
 		var to_target := target.global_position - global_position
 		to_target.y = 0.0
@@ -86,6 +102,26 @@ func _physics_process(delta: float) -> void:
 			actor.take_damage(contact_damage, global_position)
 			damage_cooldown = 0.7
 			break
+
+
+## Repousse. `direction` est la direction DU CHAT VERS L'ENNEMI, deja normalisee
+## par l'appelant : c'est lui qui sait d'ou vient l'onde, pas nous.
+##
+## ⚠️ La composante verticale est ecrasee. Tout le jeu vit dans le plan XZ, et un
+## ennemi qui decollerait ne retomberait jamais — rien ici n'a de gravite.
+func push(direction: Vector3, speed: float, drag: float) -> void:
+	direction.y = 0.0
+
+	if direction.length_squared() < 1e-6:
+		return
+
+	# La plus forte gagne, elle ne s'ajoute pas : deux ondes coup sur coup ne
+	# doivent pas envoyer un ennemi a l'autre bout de l'arene.
+	var wanted := direction.normalized() * speed
+
+	if wanted.length() >= _knockback.length():
+		_knockback = wanted
+		_knockback_drag = maxf(1.0, drag)
 
 
 func take_damage(amount: int) -> void:
