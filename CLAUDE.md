@@ -411,7 +411,7 @@ zeucozy/
 │   │   ├── locale.gd               # ⭐ TOUS les textes du jeu — français + anglais
 │   │   ├── settings_store.gd       # Préférences du joueur sur disque (user://settings.cfg)
 │   │   ├── impact_frame.gd         # 💤 Flash ambré plein cadre — DÉBRANCHÉ, gardé entier
-│   │   └── hit_burst.gd            # Éclat de collision, 8 poses
+│   │   └── hit_burst.gd            # 💥 Éclat de collision — étoile de manga, 6 poses
 │   ├── ui/
 │   │   └── hud.gd       # 🖥️ Le HUD + les cartons, construits EN CODE depuis ui_style
 │   └── tests/
@@ -967,8 +967,8 @@ squelette du shader (billboard dirigé, SDF, cluster 2 tons + encre) n'a pas bou
 - **Le rouge est assumé même s'il ressemble à l'éclat de collision.** L'argument d'origine
   (« le terracotta est à deux points du rose de hit feedback ») reste vrai ; ce qui a
   tranché est que le brun était la couleur du **décor** (parquet, encre, bois), et qu'une
-  gueule ne peut pas être de la même famille que le sol sur lequel elle se peint. L'éclat
-  sera retravaillé ensuite. Le trait a suivi (`#3D2B1A` → `#3A1410`) : un aplat qui change
+  gueule ne peut pas être de la même famille que le sol sur lequel elle se peint. ✅ L'éclat
+  a été retravaillé le 2026-08-17. Le trait a suivi (`#3D2B1A` → `#3A1410`) : un aplat qui change
   de teinte force son encre à se teinter vers lui, sinon le trait cesse d'appartenir à
   l'objet — la règle déjà payée sur le chat tuxedo.
 - **L'arc est revenu à 70°, et c'est encore le dessin qui décide.** Le 90° avait été ouvert
@@ -1004,8 +1004,10 @@ squelette du shader (billboard dirigé, SDF, cluster 2 tons + encre) n'a pas bou
 > une gencive épaisse mange l'ouverture, donc raccourcit les dents, donc les rend trapues.
 > C'est ainsi que la première capture avait sorti des dents de scie.
 
-> 🅿️ **L'éclat de collision reste à retravailler** — c'était la condition posée en
-> acceptant que la morsure prenne le rouge.
+> ✅ **L'éclat de collision a été refait le 2026-08-17** — la condition posée en acceptant
+> que la morsure prenne le rouge est levée. Voir « L'éclat refait » plus bas. Les deux
+> rouges se distinguent toujours : la gueule est un `#C4382E` de gencive, l'éclat le
+> rose-rouge `#D45870` que §4 range en *hit feedback*.
 
 **Passe de réglage, même jour :** gencives **plus fines** (0,095 → **0,075** au claquement)
 et canines **plus longues** (+16 %). ⚠️ La pointe de la canine, elle, **n'a pas bougé** :
@@ -1178,6 +1180,12 @@ Elle était portée par la direction de marche ; elle est désormais à la **sou
 ouvre le jeu de jambes que le survivor demande : reculer en frappant devant soi. La manette
 reste à faire, et sa place est déjà prévue (`aim_source`).
 
+**L'éclat de collision a été refait le 2026-08-17** — voir « L'éclat refait » plus haut.
+C'est le seul retour de dégât depuis que le flash plein cadre est débranché, et il était
+noté inachevé depuis le 2026-08-16 : il se lisait comme une **fleur**. Il est désormais une
+**étoile de manga** — polygone à segments droits, tessons projetés, et une 1ʳᵉ pose crème
+qui récupère ce que l'impact frame faisait, à la taille du coup au lieu de l'écran.
+
 **L'interface a été refaite le 2026-08-16** — voir « L'interface » plus haut. Elle est
 passée du placeholder Godot (police par défaut, panneaux arrondis, textes de debug) au
 registre anime TV 80–90, **d'après un relevé image d'*Orbitals*** et non de mémoire : HUD
@@ -1245,7 +1253,7 @@ celle qui porte l'information qui reste.**
 
 | Effet | Portée | Durée | Couleur |
 |---|---|---|---|
-| **Éclat** `hit_burst` | local, planté au point de contact | 8 poses sur 2s (~267 ms) | rose-rouge `#D45870` + cœur crème |
+| **Éclat** `hit_burst` | local, planté au point de contact | 6 poses, 7 crans (~233 ms) | rose-rouge `#D45870` + crème `#F7EFE0` |
 | ~~**Impact frame** `impact_frame`~~ 💤 | plein cadre | 2 frames, coupe franche | ambre `#D4A860` |
 
 - Déclenchés par `player.hit(contact_position)`. L'ennemi passe sa position à
@@ -1255,19 +1263,77 @@ celle qui porte l'information qui reste.**
   l'**image**, le grain de §8bis devait passer par-dessus. Au-dessus,
   elle se serait lue comme un calque d'UI collé sur le film. *(L'argument reste vrai le
   jour où on la rebranche — le nœud n'a pas bougé de layer.)*
-- 🅿️ **L'éclat est désormais SEUL à dire le dégât, et il n'est pas fini** : il recouvre le
-  chat et se lit toujours comme une fleur (défaut noté dès le 2026-08-16). C'était déjà la
-  condition posée en acceptant que la morsure prenne le rouge — c'est devenu prioritaire.
 - **Rallonger un FX se fait en ajoutant des POSES, jamais en ralentissant la cadence** —
   §8 veut les FX *plus rapides* que les personnages, c'est ce qui leur donne du claquant.
-  4 poses ne suffisaient pas à comprendre ce qu'on voyait ; 8 (le plafond de §7) oui.
 
-> ⚠️ Quatre pièges, tous **mesurés sur les PNG du jeu** et aucun visible en raisonnant :
-> un flash ambre en `mix` assombrit l'image (et en `screen` seul, il la *refroidit*) ;
-> une étoile à pointes arrondies se lit comme une **fleur** ; la distance radiale n'est
-> pas la distance au bord, donc l'encre ne cerne que les pointes ; et une pique plus
-> longue que `r = 1` se fait trancher par le bord du quad. Détail chiffré dans la Todo,
-> section « Pièges FX ».
+### L'éclat refait — un impact de manga (2026-08-17)
+
+L'éclat était noté inachevé depuis le 2026-08-16 (*« il recouvre le chat et se lit comme
+une fleur »*). Il est repris **en entier**, à la demande, en registre manga / anime rétro.
+Détail complet et journal des pièges dans la DA, **§8ter**.
+
+| | Avant | Après |
+|---|---|---|
+| Forme | profil `pow(abs(cos))`, 7 lobes | **polygone à 7 pointes, segments DROITS** |
+| 2ᵉ ton | disque crème centré | **copie réduite de l'étoile** |
+| Tessons | — | **4 échardes projetées** |
+| Flash | *(l'impact frame, débranchée)* | **1ʳᵉ pose entièrement crème**, à la taille du coup |
+| Poses | 8, durées égales | **6, à durées propres** (1·1·2·1·1·1 crans) |
+| Largeur | ~3,0 m — plus large que le chat | **~1,9 m**, tessons compris ~2,3 m |
+
+- ⚠️ **AUCUNE DES TROIS CAUSES N'ÉTAIT UN RÉGLAGE.** `pow(abs(cos(a·n)), sharp)` ne sait
+  produire que des **lobes tangents** — monter l'exposant amincit les pétales, ça n'en fait
+  pas des pointes ; un rond pâle au centre d'une forme à pointes est un **pistil** ; et
+  l'ancienne animation **grandissait** de bout en bout, ce qui est le geste d'une corolle
+  qui s'ouvre. Un choc est déjà à son maximum, puis il tombe.
+- ⚠️ **§3 interdit les angles vifs — c'est une règle sur les OBJETS DU MONDE**, pas sur
+  l'encre jetée par-dessus. La DA a été corrigée dans le même mouvement : sa grammaire
+  d'époque rangeait *« la poussière **et les impacts** »* dans les volutes rondes, et c'est
+  cette phrase qui avait produit la fleur.
+- **Les tessons sont composités à part de l'étoile** : dix fois plus petits, ils ont besoin
+  de leur propre borne d'encre. *Un cerne se dose sur ce qu'il cerne* — 4ᵉ fois que la règle
+  se paie (ATH, haleine, dents de la morsure, ici).
+
+> ⚠️ **`ink` et `valley` SE DISPUTENT LA MÊME PLACE.** Le trait à 0,038 faisait **1,7 px** et
+> l'étoile se lisait sans cerne ; à 0,085 il **mangeait les pointes en entier** et le cluster
+> 2 tons retombait à un seul ton (le défaut déjà mesuré sur le corps de la griffure). Un
+> creux profond veut un trait fin, un trait épais veut une étoile trapue. Final : `valley`
+> 0,40, `ink` 0,065 (~2,9 px, l'ordre du trait du chat).
+
+> ⚠️ **La modulation basse fréquence de l'haleine se dose aussi.** Appliquée trop fort
+> (`0,40 + 0,60 × slow`), la moitié des pointes tombait au plancher et l'étoile sortait en
+> **flèche**. Un éclat est radial : c'est la LONGUEUR qui varie, pas le nombre de côtés qui
+> en ont une.
+
+> 🔍 **LE PIÈGE LE PLUS COÛTEUX EST DE LA PRÉCISION, ET L'ALGORITHME ÉTAIT JUSTE.** Le signe
+> d'un polygone se prend d'ordinaire par **parité de traversées d'un rayon horizontal** (la
+> formule d'iq). Elle est exacte — vérifiée en **float64 sur 400 graines**, y compris sur les
+> rangées passant pile par un sommet, zéro erreur — et elle **casse en float32** : une arête
+> quasi horizontale ne sélectionne qu'**une rangée de pixels**, et sur cette rangée le test de
+> côté compare deux produits presque égaux dès qu'on s'éloigne horizontalement. Ça sort en
+> **ligne rose de 1 px, pleine, sans encre, en travers du décalque** — invisible pendant deux
+> passes de réglage, sortie en agrandissant la frame ×8. **Un portage numpy ne peut pas la
+> reproduire, puisque le défaut EST la précision.**
+>
+> La sortie : ne plus avoir besoin du test. Le polygone est **étoilé par rapport à son
+> centre**, donc il se pave par ses 14 triangles `(0, v[j], v[i])` — un point est dedans s'il
+> est dans l'un d'eux, et chaque test est un produit vectoriel entre vecteurs franchement
+> séparés. 🅿️ **À ressortir le jour où un autre FX dessinera un polygone.**
+
+> ✅ **La distance est une VRAIE distance au segment**, ce qui supprime au passage le défaut
+> d'encre que l'ancienne version *corrigeait* : la distance radiale (`r − radius`) vaut
+> plusieurs fois la vraie sur le flanc d'une pique, donc le trait ne cernait que les pointes.
+> Il fait désormais le tour, même épaisseur partout, **y compris au fond des creux**.
+
+**Juger l'éclat sans jouer** — il part tout seul, les ennemis viennent au contact :
+
+```bash
+"C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --path . \
+  --write-movie <dossier>/g.png --fixed-fps 60 --quit-after 300
+# ⚠️ --fixed-fps 60, PAS 30 : une pose de FX tient 2 frames a 60. A 30 fps
+#    d'enregistrement on echantillonne une pose sur deux et la sequence
+#    devient illisible — on juge alors une animation qu'on n'a pas vue.
+```
 
 ### L'interface — refaite le 2026-08-16, d'après l'image
 
