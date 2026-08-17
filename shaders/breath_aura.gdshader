@@ -1,4 +1,4 @@
-// Le Soufflement — l'aura de souffle du chat.
+// L'haleine puante — l'aura de souffle du chat.
 //
 // Une couronne de volutes posee AU SOL autour du chat, qui marque exactement la
 // zone ou son souffle mord. C'est la premiere competence lootable du jeu : elle
@@ -14,7 +14,7 @@
 // TROIS choix engagent le reste, et aucun n'est cosmetique :
 //
 //   * ELLE EST AU SOL, pas en billboard. La griffure et l'eclat sont des
-//     billboards parce qu'ils marquent un geste ou un point ; le Soufflement
+//     billboards parce qu'ils marquent un geste ou un point ; l'haleine puante
 //     marque une ZONE. Un cercle en billboard resterait un cercle parfait a
 //     l'ecran, alors que les ennemis, eux, vivent dans le plan du sol : un
 //     ennemi au bord du cercle ecran ne serait pas au bord du cercle monde, et

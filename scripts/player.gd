@@ -83,7 +83,7 @@ signal died
 ## visee une vraie visee, et non une decoration.
 @export var claw_arc_degrees: float = 120.0
 
-## LE SOUFFLEMENT — la premiere competence LOOTABLE du jeu.
+## L'HALEINE PUANTE — la premiere competence LOOTABLE du jeu.
 ##
 ## Les six upgrades d'origine reglent toutes un chiffre qui existe deja. Celle-ci
 ## debloque une arme que le chat n'a pas au depart : une aura qui blesse en
@@ -186,7 +186,7 @@ func _ready() -> void:
 	_emit_all_state()
 
 
-## Ouvre le Soufflement au lancement, pour le JUGER a l'image sans avoir a jouer
+## Ouvre l'haleine puante au lancement, pour la JUGER a l'image sans avoir a jouer
 ## jusqu'au level-up qui le propose :
 ##
 ##   --breath=1   la competence au premier palier
@@ -365,11 +365,11 @@ func build_stats_text() -> String:
 		pickup_radius
 	]
 
-	# Le Soufflement n'apparait que si le chat l'a. Une ligne d'ATH qui
+	# L'haleine puante n'apparait que si le chat l'a. Une ligne d'ATH qui
 	# annoncerait une arme absente serait le pendant exact du mensonge que
 	# `projectile_speed` faisait a l'ecran — voir upgrade_definitions.gd.
 	if breath_level > 0:
-		line += " · SOUFFLE %.1f/s SUR %.1f m" % [
+		line += " · HALEINE %.1f/s SUR %.1f m" % [
 			BreathAura.damage_per_second(breath_damage()),
 			breath_radius()
 		]

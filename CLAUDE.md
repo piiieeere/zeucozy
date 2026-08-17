@@ -384,7 +384,7 @@ zeucozy/
 │   │   ├── cel_model.gd            # ⭐ Le style du chat — partagé jeu ↔ banc de test
 │   │   ├── cel_prop.gd             # ⭐ Le style des meubles — .glb sans squelette
 │   │   ├── fx_cadence.gd           # ⭐ Les 3 durées de pose des FX (§7) — source unique
-│   │   ├── breath_aura.gd          # 🌀 Le Soufflement — aura lootable, poses + morsure
+│   │   ├── breath_aura.gd          # 🌀 L'haleine puante — aura lootable, poses + morsure
 │   │   ├── ui_style.gd             # ⭐ Le style de l'interface — palette, polices, cadence
 │   │   ├── impact_frame.gd         # Flash ambré plein cadre, 2 frames
 │   │   └── hit_burst.gd            # Éclat de collision, 8 poses
@@ -400,7 +400,7 @@ zeucozy/
 │                     # cel_ground (parquet peint), cel_rug (tapis)
 │                     # hit_burst (éclat de collision), impact_frame (flash)
 │                     # claw_slash (la griffure — 3 traits cernés, billboard dirigé)
-│                     # breath_aura (le Soufflement — volutes cernées, décalque AU SOL)
+│                     # breath_aura (l'haleine puante — volutes cernées, décalque AU SOL)
 │                     # cel_core + cel_floor (includes, fonctions pures)
 ├── tools/
 │   ├── export_cat.py       # ⚠️ LE SEUL chemin d'export du chat (voir piège n°6)
@@ -495,7 +495,7 @@ moustaches : segments SDF dans un espace local projeté, rien de modélisé (§2
 > est la taille de la patte à l'écran, pas le trait. Elles vivent donc au banc, et dans
 > tout cadrage rapproché à venir (portrait, menu, écran de mort).
 
-### Le Soufflement — la 1ʳᵉ compétence lootable (2026-08-17)
+### L'haleine puante — la 1ʳᵉ compétence lootable (2026-08-17)
 
 Une **aura circulaire posée au sol** autour du chat, qui blesse en continu tout ennemi
 entré dedans. Les six upgrades d'origine règlent toutes un chiffre qui existe déjà ;
@@ -591,7 +591,7 @@ possible, et c'est tout l'objet du changement : **la fuite cesse d'être passive
 7 types : `damage`, `attack_speed`, `move_speed`, `max_health`, `pickup_radius`,
 `claw_range`, `breath`
 3 choix aléatoires par level-up, sans doublons.
-`breath` est la seule qui **débloque** au lieu de régler — voir « Le Soufflement ».
+`breath` est la seule qui **débloque** au lieu de régler — voir « L'haleine puante ».
 `projectile_speed` est sortie du pool avec le passage à la griffure — une upgrade qui
 n'améliore plus rien de visible est un mensonge à l'écran. Son cas reste dans
 `apply_upgrade` : la rebrancher tient à une entrée ici.
@@ -640,11 +640,11 @@ Le rig de caméra fait exception : il bouge dans `_process`, donc son interpolat
 ## État actuel
 
 **Systèmes en place :** mouvement 8 directions, **visée souris indépendante**, spawn
-ennemis, **attaque de griffure au corps à corps**, **aura de Soufflement**, XP/niveaux,
+ennemis, **attaque de griffure au corps à corps**, **aura d'haleine puante**, XP/niveaux,
 7 upgrades, scaling difficulté, HUD complet, Game Over/restart, arène large. Toute la
 logique de gameplay tourne — le passage en 3D ne l'a pas touchée.
 
-**La première compétence lootable est arrivée le 2026-08-17** — voir « Le Soufflement »
+**La première compétence lootable est arrivée le 2026-08-17** — voir « L'haleine puante »
 plus haut. Le pool d'upgrades ne savait jusque-là que régler des chiffres existants ; il
 peut désormais **débloquer une arme**, et celle-ci pousse à rester au contact là où tout
 le reste du jeu pousse à l'esquive.
@@ -806,7 +806,7 @@ C'est leur **contraste** qui fabrique l'événement, pas la taille des cartons.
 #   --ui-card=gameover   le carton de K.O.
 ```
 
-**Juger le Soufflement sans jouer** — l'aura n'existe pas tant qu'on n'a pas pris
+**Juger l'haleine puante sans jouer** — l'aura n'existe pas tant qu'on n'a pas pris
 l'upgrade, donc une capture passive ne la montre jamais :
 
 ```bash

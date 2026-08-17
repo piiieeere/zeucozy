@@ -44,7 +44,7 @@ const DEFINITIONS: Array[Dictionary] = [
 		# — d'ou le "se cumule", qui doit tenir dans la description : sans lui,
 		# la revoir dans le tirage une fois prise se lit comme un doublon.
 		"id": "breath",
-		"title": "Soufflement",
+		"title": "Haleine puante",
 		"description": "Un halo de souffle blesse ce qui s'approche. Se cumule."
 	}
 ]

@@ -27,7 +27,7 @@ const FX_POSE := 2.0 / 60.0 - MARGIN
 ## Une pose d'element PERMANENT. §7 : "decor anime, elements de fond — sur 5s",
 ## soit 12 fps percus. La cadence la plus lente du tableau.
 ##
-## ⚠️ Elle n'est PAS reservee au decor, et le Soufflement est le cas qui l'a fait
+## ⚠️ Elle n'est PAS reservee au decor, et l'haleine puante est le cas qui l'a fait
 ## sortir : un FX qui ne dure pas ne se juge pas comme un FX qui ne s'arrete
 ## jamais. La cadence de 2s existe pour donner du claquant a une forme qui tient
 ## 200 ms ; appliquee a une aura toujours a l'ecran, elle donne un clignotement a

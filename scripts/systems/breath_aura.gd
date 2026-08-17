@@ -1,15 +1,15 @@
 extends MeshInstance3D
 
-## Le Soufflement — l'aura de souffle du chat, premiere competence lootable.
+## L'haleine puante — l'aura de souffle du chat, premiere competence lootable.
 ##
 ## Une couronne de volutes posee au sol autour du chat, qui blesse en continu
 ## tout ennemi entre dedans. Elle n'existe que si le joueur a pris l'upgrade
-## "Soufflement", et elle grandit — rayon ET degats — a chaque reprise.
+## "Haleine puante", et elle grandit — rayon ET degats — a chaque reprise.
 ##
 ## Trois choses la distinguent de la griffure, et elles vont ensemble :
 ##
 ##   * elle ne se dirige pas et ne se declenche pas. La griffure demande de
-##     viser ; le Soufflement demande de LAISSER VENIR. C'est la premiere
+##     viser ; l'haleine puante demande de LAISSER VENIR. C'est la premiere
 ##     mecanique du jeu qui recompense de rester au contact ;
 ##   * elle frappe FAIBLE et SANS ARRET la ou la griffure frappe fort et par
 ##     a-coups. C'est ce qui les rend cumulables sans se doubler ;
