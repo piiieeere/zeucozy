@@ -7,29 +7,34 @@ extends CharacterBody3D
 ## valeurs de reglage sont passees du pixel au metre (1 m ≈ 20 px d'avant).
 ## Voir "Pipeline 3D", section "2D ou 3D cote nodes Godot".
 ##
-## L'attaque automatique est une GRIFFURE au corps a corps (scenes/claw_slash).
-## Le projectile n'a pas ete supprime — scene, script et `spawn_projectile` sont
-## intacts, et `_fire_at_nearest_enemy` plus bas reste pret a resservir. Il est
-## simplement debranche de l'auto-attaque.
-##
-## Trois choses distinguent la griffure du projectile, et elles vont ensemble :
-##   * elle ne cherche personne toute seule. Le projectile partait vers l'ennemi
-##     le plus proche ; la griffure part la ou le JOUEUR vise — a la souris
-##     depuis le 2026-08-16, au deplacement tant que la souris n'a pas bouge ;
-##   * elle porte court mais frappe fort, et elle touche tout son arc ;
-##   * elle ne coute rien a l'animation du chat : c'est un decalque dessine pose
-##     devant lui, le squelette continue de jouer idle/walk sans le savoir.
-##
 ## LA VISEE EST DISSOCIEE DU DEPLACEMENT (2026-08-16). Marcher vers le bas en
 ## griffant vers le haut est desormais possible, et c'est tout l'interet : la
 ## fuite cesse d'etre passive. Le modele regarde la VISEE, pas la marche —
 ## sinon la griffure partirait de cote, et une griffure est un geste du corps.
+##
+## ─── LE CHAT NE PORTE PLUS SES ARMES, IL PORTE UN BUILD (2026-08-17) ───
+##
+## La griffure etait un compteur en dur dans `_process` et l'haleine puante un
+## cas particulier de `apply_upgrade`. Elles sont devenues deux COMPETENCES parmi
+## celles que le chat peut porter (voir `systems/skill_set.gd` et `skills/`), et
+## ce fichier n'en connait plus que trois choses : leur horloge (`skills.tick`),
+## leur visee (`aim_direction`, qu'elles lisent), et les chiffres de CORPS que
+## les passifs y ecrivent.
+##
+## ⚠️ CE QUI RESTE ICI EST LE CORPS DU CHAT, jamais une arme : vitesse, vie,
+## rayon d'aimant, visee, animation. C'est la ligne de partage, et elle explique
+## pourquoi les trois passifs survivants (`move_speed`, `max_health`,
+## `pickup_radius`) sont exactement ceux qui ne touchent aucune arme.
+##
+## Le projectile n'a pas ete supprime — scene, script et `spawn_projectile` sont
+## intacts, et `_fire_at_nearest_enemy` plus bas reste pret a resservir. Il est
+## simplement debranche. Le jour ou il revient, il revient en COMPETENCE, pas en
+## methode du chat.
 
-const UpgradeDefinitions = preload("res://scripts/systems/upgrade_definitions.gd")
 const CelStyle := preload("res://scripts/systems/cel_style.gd")
 const CelModel := preload("res://scripts/systems/cel_model.gd")
-const CLAW_SLASH_SCENE := preload("res://scenes/claw_slash.tscn")
-const BREATH_AURA_SCENE := preload("res://scenes/fx/breath_aura.tscn")
+const SkillDefinitions := preload("res://scripts/systems/skill_definitions.gd")
+const SkillSet := preload("res://scripts/systems/skill_set.gd")
 const BreathAura := preload("res://scripts/systems/breath_aura.gd")
 const Locale := preload("res://scripts/systems/locale.gd")
 
@@ -60,51 +65,6 @@ signal died
 ## inchangee : 6,7 coups de chaser au lieu de 6, 3,3 coups de brute au lieu
 ## de 3. Changer l'un sans l'autre rendrait le chat immortel.
 @export var max_health: int = 100
-## Une griffure toutes les 1,1 s — la cadence a ete DIVISEE PAR DEUX en meme
-## temps que la portee doublait (2026-08-16). Les deux vont ensemble : un arc
-## de 5,2 m qui balaie deux fois par seconde nettoierait l'ecran sans que le
-## joueur ait a se placer, et le placement est tout ce que la griffure a
-## apporte.
-@export var attack_interval: float = 1.1
-
-## Degats de la griffure. TRES au-dessus du projectile (1), et c'est la
-## contrepartie assumee : la griffure ne porte qu'a 3 m et ne se dirige pas
-## toute seule. Un chaser de depart tombe donc en un coup, mais il faut aller
-## le chercher et lui faire face.
-@export var claw_damage: int = 3
-## Portee de la griffure, en metres. Le chat fait 1,86 : c'est presque trois
-## longueurs de chat devant lui.
-##
-## DOUBLEE de 2,6 a 5,2 le 2026-08-16. Le dessin suit tout seul — `claw_slash`
-## dimensionne son decalque sur cette valeur (voir DRAW_SIZE), justement pour
-## que la portee et ce qu'on en voit ne puissent pas diverger.
-@export var claw_range: float = 5.2
-## Ouverture de l'arc griffe, en degres. Large — une patte balaie, elle ne
-## pique pas — mais franchement frontal : c'est ce qui fait de la direction
-## visee une vraie visee, et non une decoration.
-@export var claw_arc_degrees: float = 120.0
-
-## L'HALEINE PUANTE — la premiere competence LOOTABLE du jeu.
-##
-## Les six upgrades d'origine reglent toutes un chiffre qui existe deja. Celle-ci
-## debloque une arme que le chat n'a pas au depart : une aura qui blesse en
-## continu tout ce qui s'approche. Elle vaut donc zero tant que `breath_level`
-## est a zero, et rien ne s'affiche a l'ecran dans ce cas.
-##
-## Elle est faite pour COHABITER avec la griffure, pas la remplacer, et les
-## chiffres disent lequel fait quoi : la griffure porte a 5,2 m, se vise, frappe
-## 3 d'un coup ; le souffle porte a 2,8 m, ne se vise pas, et grignote 1 toutes
-## les ~0,67 s. Rester au contact devient un choix, la ou le jeu ne recompensait
-## jusqu'ici que l'esquive.
-##
-## ⚠️ Le rayon de depart est SOUS la portee de griffure et a peine au-dessus de
-## la distance de contact d'un ennemi (~1,55 m, hurtbox 0,8 + 0,75) : le souffle
-## n'offre qu'un metre de repit. C'est ce qui l'empeche d'etre une upgrade
-## gratuite — un ennemi qu'il touche est un ennemi presque en train de mordre.
-@export var breath_radius_base: float = 2.8
-@export var breath_radius_step: float = 0.55
-@export var breath_damage_base: int = 1
-@export var breath_damage_step: int = 1
 
 ## Hauteur du plan de visee, en metres au-dessus des pattes du chat.
 ##
@@ -122,8 +82,13 @@ signal died
 @export var aim_dead_zone: float = 0.8
 
 ## Le projectile, en sommeil. Conserve pour un usage futur (arme secondaire,
-## upgrade, ennemi tireur) : ses reglages continuent donc d'exister et de
-## profiter des upgrades, pour qu'il ne se reveille pas perime.
+## ennemi tireur) : sa scene, son script et `spawn_projectile` sont intacts.
+##
+## ⚠️ Ses chiffres NE SUIVENT PLUS AUCUNE UPGRADE depuis le passage aux
+## competences. L'ancien `apply_upgrade` montait `projectile_damage` en meme
+## temps que la griffure, pour qu'il ne se reveille pas perime ; c'est desormais
+## sans objet — le jour ou il revient, il revient en COMPETENCE, avec ses propres
+## paliers, et ces trois valeurs ne seront plus que son T1.
 @export var projectile_damage: int = 1
 @export var projectile_speed: float = 17.5
 @export var projectile_range: float = 10.0
@@ -150,8 +115,20 @@ var health: int
 var level := 1
 var current_xp := 0
 var xp_to_next := 5
-var attack_cooldown := 0.0
 var invulnerability_timer := 0.0
+
+## Ce que le chat porte — armes ET passifs. Cree en `_ready`, jamais exporte :
+## un build est un etat de RUN, il n'a rien a faire dans la scene.
+var skills: SkillSet
+
+## Les chiffres de CORPS avant tout passif. Les valeurs de palier etant absolues
+## (voir `skill_definitions.gd`), on ne peut pas les empiler sur la valeur
+## courante : il faut savoir d'ou l'on part pour pouvoir tout recalculer a
+## chaque prise. C'est ce qui rend `_apply_passives` idempotent — et un
+## recalcul idempotent est le prerequis du retrait de competence a venir.
+var _base_speed := 0.0
+var _base_max_health := 0
+var _base_pickup_radius := 0.0
 
 ## D'ou vient la visee. La MANETTE viendra s'ajouter ici : une source de plus,
 ## qui prend la main tant que le stick droit est pousse, exactement comme la
@@ -165,47 +142,111 @@ enum AimSource { MOVEMENT, MOUSE }
 ## la visee au premier mouvement reel — voir `_input`.
 var aim_source := AimSource.MOVEMENT
 
-## La direction visee : celle de la griffure, et celle que le modele regarde.
+## La direction visee : celle des armes dirigees, et celle que le modele regarde.
 ## Vers la camera au depart : on ouvre sur le visage du chat, pas sur son dos.
+##
+## ⚠️ Les competences la LISENT, elles ne l'ecrivent pas. C'est ce qui garde une
+## seule visee pour toutes les armes : deux armes dirigees qui tiendraient chacune
+## leur cap partiraient dans deux directions differentes sur la meme frame.
 var aim_direction := Vector3.BACK
-## Une patte puis l'autre. Le balayage de la griffure change de sens a chaque
-## coup — sans quoi deux griffures de suite se liraient comme un tampon
-## recycle, exactement ce que le `spin` tire au hasard evite a l'eclat.
-var claw_side := 1.0
-
-## Zero = le chat n'a pas la competence, et l'aura n'existe meme pas comme node.
-var breath_level := 0
-var breath_aura: Node3D = null
 
 
 func _ready() -> void:
 	add_to_group("player")
 	health = max_health
+
+	_base_speed = speed
+	_base_max_health = max_health
+	_base_pickup_radius = pickup_radius
+
+	skills = SkillSet.new()
+	skills.name = "Skills"
+	add_child(skills)
+	skills.setup(self)
+
+	# Le chat commence arme. La griffure est la slot AUTO n°1 — la slot "arme
+	# DIRIGEE" de §2.3 — et elle est prise a T1 des le depart : c'est ce qui la
+	# fait apparaitre dans le pool a partir de son T2, comme n'importe quelle
+	# autre competence deja prise.
+	for definition in SkillDefinitions.DEFINITIONS:
+		if definition.get("starting", false):
+			skills.take(definition["id"])
+
 	CelStyle.apply_contact_shadow($Shadow)
 	_sync_pickup_radius()
-	_apply_breath_preview()
+	_apply_skill_preview()
 	_emit_all_state()
+	_report_build()
 
 
-## Ouvre l'haleine puante au lancement, pour la JUGER a l'image sans avoir a jouer
-## jusqu'au level-up qui le propose :
+## Ouvre des competences au lancement, pour les JUGER a l'image sans avoir a
+## jouer jusqu'au level-up qui les propose :
 ##
-##   --breath=1   la competence au premier palier
-##   --breath=3   trois reprises cumulees
+##   --breath=1   l'haleine puante au premier palier
+##   --breath=3   au troisieme (3,9 m) — pour verifier que le trait ne grossit
+##                PAS avec la zone
+##   --skill=claw:3   n'importe quelle competence a n'importe quel palier
 ##
 ## Meme convention d'arguments utilisateur que `--ui-card=`, `--pitch=` et
 ## `--decor-outline=` : tout ce projet dit qu'un reglage qu'on ne peut pas
 ## capturer est un reglage fait a l'aveugle.
-func _apply_breath_preview() -> void:
+##
+## `--breath=` est garde tel quel — il est ecrit dans CLAUDE.md et sert deja aux
+## captures ; `--skill=` le generalise pour les competences a venir.
+func _apply_skill_preview() -> void:
 	for argument in OS.get_cmdline_user_args():
-		if not argument.begins_with("--breath="):
-			continue
+		if argument.begins_with("--breath="):
+			_preview_skill("breath", int(argument.trim_prefix("--breath=")))
+		elif argument.begins_with("--skill="):
+			var parts := argument.trim_prefix("--skill=").split(":")
+			_preview_skill(parts[0], int(parts[1]) if parts.size() > 1 else 1)
 
-		var wanted := int(argument.trim_prefix("--breath="))
 
-		if wanted > 0:
-			breath_level = wanted
-			_sync_breath()
+func _preview_skill(id: String, tier: int) -> void:
+	for _step in range(maxi(tier - skills.tier_of(id), 0)):
+		take_skill(id)
+
+
+## `--build-report` : ce que le chat porte, en clair, a la sortie standard.
+##
+## Meme role que `cel_model.animation_report()` pour la cadence en pas — un etat
+## qu'on ne peut pas VOIR se verifie par une sonde, jamais a l'oeil. Un palier
+## applique de travers ne casse rien et ne se signale pas : le chat frappe
+## simplement un peu moins fort qu'il ne devrait, ce que personne ne remarque en
+## jouant.
+##
+## Trois choses qu'il faut lire ensemble, parce qu'un ecart entre elles est
+## exactement le defaut qu'on cherche : les paliers pris, les chiffres de corps
+## recalcules depuis la base, et le releve d'ATH — qui est ce que le JOUEUR voit.
+func _report_build() -> void:
+	if not OS.get_cmdline_user_args().has("--build-report"):
+		return
+
+	print("── BUILD ──────────────────────────────────────────────")
+
+	for definition in SkillDefinitions.DEFINITIONS:
+		var id: String = definition["id"]
+		var tier := skills.tier_of(id)
+		var kind: String = ["AUTO", "ACTIF", "PASSIF"][definition["kind"]]
+		var state := "—" if tier == 0 else "T%d/%d %s" % [
+			tier, SkillDefinitions.max_tier(id), skills.values_of(id)
+		]
+		print("  %-14s %-7s %s" % [id, kind, state])
+
+	print("  slots auto   %d / %d" % [
+		skills.used_slots(SkillDefinitions.Kind.AUTO), SkillDefinitions.MAX_AUTO_SLOTS
+	])
+	print("  slots actifs %d / %d" % [
+		skills.used_slots(SkillDefinitions.Kind.ACTIVE), SkillDefinitions.MAX_ACTIVE_SLOTS
+	])
+	print("  corps        vitesse %.2f · vie %d/%d · aimant %.2f" % [
+		speed, health, max_health, pickup_radius
+	])
+	print("  ATH          %s" % build_stats_text())
+	print("  tirage x8 :")
+
+	for _draw in range(8):
+		print("    %s" % str(skills.roll(3)))
 
 
 func _physics_process(delta: float) -> void:
@@ -252,15 +293,18 @@ func _input(event: InputEvent) -> void:
 		aim_source = AimSource.MOUSE
 
 
+## L'HORLOGE DE TOUTES LES COMPETENCES, et le seul endroit ou la pause se teste.
+##
+## Chaque competence avait la sienne : un compteur en dur ici pour la griffure,
+## un `_process` prive avec son propre test de pause pour l'aura d'haleine. A
+## seize competences (§2.3), c'est seize endroits ou oublier de s'arreter
+## derriere un carton de niveau — un defaut qui ne se VOIT pas, il se constate a
+## la barre de vie d'un ennemi.
 func _process(delta: float) -> void:
 	if _is_run_paused():
 		return
 
-	attack_cooldown -= delta
-
-	if attack_cooldown <= 0.0:
-		attack_cooldown = attack_interval
-		_slash_forward()
+	skills.tick(delta)
 
 
 ## `attacker_position` est optionnelle : elle sert uniquement a placer l'eclat
@@ -314,96 +358,100 @@ func collect_xp(amount: int) -> void:
 	level += 1
 	xp_to_next = int(round(float(xp_to_next) * 1.35)) + 2
 	xp_changed.emit(current_xp, xp_to_next, level)
-	level_up_requested.emit(UpgradeDefinitions.roll_choices(3))
+
+	var choices := roll_skill_choices(3)
+
+	# ⚠️ LE POOL PEUT ETRE VIDE, ET IL NE POUVAIT PAS L'ETRE AVANT. Les sept
+	# upgrades d'origine se reprenaient a l'infini ; les competences plafonnent
+	# (§2.2, §2.5), donc une run assez longue finit par tout epuiser — cinq
+	# competences aujourd'hui, ca arrive vite.
+	#
+	# Le niveau monte quand meme, mais AUCUN carton ne s'ouvre : un carton vide
+	# mettrait le jeu en pause sans offrir de quoi le relancer — plus rien a
+	# cliquer, et Échap ne fait rien pendant un carton de niveau. Le jeu serait
+	# bloque pour de bon, exactement comme le bouton REPRENDRE l'avait fait le
+	# 2026-08-17.
+	#
+	# 🅿️ Ce silence est la BONNE reponse tant que le pool est petit ; quand il y
+	# aura ~16 competences, il vaudra mieux que le level-up rende autre chose
+	# (soin, XP) plutot que rien.
+	if not choices.is_empty():
+		level_up_requested.emit(choices)
 
 
-func apply_upgrade(upgrade_id: String) -> void:
-	match upgrade_id:
-		"damage":
-			claw_damage += 1
-			# Le projectile dort, il ne doit pas se reveiller perime : il suit
-			# la meme upgrade, sans etre tire pour autant.
-			projectile_damage += 1
-		"attack_speed":
-			attack_interval = max(0.18, attack_interval * 0.85)
-		"move_speed":
-			speed += 0.9
-		"max_health":
-			# +30 % de la vie de depart, et le soin suit — la meme proportion
-			# que le +2 sur 6 d'avant. Une upgrade se dose en FRACTION de la
-			# barre, jamais en points absolus : +2 sur 100 ne se verrait pas.
-			max_health += 30
-			health = min(max_health, health + 30)
-		"pickup_radius":
-			pickup_radius += 0.85
-			_sync_pickup_radius()
-		"claw_range":
-			# Le decalque se dimensionne sur la portee : l'upgrade SE VOIT.
-			claw_range += 0.45
-		"breath":
-			# La seule upgrade qui DEBLOQUE : au premier palier elle fait
-			# apparaitre l'aura, aux suivants elle l'elargit et l'alourdit.
-			breath_level += 1
-			_sync_breath()
-		"projectile_speed":
-			# Retiree du tirage tant que le projectile dort. Gardee ici pour
-			# qu'y revenir soit une ligne dans upgrade_definitions.gd.
-			projectile_speed += 2.5
-			projectile_range += 1.1
+## Le tirage du level-up. Il passe par le build parce qu'il en DEPEND : une
+## competence a son palier maximum en sort, une competence neuve n'y entre pas si
+## sa famille de slots est pleine. Voir `skill_set.roll`.
+func roll_skill_choices(count: int) -> Array[Dictionary]:
+	return skills.roll(count)
+
+
+## Le joueur a choisi une carte. Deux choses seulement, et l'ordre compte :
+## le build enregistre le palier, puis le chat en relit ce qui le concerne.
+##
+## ⚠️ Le chat ne touche a AUCUNE valeur d'arme. Les degats, la cadence et la
+## portee de la griffure vivent dans son palier, pas ici — c'est ce qui a fait
+## disparaitre l'ancien `apply_upgrade` et ses sept cas particuliers.
+func take_skill(id: String) -> void:
+	var gained := skills.take(id)
+
+	_apply_passives()
+
+	# Le soin de "Reserve de vie" est un EVENEMENT du palier, pas un etat : il se
+	# joue une fois, a la prise. Fusionne aux valeurs permanentes, il resoignerait
+	# le chat a chaque recalcul.
+	if gained.has("heal"):
+		health = mini(max_health, health + int(gained["heal"]))
 
 	_emit_all_state()
+
+
+## Les chiffres de CORPS, recalcules depuis la base a chaque fois.
+##
+## Les valeurs de palier etant absolues, il n'y a rien a empiler et rien a
+## defaire : un passif absent laisse simplement sa valeur de base. C'est ce qui
+## rend cette methode rejouable autant de fois qu'on veut — le prerequis du
+## retrait de competence, et du T4 qui transforme au lieu d'ajouter.
+func _apply_passives() -> void:
+	var values := skills.passive_values()
+
+	speed = float(values.get("speed", _base_speed))
+	max_health = int(values.get("max_health", _base_max_health))
+	pickup_radius = float(values.get("pickup_radius", _base_pickup_radius))
+
+	health = mini(health, max_health)
+	_sync_pickup_radius()
 
 
 func build_stats_text() -> String:
 	# Le releve de build, en bas d'ecran. Les separateurs en point median plutot
 	# qu'en double espace : a 12 px et en creme assourdi, deux espaces ne
 	# separent plus rien et la ligne se lit comme une seule bouillie.
+	#
+	# Les chiffres d'arme sont LUS DANS LE BUILD, jamais recopies sur le chat :
+	# une valeur recopiee est une valeur qui finit par diverger de sa source,
+	# exactement ce qui est arrive entre Blender et Godot sur le visage du chat.
+	var claw := skills.values_of("claw")
+
 	var line: String = Locale.t("stats.line") % [
-		claw_damage,
-		attack_interval,
-		claw_range,
+		claw["damage"],
+		claw["interval"],
+		claw["range"],
 		speed,
 		pickup_radius
 	]
 
 	# L'haleine puante n'apparait que si le chat l'a. Une ligne d'ATH qui
 	# annoncerait une arme absente serait le pendant exact du mensonge que
-	# `projectile_speed` faisait a l'ecran — voir upgrade_definitions.gd.
-	if breath_level > 0:
+	# `projectile_speed` faisait a l'ecran — voir `skill_definitions.gd`.
+	if skills.has("breath"):
+		var breath := skills.values_of("breath")
 		line += Locale.t("stats.breath") % [
-			BreathAura.damage_per_second(breath_damage()),
-			breath_radius()
+			BreathAura.damage_per_second(breath["damage"]),
+			breath["radius"]
 		]
 
 	return line
-
-
-func breath_radius() -> float:
-	return breath_radius_base + breath_radius_step * float(breath_level - 1)
-
-
-func breath_damage() -> int:
-	return breath_damage_base + breath_damage_step * (breath_level - 1)
-
-
-## Cree l'aura a la premiere prise, la redimensionne aux suivantes.
-##
-## Elle est enfant du CHAT, pour la meme raison que la griffure : c'est le
-## souffle du chat, il ne reste pas en arriere quand il court. Le node ne tourne
-## pas avec lui — seul `$Model` tourne — donc la couronne garde son orientation
-## dans le monde et ne se met pas a pivoter des qu'on vise ailleurs.
-func _sync_breath() -> void:
-	if breath_level <= 0:
-		return
-
-	if breath_aura == null or not is_instance_valid(breath_aura):
-		breath_aura = BREATH_AURA_SCENE.instantiate()
-		add_child(breath_aura)
-		# Sans ca, l'interpolation physique fait partir la couronne de l'origine
-		# du monde sur sa premiere frame.
-		breath_aura.reset_physics_interpolation()
-
-	breath_aura.setup(breath_radius(), breath_damage())
 
 
 ## Le squelette claque sur 3s pendant que la position, elle, reste lisse a 60 :
@@ -488,23 +536,6 @@ func _mouse_aim_direction() -> Vector3:
 func _face_direction(delta: float) -> void:
 	var wanted := atan2(-aim_direction.x, -aim_direction.z)
 	model.rotation.y = lerp_angle(model.rotation.y, wanted, 1.0 - exp(-turn_speed * delta))
-
-
-## La griffure part dans la direction VISEE — jamais vers un ennemi choisi pour
-## le joueur. C'est la difference de fond avec le projectile : ici, c'est le
-## joueur qui pointe.
-##
-## Enfant du CHAT, et c'est le point : une griffure est un geste, pas un objet
-## lache dans le monde. Plantee au sol elle se detacherait du chat des la
-## premiere frame — a 7,5 m/s il avance de 1,5 m pendant les six poses.
-func _slash_forward() -> void:
-	var slash = CLAW_SLASH_SCENE.instantiate()
-	add_child(slash)
-	slash.setup(aim_direction, claw_damage, claw_range, claw_arc_degrees, claw_side)
-	# Sans ca, l'interpolation physique fait partir le decalque de l'origine du
-	# monde sur sa premiere frame — et sa premiere frame est un sixieme de sa vie.
-	slash.reset_physics_interpolation()
-	claw_side = -claw_side
 
 
 ## EN SOMMEIL — le projectile n'est plus l'attaque automatique. Conserve tel

@@ -371,15 +371,20 @@ zeucozy/
 │       └── motion_probe.tscn # ⏱️ Banc de fluidité — mesure le battement de l'image
 ├── scripts/          # Logique GDScript
 │   ├── main.gd       # Directeur de jeu, spawn, difficulté, UI
-│   ├── player.gd     # Mouvement, attaque auto, upgrades, XP
+│   ├── player.gd     # Le CORPS du chat : mouvement, visée, vie, XP — plus aucune arme
 │   ├── enemy.gd      # Comportement ennemi de base (follow, dégâts)
 │   ├── claw_slash.gd # ⚔️ Griffure : 6 poses + dégâts sur les 3 premières
 │   ├── projectile.gd # 💤 Projectile (direction, portée, collision) — débranché
 │   ├── xp_orb.gd     # Croquette d'XP (magnétisme, collecte)
 │   ├── arena.gd      # Décor : sol, tapis, mobilier, mur de bordure
 │   ├── camera_rig.gd # Vue plongeante 45°, suit le joueur, bornée à l'arène
+│   ├── skills/       # ⭐ LES COMPÉTENCES — une par fichier, toutes au même contrat
+│   │   ├── skill.gd        # Le contrat : setup / set_tier / tick. Aucune n'a de _process
+│   │   ├── claw_skill.gd   # ⚔️ La griffure — slot AUTO n°1, l'arme DIRIGÉE
+│   │   └── breath_skill.gd # 🌀 L'haleine puante — pilote l'aura, pas son dessin
 │   ├── systems/
-│   │   ├── upgrade_definitions.gd  # Pool et définitions des upgrades
+│   │   ├── skill_definitions.gd    # ⭐ LE catalogue — types, paliers, poids de tirage
+│   │   ├── skill_set.gd            # ⭐ Ce que le chat PORTE — build + horloge des compétences
 │   │   ├── cel_style.gd            # Matériaux cel des primitives, du sol + ombre de contact
 │   │   ├── cel_model.gd            # ⭐ Le style du chat — partagé jeu ↔ banc de test
 │   │   ├── cel_prop.gd             # ⭐ Le style des meubles — .glb sans squelette
@@ -441,16 +446,32 @@ devant le point visé, 9 m derrière) — soit un chat à ~11 % de la hauteur d'
 Le réglage à bouger en premier si le chat paraît trop petit est `distance` dans
 `camera_rig.gd` (38 m), pas le FOV.
 
-### Joueur — stats de base (player.gd)
-- Speed 7,5 m/s | **Vie 100 points** | Attack interval **1,1 s**
-- **Griffure** : damage 3 | range 5,2 m | arc frontal 120° | **visée à la souris**
-- Projectile *(en sommeil)* : damage 1 | Speed 17,5 m/s | Range 10 m
-- Pickup radius 2,5 m
+### Joueur — stats de base
+
+**Le corps** (`player.gd`) : Speed 7,5 m/s | **Vie 100 points** | Pickup radius 2,5 m
+
+**Les armes** (`skill_definitions.gd`, jamais sur le chat) — valeurs par palier :
+
+| | T1 | T2 | T3 |
+|---|---|---|---|
+| **Griffure** *(dégât / cadence / portée)* | 3 · 1,10 s · 5,2 m | 4 · 0,94 s · 5,65 m | 5 · 0,80 s · 6,1 m |
+| **Haleine** *(rayon / dégât par morsure)* | 2,8 m · 1 | 3,35 m · 2 | 3,9 m · 3 |
+
+Arc frontal de griffure **120°, à tous les paliers** — l'ancienne description promettait un
+balayage « plus large », le code ne l'a jamais fait.
+
+Projectile *(en sommeil, plus branché à aucune upgrade)* : damage 1 | Speed 17,5 m/s | Range 10 m
 
 ### L'attaque — la griffure (2026-08-16)
 L'auto-attaque est passée du **projectile** au **corps à corps**. Le projectile n'est pas
-supprimé : scène, script, `spawn_projectile` et `_fire_at_nearest_enemy` sont intacts et
-suivent toujours l'upgrade de dégâts. Il est **débranché de `_process`**, rien de plus.
+supprimé : scène, script, `spawn_projectile` et `_fire_at_nearest_enemy` sont intacts. Il
+est **débranché**, rien de plus — et depuis le 2026-08-17 il ne suit plus aucune upgrade,
+le jour où il revient il revient en **compétence**.
+
+> ⚠️ **Le code de la griffure a quitté `player.gd` le 2026-08-17** pour
+> `skills/claw_skill.gd` — voir « Les compétences ». Son comportement n'a pas bougé d'une
+> frame ; ce qui a changé, c'est qu'elle est devenue une compétence parmi d'autres, avec
+> des paliers et une slot. Tout ce qui suit reste vrai.
 
 - **Elle part sur `aim_direction`** — la visée, plus la marche depuis le 2026-08-16.
   Voir « La visée » juste en dessous.
@@ -590,14 +611,76 @@ possible, et c'est tout l'objet du changement : **la fuite cesse d'être passive
   tant que le stick droit est poussé. À la différence de la souris, elle **rend** la main
   quand le stick revient au centre.
 
-### Upgrades (upgrade_definitions.gd)
-7 types : `damage`, `attack_speed`, `move_speed`, `max_health`, `pickup_radius`,
-`claw_range`, `breath`
-3 choix aléatoires par level-up, sans doublons.
-`breath` est la seule qui **débloque** au lieu de régler — voir « L'haleine puante ».
-`projectile_speed` est sortie du pool avec le passage à la griffure — une upgrade qui
-n'améliore plus rien de visible est un mensonge à l'écran. Son cas reste dans
-`apply_upgrade` : la rebrancher tient à une entrée ici.
+### Les compétences — le socle, posé le 2026-08-17
+
+Les 7 upgrades à plat ont cédé la place au système de `Gameplay et Progression` §2.
+**Seul le socle est fait** — types, paliers, slots, tirage pondéré, et les deux armes
+existantes ramenées au même contrat. Le contenu (§2.9 chantier 3) et le carton de
+remplacement (chantier 2) ne sont **pas** écrits.
+
+| Fichier | Ce qu'il porte |
+|---|---|
+| `systems/skill_definitions.gd` | **Le catalogue** : type, paliers, poids, slots |
+| `systems/skill_set.gd` | **Le build d'une run** : `id → palier`, + l'horloge des compétences |
+| `skills/skill.gd` | **Le contrat** : `setup` / `set_tier` / `tick` |
+
+- **Trois types :** `AUTO` (une arme qui agit seule — occupe une slot **et** se dessine),
+  `ACTIF` (touche + cooldown — **aucun n'existe encore**), `PASSIF` (un chiffre, jamais
+  dessiné — donc illimité en nombre, mais plafonné à **T3** sans ultime).
+- **Slots : 6 AUTO · 2 ACTIFS · ∞ passifs.** Quand une famille est pleine, `roll` cesse
+  de proposer des compétences **neuves** de ce type et continue d'en proposer les paliers.
+  Le carton « quoi remplacer ? » n'existe pas — proposer une 7ᵉ arme serait proposer
+  quelque chose que le jeu ne sait pas faire.
+- **Tirage pondéré** AUTO ×3 · ACTIF ×2 · PASSIF ×1, sans doublon dans le tirage.
+- **La carte de choix porte un marqueur de palier** — `NOUVEAU` / `PALIER 2` / `ULTIME`, en
+  légende de 10 px au-dessus d'un titre de 17 (le contraste d'échelle de DA §9.3 règle 5,
+  pas une nuance de gris de plus). Il reste en crème assourdi **même au survol** : l'ambre
+  est l'unique accent saturé de l'écran et il désigne la carte survolée, pas un marqueur
+  qui ne désigne rien. ⚠️ Sans lui, reprendre une compétence affiche **exactement la même
+  carte** qu'à sa première prise, et rien ne dit au joueur s'il débloque ou s'il renforce.
+
+> ⚠️ **LES VALEURS DE PALIER SONT ABSOLUES, JAMAIS DES INCRÉMENTS**, et c'est le choix qui
+> a décidé de toute la forme. L'ancien `apply_upgrade` faisait `claw_damage += 1` : une
+> mutation **en place**, donc irréversible. Trois choses de §2 y étaient impossibles —
+> remplacer une arme (il faudrait défaire ses paliers), un T4 qui *transforme* (il faudrait
+> recalculer, pas empiler), et relire un build sans rejouer son historique. Ici appliquer
+> un palier c'est **écrire** des valeurs : le refaire deux fois ne change rien.
+
+> ⚠️ **`damage`, `attack_speed` et `claw_range` ont été SUPPRIMÉS** (décision du
+> 2026-08-17). La griffure ayant ses propres paliers, les laisser coexister ferait
+> **compter deux fois la même montée** (§2.9). Leur effet est replié dans les T2/T3 de
+> `claw` — transcription de l'équilibrage d'avant, pas rééquilibrage. Il ne reste donc que
+> **trois passifs**, et ils ont un point commun : ils règlent le **corps** du chat
+> (`move_speed`, `max_health`, `pickup_radius`), jamais une arme. C'est la ligne de partage.
+
+> ⚠️ **AUCUNE COMPÉTENCE N'A DE `_process`.** L'horloge vient de `player._process` →
+> `skills.tick(delta)`, qui rend déjà la main en pause. Chaque compétence testait la pause
+> elle-même — `breath_aura.gd` avait son `_get_game()` et son `_is_run_paused()` privés. À
+> seize compétences, c'est seize endroits où oublier de s'arrêter derrière un carton, et le
+> défaut est **invisible** : une aura qui continue de mordre pendant qu'on choisit une
+> upgrade ne se voit pas, elle se constate à la barre de vie d'un ennemi.
+
+> ⚠️ **LE POOL PEUT DÉSORMAIS ÊTRE VIDE, et il ne pouvait pas l'être avant.** Les 7
+> upgrades se reprenaient à l'infini ; les compétences plafonnent. Trouvé **par la sonde**,
+> pas en jouant : un level-up sans carte à proposer ouvrait un carton vide, qui mettait le
+> jeu en pause sans rien offrir pour le relancer — plus rien à cliquer, et Échap ne fait
+> rien pendant un carton de niveau. Le niveau monte donc, mais aucun carton ne s'ouvre.
+> 🅿️ À ~16 compétences, il vaudra mieux rendre autre chose (soin, XP) que rien.
+
+> 🅿️ **`ultimates` est vide partout, et c'est voulu.** Le T4 est du contenu de jeu, il
+> n'est écrit nulle part. La structure le porte, `max_tier` le sait, et une compétence sans
+> ultime plafonne proprement à T3.
+
+**La sonde de build** — un palier appliqué de travers ne casse rien et ne se signale pas :
+le chat frappe simplement un peu moins fort qu'il ne devrait.
+
+```bash
+"C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --headless --path . \
+  --quit-after 5 -- --build-report --skill=claw:3 --breath=3
+#   --build-report      paliers + chiffres de corps + relevé d'ATH + 8 tirages
+#   --skill=<id>:<n>    n'importe quelle compétence à n'importe quel palier
+#   --breath=<n>        gardé tel quel — il sert déjà aux captures
+```
 
 ### XP (xp_orb.gd)
 - Magnétisme déclenché à < 5 m du joueur
@@ -647,8 +730,16 @@ Le rig de caméra fait exception : il bouge dans `_process`, donc son interpolat
 
 **Systèmes en place :** mouvement 8 directions, **visée souris indépendante**, spawn
 ennemis, **attaque de griffure au corps à corps**, **aura d'haleine puante**, XP/niveaux,
-7 upgrades, scaling difficulté, HUD complet, Game Over/restart, arène large. Toute la
-logique de gameplay tourne — le passage en 3D ne l'a pas touchée.
+**système de compétences à paliers**, scaling difficulté, HUD complet, Game Over/restart,
+arène large. Toute la logique de gameplay tourne — le passage en 3D ne l'a pas touchée.
+
+**Le socle des compétences est posé le 2026-08-17** — voir « Les compétences » plus haut.
+Les 7 upgrades à plat ont cédé la place aux trois types (AUTO / ACTIF / PASSIF), aux
+paliers T1→T3, aux slots et au tirage pondéré de `Gameplay et Progression` §2. La griffure
+et l'haleine sont devenues **deux instances du même contrat** : c'est ce qui rend le reste
+écrivable en donnée plutôt qu'en code. **Restent à faire :** les ACTIFS (aucun n'existe),
+le carton de remplacement quand une famille de slots est pleine, les ultimes T4, et le
+contenu (~10 auto, ~6 actifs).
 
 **Le jeu est bilingue depuis le 2026-08-17** — voir « Le jeu est bilingue » plus haut.
 Français et anglais, un carton de réglages ouvert par Échap, et le choix conservé d'une
@@ -916,9 +1007,14 @@ premier réglage ; le carton est fait pour en recevoir d'autres.
 - **Les clés portent des PHRASES ENTIÈRES**, jamais des morceaux à recoller. `"PORTÉE
   %.1f m"` est une clé ; `"PORTÉE"` + `"%.1f"` + `"m"` en ferait trois, et l'ordre des
   mots change d'une langue à l'autre.
-- **Le pool d'upgrades ne porte plus aucun texte** : `upgrade_definitions.gd` n'a plus que
-  des `id`, et les clés `upgrade.<id>.title` / `.desc` s'en déduisent. Rien à tenir
-  synchronisé à la main.
+- **Le catalogue de compétences ne porte aucun texte** : `skill_definitions.gd` n'a que des
+  `id` et des chiffres, et les clés `skill.<id>.title` / `.t<N>.desc` s'en déduisent. Rien
+  à tenir synchronisé à la main.
+  ⚠️ **Le titre est unique, la description est PAR PALIER** — un palier qui renommerait la
+  compétence casserait la lecture, le joueur suit une carte de run par son nom. Une
+  compétence dont tous les paliers disent la même chose n'écrit qu'un `.desc` :
+  `skill_description` y retombe, ce qui évite d'écrire trois fois la même phrase et de
+  devoir ensuite les tenir synchronisées.
 - **Le nom d'une langue est écrit DANS cette langue** (`FRANÇAIS` / `ENGLISH`) — un joueur
   perdu cherche « English », pas « Anglais ». C'est la seule chaîne qui ne se traduit pas.
 

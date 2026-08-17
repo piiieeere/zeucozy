@@ -13,7 +13,6 @@ const BRUTE_SCENE := preload("res://scenes/enemies/brute.tscn")
 const XP_ORB_SCENE := preload("res://scenes/xp_orb.tscn")
 const PROJECTILE_SCENE := preload("res://scenes/projectile.tscn")
 const HIT_BURST_SCENE := preload("res://scenes/fx/hit_burst.tscn")
-const UpgradeDefinitions = preload("res://scripts/systems/upgrade_definitions.gd")
 const Locale := preload("res://scripts/systems/locale.gd")
 const SettingsStore := preload("res://scripts/systems/settings_store.gd")
 
@@ -101,7 +100,11 @@ func _apply_ui_preview() -> void:
 		match argument.trim_prefix("--ui-card="):
 			"level":
 				run_paused = true
-				current_upgrade_choices = UpgradeDefinitions.roll_choices(3)
+				# Le tirage passe par le joueur : il DEPEND du build (une
+				# competence a son palier max en sort, une neuve n'y entre pas si
+				# ses slots sont pleines). Un tirage tire du catalogue seul
+				# montrerait des cartes que le jeu refuserait ensuite.
+				current_upgrade_choices = player.roll_skill_choices(3)
 				hud.show_level_card(3, current_upgrade_choices)
 			"gameover":
 				game_over = true
@@ -339,7 +342,7 @@ func _on_upgrade_button_pressed(index: int) -> void:
 	if index >= current_upgrade_choices.size():
 		return
 
-	player.apply_upgrade(current_upgrade_choices[index]["id"])
+	player.take_skill(current_upgrade_choices[index]["id"])
 	current_upgrade_choices.clear()
 	hud.hide_level_card()
 	run_paused = false

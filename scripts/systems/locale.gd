@@ -65,6 +65,15 @@ const STRINGS := {
 
 	# ── Cartons de moment ────────────────────────────────────────────────────
 	"card.level_sub": {"fr": "Choisis une amélioration.", "en": "Choose an upgrade."},
+	# Le marqueur de palier, en legende minuscule au-dessus du titre d'une carte.
+	#
+	# ⚠️ Il n'est pas decoratif. Sans lui, reprendre une competence affiche la
+	# MEME carte qu'a sa premiere prise, et le joueur ne peut pas savoir s'il
+	# debloque ou s'il renforce — "une competence qui n'ameliore rien de visible
+	# est un mensonge a l'ecran" (§2.10) vaut aussi pour ce qu'on ne montre pas.
+	"card.tier_new": {"fr": "NOUVEAU", "en": "NEW"},
+	"card.tier": {"fr": "PALIER %d", "en": "TIER %d"},
+	"card.tier_ultimate": {"fr": "ULTIME", "en": "ULTIMATE"},
 	"card.game_over_summary": {
 		"fr": "Survie %d:%02d  ·  Niveau %d",
 		"en": "Survived %d:%02d  ·  Level %d",
@@ -77,42 +86,68 @@ const STRINGS := {
 	"settings.language": {"fr": "LANGUE", "en": "LANGUAGE"},
 	"settings.close": {"fr": "REPRENDRE", "en": "RESUME"},
 
-	# ── Upgrades ─────────────────────────────────────────────────────────────
+	# ── Competences ──────────────────────────────────────────────────────────
 	#
-	# Les cles se deduisent de l'`id` de l'upgrade (voir `upgrade_title`) : le
-	# pool n'a donc aucun texte a porter, et une upgrade ajoutee sans ses deux
-	# lignes ici leve a l'ouverture du carton plutot que de sortir muette.
-	"upgrade.damage.title": {"fr": "Griffes aiguisées", "en": "Sharp claws"},
-	"upgrade.damage.desc": {"fr": "+1 dégât par griffure.", "en": "+1 damage per swipe."},
+	# Les cles se deduisent de l'`id` de la competence (voir `skill_title` et
+	# `skill_description`) : le catalogue n'a donc aucun texte a porter, et une
+	# competence ajoutee sans ses lignes ici leve a l'ouverture du carton plutot
+	# que de sortir muette.
+	#
+	# ⚠️ LE TITRE EST UNIQUE, LA DESCRIPTION EST PAR PALIER. Un palier qui
+	# renommerait la competence casserait la lecture — le joueur suit une carte
+	# de run par son nom. Ce qui change d'un palier a l'autre, c'est ce qu'elle
+	# FAIT, donc la description.
+	#
+	# Une competence dont tous les paliers disent la meme chose n'ecrit qu'un
+	# `.desc` : `skill_description` y retombe. Ce n'est pas une economie de
+	# frappe, c'est une facon de ne PAS ecrire trois fois la meme phrase et de
+	# devoir ensuite les tenir synchronisees.
+	#
+	# ⛔ `damage`, `attack_speed` et `claw_range` ont ete SUPPRIMES le 2026-08-17
+	# (voir `skill_definitions.gd`) : la griffure ayant ses propres paliers, les
+	# garder ferait compter deux fois la meme montee.
 
-	"upgrade.attack_speed.title": {"fr": "Patte vive", "en": "Quick paw"},
-	"upgrade.attack_speed.desc": {"fr": "Griffe plus souvent.", "en": "Claws more often."},
+	"skill.claw.title": {"fr": "Griffure", "en": "Claw swipe"},
+	"skill.claw.t1.desc": {
+		"fr": "Un coup de patte dans la direction visée.",
+		"en": "A paw swipe in the direction you aim.",
+	},
+	"skill.claw.t2.desc": {
+		"fr": "Griffe plus fort, plus vite et plus loin.",
+		"en": "Claws harder, faster and further.",
+	},
+	"skill.claw.t3.desc": {
+		"fr": "Griffe encore plus fort, plus vite et plus loin.",
+		"en": "Claws harder, faster and further still.",
+	},
 
-	"upgrade.move_speed.title": {"fr": "Pas nerveux", "en": "Nervous step"},
-	"upgrade.move_speed.desc": {"fr": "Court plus vite.", "en": "Runs faster."},
+	"skill.breath.title": {"fr": "Haleine puante", "en": "Stinky breath"},
+	"skill.breath.t1.desc": {
+		"fr": "Un halo de souffle blesse ce qui s'approche.",
+		"en": "A halo of breath hurts whatever comes close.",
+	},
+	"skill.breath.t2.desc": {
+		"fr": "Le souffle porte plus loin et mord plus fort.",
+		"en": "The breath reaches further and bites harder.",
+	},
+	"skill.breath.t3.desc": {
+		"fr": "Le souffle porte encore plus loin et mord encore plus fort.",
+		"en": "The breath reaches further still and bites harder still.",
+	},
 
-	"upgrade.max_health.title": {"fr": "Réserve de vie", "en": "Life reserve"},
-	"upgrade.max_health.desc": {
+	"skill.move_speed.title": {"fr": "Pas nerveux", "en": "Nervous step"},
+	"skill.move_speed.desc": {"fr": "Court plus vite.", "en": "Runs faster."},
+
+	"skill.max_health.title": {"fr": "Réserve de vie", "en": "Life reserve"},
+	"skill.max_health.desc": {
 		"fr": "+30 vie max, et soigne de 30.",
 		"en": "+30 max health, and heals 30.",
 	},
 
-	"upgrade.pickup_radius.title": {"fr": "Aimant artisanal", "en": "Homemade magnet"},
-	"upgrade.pickup_radius.desc": {
+	"skill.pickup_radius.title": {"fr": "Aimant artisanal", "en": "Homemade magnet"},
+	"skill.pickup_radius.desc": {
 		"fr": "Ramasse les croquettes de plus loin.",
 		"en": "Picks up kibble from further away.",
-	},
-
-	"upgrade.claw_range.title": {"fr": "Grande allonge", "en": "Long reach"},
-	"upgrade.claw_range.desc": {
-		"fr": "La griffure porte plus loin et balaie plus large.",
-		"en": "The swipe reaches further and sweeps wider.",
-	},
-
-	"upgrade.breath.title": {"fr": "Haleine puante", "en": "Stinky breath"},
-	"upgrade.breath.desc": {
-		"fr": "Un halo de souffle blesse ce qui s'approche. Se cumule.",
-		"en": "A halo of breath hurts whatever comes close. Stacks.",
 	},
 }
 
@@ -153,9 +188,18 @@ static func t(key: String) -> String:
 	return entry.get(_language, entry[DEFAULT])
 
 
-static func upgrade_title(id: String) -> String:
-	return t("upgrade.%s.title" % id)
+static func skill_title(id: String) -> String:
+	return t("skill.%s.title" % id)
 
 
-static func upgrade_description(id: String) -> String:
-	return t("upgrade.%s.desc" % id)
+## La description d'un PALIER. Retombe sur la description commune de la
+## competence quand ce palier n'en a pas de propre — le cas des passifs, dont les
+## trois paliers font la meme chose en plus grand.
+##
+## ⚠️ Le repli est sur une cle du MEME fichier, jamais sur une chaine vide ni sur
+## l'id : une competence dont aucune description n'existe leve, comme partout
+## ailleurs ici. C'est le contraire de `tr()`, qui aurait affiche
+## "skill.claw.t2.desc" a l'ecran sans que rien ne s'en plaigne.
+static func skill_description(id: String, tier: int) -> String:
+	var tier_key := "skill.%s.t%d.desc" % [id, maxi(tier, 1)]
+	return t(tier_key) if STRINGS.has(tier_key) else t("skill.%s.desc" % id)

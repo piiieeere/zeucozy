@@ -100,17 +100,25 @@ func _ready() -> void:
 	_apply()
 
 
-## Appelee a chaque prise de l'upgrade — la premiere comme les suivantes.
+## Appelee a chaque palier — le premier comme les suivants. Les valeurs viennent
+## du catalogue via `breath_skill` : cette aura ne sait pas ce qu'est un palier,
+## elle ne sait que dessiner un rayon et mordre pour des degats.
 func setup(new_radius: float, new_damage: int) -> void:
 	radius = maxf(0.5, new_radius)
 	damage = max(1, new_damage)
 	_apply()
 
 
-func _process(delta: float) -> void:
-	if _is_run_paused():
-		return
-
+## Avance d'une frame. Poussee par `breath_skill`, jamais par un `_process` a
+## elle — et ce n'est pas un detail de plomberie.
+##
+## Cette aura testait la pause elle-meme, avec son `_get_game()` et son
+## `_is_run_paused()` prives. C'etait tenable a une competence ; a seize (§2.3),
+## c'est seize endroits ou oublier de s'arreter derriere un carton de niveau, et
+## le defaut serait INVISIBLE — une aura qui continue de mordre pendant qu'on
+## choisit une upgrade ne se voit pas, elle se constate a la barre de vie d'un
+## ennemi. L'horloge vient donc de dehors, une fois. Voir `skills/skill.gd`.
+func advance(delta: float) -> void:
 	_held += delta
 
 	if _held < FxCadence.AMBIENT_POSE:
@@ -161,12 +169,3 @@ func _apply() -> void:
 	_material.set_shader_parameter("spin", _spin)
 	_material.set_shader_parameter("swell", values["swell"])
 	_material.set_shader_parameter("core", values["core"])
-
-
-func _get_game() -> Node:
-	return get_tree().get_first_node_in_group("game_root")
-
-
-func _is_run_paused() -> bool:
-	var game = _get_game()
-	return game != null and game.is_run_paused()

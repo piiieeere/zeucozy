@@ -43,6 +43,7 @@ extends Control
 const UiStyle := preload("res://scripts/systems/ui_style.gd")
 const FxCadence := preload("res://scripts/systems/fx_cadence.gd")
 const Locale := preload("res://scripts/systems/locale.gd")
+const SkillDefinitions := preload("res://scripts/systems/skill_definitions.gd")
 
 ## Le carton s'ouvre en 3 poses. §9.3 regle 4 : en pas, jamais en fondu — un
 ## panneau qui glisse en `tween` serait le seul element de l'image a ne pas etre
@@ -52,7 +53,10 @@ const CARD_POSES: Array[float] = [0.0, 0.34, 0.72, 1.0]
 const CARD_SIZE := Vector2(560.0, 300.0)
 const GAME_OVER_SIZE := Vector2(440.0, 260.0)
 const SETTINGS_SIZE := Vector2(460.0, 250.0)
-const CHOICE_SIZE := Vector2(168.0, 128.0)
+## +20 px de haut le 2026-08-17 : la carte porte une ligne de plus, le marqueur
+## de palier. Le carton, lui, ne bouge pas — CARD_SIZE laissait 176 px a la
+## rangee, il en reste 156 de marge apres coup.
+const CHOICE_SIZE := Vector2(168.0, 148.0)
 const LANGUAGE_SIZE := Vector2(150.0, 44.0)
 
 signal choice_selected(index: int)
@@ -448,6 +452,23 @@ func _make_choice_slot(index: int) -> Control:
 	column.add_theme_constant_override("separation", 6)
 	margin.add_child(column)
 
+	# Le marqueur de palier — "NOUVEAU", "PALIER 2", "ULTIME".
+	#
+	# ⚠️ Il est INDISPENSABLE depuis que les competences ont des paliers : sans
+	# lui, reprendre l'haleine puante affiche exactement la meme carte qu'a sa
+	# premiere prise, et rien ne dit au joueur s'il debloque ou s'il renforce.
+	#
+	# Au corps de LEGENDE (10 px) contre 17 px pour le titre : c'est le contraste
+	# d'echelle de §9.3 regle 5, pas une nuance de gris de plus. Et il reste en
+	# creme assourdi meme au survol — l'ambre est l'unique accent sature de
+	# l'ecran, et son role est de designer la carte survolee, pas de decorer un
+	# marqueur qui, lui, ne designe rien (§9.3 regle 4).
+	var tier_label := UiStyle.make_label(
+		"", UiStyle.body_font(), UiStyle.SIZE_CARD_SUB,
+		UiStyle.CREAM_DIM, UiStyle.TRACKING_LABEL, 0, false
+	)
+	column.add_child(tier_label)
+
 	var title := UiStyle.make_label(
 		"", UiStyle.bold_font(), UiStyle.SIZE_CHOICE_TITLE,
 		UiStyle.CREAM, UiStyle.TRACKING_LABEL, 0, false
@@ -468,7 +489,7 @@ func _make_choice_slot(index: int) -> Control:
 	button.focus_mode = Control.FOCUS_NONE
 	slot.add_child(button)
 
-	var entry := {"slot": slot, "plate": plate, "title": title, "desc": desc}
+	var entry := {"slot": slot, "plate": plate, "tier": tier_label, "title": title, "desc": desc}
 
 	button.pressed.connect(func() -> void: choice_selected.emit(index))
 	button.mouse_entered.connect(_set_slot_hover.bind(entry, true))
@@ -708,8 +729,9 @@ func _make_wide_button(text: String) -> Button:
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-## Les choix arrivent en `id` seulement — le pool ne porte plus de texte depuis
-## le passage au bilingue. C'est ici que l'id devient des mots, une fois, dans la
+## Les choix arrivent en `id` et en PALIER — le catalogue ne porte plus de texte
+## depuis le passage au bilingue, et plus de valeurs depuis le passage aux
+## competences. C'est ici que les deux deviennent des mots, une fois, dans la
 ## langue du moment.
 func show_level_card(level: int, choices: Array) -> void:
 	_level_title.text = Locale.t("hud.level") % level
@@ -721,14 +743,33 @@ func show_level_card(level: int, choices: Array) -> void:
 
 		if index < choices.size():
 			var id := String(choices[index]["id"])
+			var tier := int(choices[index].get("tier", 1))
 			slot.visible = true
-			entry["title"].text = Locale.upgrade_title(id).to_upper()
-			entry["desc"].text = Locale.upgrade_description(id)
+			entry["tier"].text = _tier_marker(id, tier)
+			entry["title"].text = Locale.skill_title(id).to_upper()
+			entry["desc"].text = Locale.skill_description(id, tier)
 			_set_slot_hover(entry, false)
 		else:
 			slot.visible = false
 
 	_open_card(_level_card)
+
+
+## Ce que la carte annonce en legende : un DEBLOCAGE, un renfort, ou le moment
+## fort de la run.
+##
+## Les trois mots ne disent pas la meme chose au joueur, et c'est pour ca qu'ils
+## sont trois : "NOUVEAU" ouvre une arme qu'il n'avait pas, "PALIER 2" approfondit
+## une arme qu'il joue deja, "ULTIME" ferme une bifurcation pour le reste de la
+## run (§2.2). Un seul et meme "PALIER %d" les aplatirait tous les trois.
+func _tier_marker(id: String, tier: int) -> String:
+	if tier <= 1:
+		return Locale.t("card.tier_new")
+
+	if tier > SkillDefinitions.find(id)["tiers"].size():
+		return Locale.t("card.tier_ultimate")
+
+	return Locale.t("card.tier") % tier
 
 
 func show_game_over(elapsed: float, level: int) -> void:
