@@ -558,6 +558,48 @@ le jour où il revient il revient en **compétence**.
 > ancré au centre du chat, c'est son rayon d'arc *dans le plan de l'écran* qui le place
 > devant. Les deux ont été trouvés en **regardant les frames**, pas en raisonnant.
 
+### L'antialiasing — un réglage calibré au banc, inerte en jeu (2026-08-18)
+
+`feature_aa` valait `0,004` (visage) et `0,012` (pattes) : une largeur en **unités d'espace
+objet**, pas en pixels. L'espace facial étant normalisé, la bande de lissage faisait
+**~2,7 px au banc** et **~0,25 px à taille de jeu** — sous le pixel, donc le `smoothstep`
+redevenait un `step`. Les deux shaders la mesurent désormais par `fwidth` sur les
+coordonnées de leur repère, comme le `ps` des six shaders de FX.
+
+- ✅ **Mesuré, pas supposé** : points isolés sur le visage en jeu (pixel bien plus sombre que
+  ses 4 voisins) **52 → 31**. Sur une ligne de pixels, la moustache qui croisait la bavette
+  valait **70** sur un fond à ~200 — un point noir en tout-ou-rien ; elle vaut **142**, sa
+  vraie couverture. Un trait sub-pixel rendu en tout-ou-rien ne se lit pas comme un trait,
+  **il se lit comme de la saleté**.
+- ✅ Le banc ne bouge que de **0,8 %** de son image, et dans le bon sens : les moustaches y
+  étaient légèrement floues, elles y sont franches. La valeur fixe n'était pas fausse, elle
+  était **juste à un seul endroit**.
+- ⚠️ **Dérivées prises sur les coordonnées SIGNÉES, et hors de tout branchement.** `uv.x`
+  passe par `abs()` : sa dérivée exploserait sur la colonne de pixels de l'axe de symétrie,
+  **pile là où passent le philtrum et le nez**. Et une dérivée dans un branchement non
+  uniforme est **indéfinie en GLSL** — les pixels voisins du quad n'ont pas forcément pris
+  la même branche (`in_face`, `v_paw >= 0`).
+- ⚠️ **La bande est passée de `0..aa` à `-aa..+aa`** : posée à l'extérieur du contour elle
+  épaissit chaque forme d'une demi-bande, invisible à un quart de pixel, visible à un et demi.
+- 🅿️ Contrepartie assumée : **les moustaches sont plus pâles en jeu**. C'est correct — un
+  trait qui couvre 40 % d'un pixel doit peser 40 % — et c'est déjà la doctrine du sol, dont
+  `ink_line()` **éteint** une ligne passée sous le pixel. Le levier si elles sont trop
+  discrètes est `whisker_weight`, **pas** la bande d'AA.
+
+> ⚠️ **LA LEÇON DÉPASSE L'ANTIALIASING.** Un réglage réglé au banc n'est vérifié qu'au banc.
+> Tout ce qui s'exprime en **unités d'objet** alors qu'il devrait s'exprimer en **pixels** est
+> candidat au même défaut, et il est silencieux des deux côtés puisque chacun a l'air correct
+> chez lui. Même famille que le `.blend` retrouvé réenregistré sur un état antérieur.
+
+> 🅿️ **Deux chantiers d'AA restent ouverts**, inventaire et protocole dans la Todo du vault
+> (« L'antialiasing — l'inventaire des bords ») : le **MSAA** sur la silhouette — la coque
+> inversée est un vrai bord de géométrie et `[rendering]` de `project.godot` ne contient que
+> le driver — et le **bord du cluster** (`step()` brut dans `cel_toon`/`cel_face`), que MSAA
+> ne touche pas et qui **ne se juge pas à l'œil** puisque `edge_noise` le rend
+> volontairement irrégulier. ⛔ **TAA est disqualifié** : il accumule sur plusieurs frames
+> alors que le squelette change de pose d'un coup toutes les 3 frames — il lisserait la
+> discontinuité que la cadence existe pour créer.
+
 ### Les griffes — 3 traits par patte (2026-08-16)
 
 Trois traits de griffe **dessinés** sur chaque bout de patte, dans le registre exact des

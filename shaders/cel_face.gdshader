@@ -48,8 +48,6 @@ uniform float face_front_min : hint_range(-1.0, 1.0) = 0.46;
 // releve donc le masque pour qu'il regarde la camera — c'est du cadrage, pas
 // de l'anatomie, et c'est le reglage habituel des jeux en vue plongeante.
 uniform float face_pitch_deg : hint_range(0.0, 80.0) = 26.0;
-// Antialiasing seulement — les aplats doivent rester francs (§2bis).
-uniform float feature_aa : hint_range(0.0, 0.05) = 0.004;
 
 group_uniforms yeux;
 uniform vec4 iris_color : source_color = vec4(0.533, 0.722, 0.533, 1.0);
@@ -118,8 +116,16 @@ varying vec3 v_style;
 #include "res://shaders/cel_core.gdshaderinc"
 
 // Pose un aplat franc si la distance signee passe sous zero.
-vec3 paint(vec3 under, float dist, vec3 col) {
-	return mix(col, under, smoothstep(0.0, feature_aa, dist));
+// `aa` est une DEMI-BANDE en unites d'espace facial, mesuree a l'ecran par
+// fragment() — voir la note sur `ps` la-bas. Elle est passee en parametre et
+// non lue dans un uniform : une derivee ne se calcule qu'a un seul endroit,
+// hors de tout branchement.
+//
+// Bande CENTREE sur le contour (`-aa`..`+aa`), et non posee a l'exterieur
+// (`0`..`aa`) comme avant : decalee, elle epaissit chaque forme d'une demi-bande,
+// ce qui ne se voyait pas tant que la bande valait un quart de pixel.
+vec3 paint(vec3 under, float dist, float aa, vec3 col) {
+	return mix(col, under, smoothstep(-aa, aa, dist));
 }
 
 void vertex() {
@@ -154,8 +160,33 @@ void fragment() {
 	vec3 f_right = vec3(1.0, 0.0, 0.0);
 
 	bool in_face = dot(dir, f_fwd) > face_front_min;
+	vec2 uv_signed = vec2(dot(dir, f_right), dot(dir, f_up));
 	// |x| : les deux cotes d'un coup
-	vec2 uv = vec2(abs(dot(dir, f_right)), dot(dir, f_up));
+	vec2 uv = vec2(abs(uv_signed.x), uv_signed.y);
+
+	// UN PIXEL, EN UNITES D'ESPACE FACIAL. Meme geste que les six shaders de
+	// FX (`ps` dans hit_burst, bite, claw_slash...) : un pixel de lissage, et
+	// pas un de plus — c'est de l'antialiasing, pas un degrade (§2bis interdit
+	// les seconds, pas le premier).
+	//
+	// ⚠️ CE CALCUL REMPLACE UN UNIFORM `feature_aa` A 0,004, QUI ETAIT CALIBRE
+	// AU BANC ET INERTE EN JEU. L'espace facial est normalise : `uv` couvre
+	// ~0,9 sur toute la largeur du visage visible. Au banc, tete a ~600 px, un
+	// pixel vaut ~0,0015 uv et la bande faisait ~2,7 px — parfait. En jeu, le
+	// chat fait ~11 % de la hauteur d'ecran, la tete ~60 px, un pixel vaut
+	// ~0,015 uv : la bande tombait a ~0,25 px, donc SOUS le pixel, et le
+	// smoothstep redevenait un step. Un facteur 10 entre les deux — aucune
+	// valeur fixe ne peut etre bonne aux deux endroits.
+	//
+	// ⚠️ Derivees prises sur les coordonnees SIGNEES. `uv.x` passe par abs() :
+	// sa derivee exploserait sur la colonne de pixels de l'axe de symetrie,
+	// pile la ou passent le philtrum et le nez.
+	//
+	// ⚠️ Et calculees ICI, hors de `if (in_face)`. Une derivee dans un
+	// branchement non uniforme est indefinie en GLSL : les pixels voisins du
+	// quad n'ont pas forcement pris la meme branche.
+	float ps = max(max(fwidth(uv_signed.x), fwidth(uv_signed.y)), 1e-6);
+	float aa = ps * 0.75;
 
 	float bib = 0.0;
 	if (in_face) {
@@ -164,7 +195,7 @@ void fragment() {
 				+ bib_blaze_height * exp(-blaze * blaze)
 				- bib_falloff * uv.x * uv.x;
 		// Bornes dans l'ordre croissant : smoothstep() n'est pas defini autrement.
-		bib = (1.0 - smoothstep(limit - feature_aa, limit + feature_aa, uv.y)) * bib_strength;
+		bib = (1.0 - smoothstep(limit - aa, limit + aa, uv.y)) * bib_strength;
 	}
 
 	vec3 local = mix(base_color.rgb, bib_color.rgb, bib);
@@ -177,30 +208,30 @@ void fragment() {
 
 		for (int i = 0; i < 3; i++) {
 			float d = sd_segment(uv, whiskers[i].xy, whiskers[i].zw) - whisker_weight;
-			col = paint(col, d, whisker);
+			col = paint(col, d, aa, whisker);
 		}
 
 		// Bouche en oméga : un arc de cercle par cote, moitie basse seulement.
 		vec2 mo = uv - mouth_center;
 		float ring = abs(length(mo) - mouth_radius) - mouth_weight;
 		float lower = mouth_center.y - uv.y;   // > 0 sous le centre de l'arc
-		col = paint(col, max(ring, -lower), line_color.rgb);
+		col = paint(col, max(ring, -lower), aa, line_color.rgb);
 
 		// Philtrum : le petit trait vertical entre le nez et la bouche.
 		float philtrum = sd_segment(uv, vec2(0.0, nose_pos.y - nose_size),
 				vec2(0.0, mouth_center.y)) - mouth_weight * 0.8;
-		col = paint(col, philtrum, line_color.rgb);
+		col = paint(col, philtrum, aa, line_color.rgb);
 
 		// Nez
-		col = paint(col, sd_nose(uv - nose_pos, nose_size), nose_color.rgb);
+		col = paint(col, sd_nose(uv - nose_pos, nose_size), aa, nose_color.rgb);
 
 		// Yeux : cerne, iris, pupille, reflet — du plus large au plus petit.
 		float eye = sd_ellipse(uv - eye_pos, eye_size);
-		col = paint(col, eye - eye_border, line_color.rgb);
-		col = paint(col, eye, iris_color.rgb);
-		col = paint(col, sd_ellipse(uv - eye_pos, pupil_size), pupil_color.rgb);
+		col = paint(col, eye - eye_border, aa, line_color.rgb);
+		col = paint(col, eye, aa, iris_color.rgb);
+		col = paint(col, sd_ellipse(uv - eye_pos, pupil_size), aa, pupil_color.rgb);
 		col = paint(col, sd_ellipse(uv - eye_pos - glint_offset,
-				vec2(glint_size)), glint_color.rgb);
+				vec2(glint_size)), aa, glint_color.rgb);
 	}
 
 	ALBEDO = col;

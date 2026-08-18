@@ -79,7 +79,6 @@ uniform float claw_pitch_deg : hint_range(0.0, 90.0) = 38.0;
 // Cone de la face avant. Doit rester en dessous de la portee du dessin, sinon
 // une griffe se fait trancher net en plein trait.
 uniform float claw_front_min : hint_range(-1.0, 1.0) = 0.30;
-uniform float feature_aa : hint_range(0.0, 0.05) = 0.012;
 
 group_uniforms skinning;
 // Une matrice par os a griffes, et l'identifiant de cet os. Le tableau est de
@@ -99,8 +98,14 @@ varying flat int v_paw;
 
 // Pose un aplat franc si la distance signee passe sous zero. Meme fonction que
 // dans cel_face : un detail peint est un APLAT, jamais un degrade (§2bis).
-vec3 paint(vec3 under, float dist, vec3 col) {
-	return mix(col, under, smoothstep(0.0, feature_aa, dist));
+//
+// `aa` est une DEMI-BANDE en unites d'espace patte, mesuree a l'ecran par
+// fragment(). Elle remplace un uniform `feature_aa` a 0,012 qui etait une
+// largeur d'espace OBJET : calibre au banc, il tombait sous le pixel a taille
+// de jeu et le smoothstep redevenait un step. Meme defaut et meme parade que
+// dans cel_face — voir la note detaillee la-bas.
+vec3 paint(vec3 under, float dist, float aa, vec3 col) {
+	return mix(col, under, smoothstep(-aa, aa, dist));
 }
 
 void vertex() {
@@ -139,6 +144,23 @@ void fragment() {
 		jitter = (hash_noise(floor(v_object_pos * edge_noise_scale)) - 0.5) * edge_noise;
 	}
 
+	// UN PIXEL, EN UNITES D'ESPACE PATTE — meme geste que dans cel_face et que
+	// dans les six shaders de FX.
+	//
+	// ⚠️ Calcule ICI, avant le `if (v_paw >= 0)` et avant le cone de face
+	// avant : une derivee dans un branchement non uniforme est indefinie en
+	// GLSL, les pixels voisins du quad n'ayant pas forcement pris la meme
+	// branche. `v_paw_pos` vaut zero hors des pattes a griffes, la normalize
+	// est donc gardee.
+	vec3 paw_dir = normalize(v_paw_pos + vec3(0.0, 0.0, 1e-6));
+	float claw_pitch = radians(claw_pitch_deg);
+	vec3 claw_fwd = vec3(0.0, sin(claw_pitch), cos(claw_pitch));
+	vec3 claw_up = vec3(0.0, cos(claw_pitch), -sin(claw_pitch));
+	vec3 claw_right = vec3(1.0, 0.0, 0.0);
+	vec2 claw_uv = vec2(dot(paw_dir, claw_right), dot(paw_dir, claw_up));
+	float ps = max(max(fwidth(claw_uv.x), fwidth(claw_uv.y)), 1e-6);
+	float aa = ps * 0.75;
+
 	vec3 local = base_color.rgb;
 	float lit = step(threshold - bias + jitter, dot(n, normalize(light_dir)));
 	vec3 shadow_col = warm_shadow(local, shadow_hue_shift, shadow_saturation, shadow_value);
@@ -153,21 +175,10 @@ void fragment() {
 	// Posees APRES le cluster : ce sont des traits dessines par-dessus la
 	// fourrure, pas une autre couleur de pelage. C'est la difference avec la
 	// bavette du visage, qui entre dans le cluster avant lui.
-	if (v_paw >= 0) {
-		vec3 d = normalize(v_paw_pos);
-
-		float cp = radians(claw_pitch_deg);
-		vec3 fwd = vec3(0.0, sin(cp), cos(cp));
-		vec3 up = vec3(0.0, cos(cp), -sin(cp));
-		vec3 right = vec3(1.0, 0.0, 0.0);
-
-		if (dot(d, fwd) > claw_front_min) {
-			vec2 uv = vec2(dot(d, right), dot(d, up));
-
-			for (int i = 0; i < 3; i++) {
-				float dist = sd_segment(uv, claws[i].xy, claws[i].zw) - claw_weight;
-				col = paint(col, dist, claw_color.rgb);
-			}
+	if (v_paw >= 0 && dot(paw_dir, claw_fwd) > claw_front_min) {
+		for (int i = 0; i < 3; i++) {
+			float dist = sd_segment(claw_uv, claws[i].xy, claws[i].zw) - claw_weight;
+			col = paint(col, dist, aa, claw_color.rgb);
 		}
 	}
 
