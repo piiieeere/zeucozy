@@ -202,9 +202,26 @@ var aim_source := AimSource.MOVEMENT
 ## leur cap partiraient dans deux directions differentes sur la meme frame.
 var aim_direction := Vector3.BACK
 
+## Le directeur de jeu. INJECTE par `main._ready()` via `setup()`, jamais
+## cherche — P3 de la revue de code.
+##
+## ⚠️ Il est `null` pendant tout le `_ready()` de ce fichier : Godot appelle
+## `_ready` de bas en haut, donc le chat est pret AVANT son parent. Rien ici
+## n'a besoin du jeu avant sa premiere frame, et c'est ce qui rend l'injection
+## par `setup()` suffisante — mais une nouveaute qui voudrait lire `game` dans
+## `_ready` trouverait `null`.
+##
+## Les competences le lisent a travers lui (`player.game`) : c'est le seul
+## chemin du chat vers l'arene, les projectiles et les FX.
+var game: GameRoot = null
+
+
+## Qui dirige la run. Appelee une fois, par `main._ready()`.
+func setup(game_root: GameRoot) -> void:
+	game = game_root
+
 
 func _ready() -> void:
-	add_to_group("player")
 	health = max_health
 
 	if IMMORTAL:
@@ -338,8 +355,6 @@ func _physics_process(delta: float) -> void:
 	velocity = input_direction * speed
 	move_and_slide()
 	_sync_animation(input_direction != Vector3.ZERO)
-
-	var game := _get_game()
 
 	if game != null:
 		global_position = game.clamp_to_arena(global_position)
@@ -679,8 +694,6 @@ func _face_direction(delta: float) -> void:
 ## dans main.gd n'ont pas bouge non plus. Le rebrancher tient en une ligne dans
 ## `_process`.
 func _fire_at_nearest_enemy() -> void:
-	var game := _get_game()
-
 	if game == null:
 		return
 
@@ -688,12 +701,7 @@ func _fire_at_nearest_enemy() -> void:
 	var direction := aim_direction
 	var best_distance := INF
 
-	for node in get_tree().get_nodes_in_group("enemies"):
-		var enemy := node as Enemy
-
-		if not is_instance_valid(enemy):
-			continue
-
+	for enemy in game.enemies():
 		var to_enemy := enemy.global_position - global_position
 		to_enemy.y = 0.0
 		var distance := to_enemy.length()
@@ -717,6 +725,3 @@ func _emit_all_state() -> void:
 	xp_changed.emit(current_xp, xp_to_next, level)
 	stats_changed.emit(build_stats_text())
 
-
-func _get_game() -> GameRoot:
-	return get_tree().get_first_node_in_group("game_root") as GameRoot

@@ -67,6 +67,14 @@ const VOLUTE_DRIFT := 0.018
 var radius := 2.8
 var damage := 1
 
+## Le chat qui souffle. INJECTE par `breath_skill`, comme tout le reste des
+## reglages de l'aura — P3 de la revue de code.
+##
+## Elle cherchait ses cibles par `get_nodes_in_group("enemies")` : c'etait le
+## seul FX du jeu a interroger le monde tout seul. Il les demande desormais au
+## directeur de jeu, a travers son porteur.
+var player: Player = null
+
 var _material: ShaderMaterial
 var _pose := 0
 var _held := 0.0
@@ -104,7 +112,8 @@ func _ready() -> void:
 ## Appelee a chaque palier — le premier comme les suivants. Les valeurs viennent
 ## du catalogue via `breath_skill` : cette aura ne sait pas ce qu'est un palier,
 ## elle ne sait que dessiner un rayon et mordre pour des degats.
-func setup(new_radius: float, new_damage: int) -> void:
+func setup(new_player: Player, new_radius: float, new_damage: int) -> void:
+	player = new_player
 	radius = maxf(0.5, new_radius)
 	damage = max(1, new_damage)
 	_apply()
@@ -145,15 +154,13 @@ func advance(delta: float) -> void:
 ## que ce qu'il montre. La griffure resout le meme probleme de la meme facon :
 ## la sphere donne les candidats, un test explicite donne la verite.
 func _bite() -> void:
+	if player == null or player.game == null:
+		return
+
 	var here := global_position
 
 	# Une liste, pas un iterateur vif : `take_damage` peut liberer l'ennemi.
-	for node in get_tree().get_nodes_in_group("enemies"):
-		var enemy := node as Enemy
-
-		if not is_instance_valid(enemy):
-			continue
-
+	for enemy in player.game.enemies():
 		var to_enemy := enemy.global_position - here
 		# Tout le jeu vit dans le plan XZ : la hauteur ne doit pas rogner le rayon.
 		to_enemy.y = 0.0

@@ -40,7 +40,7 @@ var arena_rect := Rect2(-ARENA_SIZE * 0.5, ARENA_SIZE)
 @onready var enemies_container: Node3D = $Enemies
 @onready var projectiles_container: Node3D = $Projectiles
 @onready var pickups_container: Node3D = $Pickups
-@onready var fx_container: Node3D = $Fx
+@onready var _fx_container: Node3D = $Fx
 ## Toute l'interface passe par la. main.gd ne connait plus AUCUN Label ni aucun
 ## offset : il envoie des valeurs de jeu, le HUD decide comment elles se
 ## dessinent. C'est ce qui a permis de supprimer `_update_ui_layout()` et sa
@@ -51,7 +51,6 @@ var arena_rect := Rect2(-ARENA_SIZE * 0.5, ARENA_SIZE)
 
 func _ready() -> void:
 	randomize()
-	add_to_group("game_root")
 
 	# AVANT tout affichage. Le HUD est un enfant, donc son `_ready` a deja
 	# construit ses labels quand on arrive ici — dans la langue par defaut. C'est
@@ -73,6 +72,22 @@ func _ready() -> void:
 	hud.restart_pressed.connect(_on_restart_button_pressed)
 	hud.language_selected.connect(_on_language_selected)
 	hud.settings_close_requested.connect(_close_settings)
+
+	# ⚠️ L'INJECTION AVANT TOUT USAGE — P3 de la revue de code.
+	#
+	# `main` est le seul node qui connait tout le monde : il instancie l'arene,
+	# le chat, la camera et les ennemis. Il n'a donc RIEN a chercher, et
+	# personne n'a a le chercher non plus. Avant, six sites appelaient
+	# `get_first_node_in_group("game_root")` — une variable globale deguisee :
+	# repetee a chaque frame, non typee, declaree nulle part, et impossible a
+	# tracer quand elle rend `null`.
+	#
+	# ⚠️ CE `setup()` PASSE APRES LE `_ready()` DES ENFANTS, et c'est ce qui le
+	# rend sur : Godot appelle `_ready` de bas en haut. `player` et `camera_rig`
+	# ne peuvent donc pas lire `game` dans leur propre `_ready` — ils ne s'en
+	# servent qu'a partir de leur premiere frame, ce qui est vrai des deux.
+	player.setup(self)
+	camera_rig.setup(self)
 
 	arena.build(arena_rect)
 	player.global_position = Vector3(arena_rect.get_center().x, 0.0, arena_rect.get_center().y)
@@ -275,6 +290,46 @@ func clamp_to_arena(world_position: Vector3, padding: Vector2 = Vector2(1.0, 1.0
 	)
 
 
+## Plante un FX dans le monde — l'eclat de collision, une touffe de poussiere.
+##
+## ⚠️ UNE METHODE, PAS UN ACCES A `$Fx` — P3 de la revue de code. Avant,
+## `dust_skill` faisait `game.fx_container.add_child(bunny)` : une competence
+## atteignait un node ENFANT d'un autre script, en le nommant. Renommer `$Fx`
+## dans main.tscn cassait une arme, en silence, et rien dans la scene ne le
+## signalait. Ici le conteneur redevient une affaire interne de `main`.
+##
+## Le `reset_physics_interpolation()` est fait ICI parce qu'il ne se voit pas
+## quand on l'oublie : l'interpolation physique etant active sur le projet, un
+## node fraichement place part en trainee depuis l'origine du monde sur sa
+## premiere frame — et la premiere frame d'un FX est souvent un quart de sa vie.
+func add_fx(node: Node3D, world_position: Vector3) -> void:
+	_fx_container.add_child(node)
+	node.global_position = world_position
+	node.reset_physics_interpolation()
+
+
+## Les ennemis vivants, TYPES.
+##
+## ⚠️ Le compte des sites de `get_nodes_in_group("enemies")` est passe de six a
+## un — P3. Six competences repetaient la meme boucle : la recherche de groupe,
+## le `as Enemy`, le `is_instance_valid`. Six copies d'un preambule, c'est six
+## endroits ou en oublier un morceau, et l'oubli ne leve pas : il rend une liste
+## un peu plus courte que la verite.
+##
+## La liste est un INSTANTANE et non un iterateur vif : `take_damage` peut
+## liberer un ennemi au milieu de la boucle de l'appelant.
+func enemies() -> Array[Enemy]:
+	var living: Array[Enemy] = []
+
+	for node in get_tree().get_nodes_in_group("enemies"):
+		var enemy := node as Enemy
+
+		if enemy != null and is_instance_valid(enemy):
+			living.append(enemy)
+
+	return living
+
+
 func spawn_projectile(origin: Vector3, direction: Vector3, damage: int, speed: float, max_distance: float) -> void:
 	var projectile := PROJECTILE_SCENE.instantiate() as Projectile
 	projectiles_container.add_child(projectile)
@@ -347,7 +402,10 @@ func _spawn_xp_orb(world_position: Vector3, xp_value: int) -> void:
 	pickups_container.add_child(orb)
 	orb.global_position = Vector3(world_position.x, 0.0, world_position.z)
 	orb.reset_physics_interpolation()
-	orb.xp_value = xp_value
+	# La croquette cherchait le chat par groupe, a chaque frame physique, tant
+	# qu'elle ne l'avait pas trouve. C'est `main` qui la pose : il sait qui elle
+	# doit suivre. Meme injection que `enemy.setup(player, ...)` juste au-dessus.
+	orb.setup(player, xp_value)
 
 
 ## Le chat encaisse — "Visual Art Direction" §8.
@@ -363,12 +421,7 @@ func _spawn_xp_orb(world_position: Vector3, xp_value: int) -> void:
 ## `$ImpactFrame` et son script sont gardes entiers — rebrancher tient a
 ## reecrire `impact_frame.flash()` ici (voir impact_frame.gd).
 func _on_player_hit(contact_position: Vector3) -> void:
-	var burst := HIT_BURST_SCENE.instantiate() as HitBurst
-	fx_container.add_child(burst)
-	burst.global_position = contact_position
-	# Sans ca, l'interpolation physique fait partir l'eclat de l'origine du
-	# monde sur sa premiere frame — et sa premiere frame est un quart de sa vie.
-	burst.reset_physics_interpolation()
+	add_fx(HIT_BURST_SCENE.instantiate() as HitBurst, contact_position)
 
 
 func _on_player_health_changed(current_health: int, max_health: int) -> void:

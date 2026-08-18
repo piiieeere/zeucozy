@@ -51,7 +51,16 @@ extends Node3D
 @onready var camera: Camera3D = $Camera3D
 
 var _target: Node3D
+## Le directeur de jeu — INJECTE par `main._ready()`, plus cherche par groupe a
+## la premiere frame (P3 de la revue de code). Ce rig etait le seul des six
+## sites a mettre le resultat en cache ; il n'a plus rien a mettre en cache.
 var _game: GameRoot
+
+
+## Qui dirige la run. Appelee une fois, par `main._ready()` — avant
+## `snap_to_target()`, qui a besoin du rectangle d'arene.
+func setup(game_root: GameRoot) -> void:
+	_game = game_root
 
 
 func _ready() -> void:
@@ -110,9 +119,6 @@ func _focus_point(world_position: Vector3) -> Vector3:
 	var focus := Vector3(world_position.x, 0.0, world_position.z)
 
 	if not is_instance_valid(_game):
-		_game = get_tree().get_first_node_in_group("game_root") as GameRoot
-
-	if _game == null:
 		return focus
 
 	var bounds := _game.get_arena_rect().grow_individual(

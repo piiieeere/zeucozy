@@ -1182,6 +1182,54 @@ mesure les deux sens :
 #   et l'interface VIT (le carton s'ouvre, Échap est recu PENDANT la pause).
 ```
 
+### Qui connaît qui — on injecte, on ne cherche pas (2026-08-18, P3 de la revue)
+
+Le jeu n'a délibérément aucun autoload, mais six nœuds appelaient
+`get_first_node_in_group("game_root")` — ce qui rétablit tous les inconvénients d'une
+globale sans aucun de ses avantages : répété à chaque frame, non typé, déclaré nulle part.
+**Les groupes `game_root` et `player` n'existent plus.** `main` est le seul nœud qui
+connaisse tout le monde, donc c'est lui qui **distribue** ce qu'il sait.
+
+| Ce qu'on cherchait | Par où ça passe désormais |
+|---|---|
+| le jeu, depuis le chat et la caméra | `player.setup(self)` · `camera_rig.setup(self)` dans `main._ready()` |
+| le chat, depuis une croquette | `orb.setup(player, xp_value)` à la ponte |
+| le jeu, depuis une compétence | **`player.game`** — `Skill.game()` et `Skill.enemies()` |
+| le conteneur de FX (`$Fx`) | **`GameRoot.add_fx(node, position)`** |
+| tous les ennemis | **`GameRoot.enemies() -> Array[Enemy]`** |
+
+- ⚠️ **`main.setup()` PASSE APRÈS LE `_ready()` DES ENFANTS.** Godot appelle `_ready` de
+  bas en haut : `player.game` est **`null` pendant tout le `_ready` du chat**. Aucun usage
+  actuel n'en a besoin avant sa première frame — mais une nouveauté qui lirait `game` dans
+  un `_ready` trouverait `null`, et rien ne le signalerait. C'est le seul piège que la
+  passe introduit ; il est écrit dans les trois fichiers concernés.
+- ⚠️ **Le conteneur de FX est redevenu privé (`_fx_container`), et c'est le point.**
+  `dust_skill` faisait `game.fx_container.add_child(bunny)` : une compétence atteignait un
+  **nœud enfant** d'un autre script en le nommant — renommer `$Fx` dans `main.tscn` cassait
+  une arme, en silence. `add_fx()` porte aussi le `reset_physics_interpolation()`, qui était
+  recopié à chaque site de ponte et dont l'oubli ne lève pas : il fait juste partir le FX en
+  traînée depuis l'origine du monde, sur sa première frame — soit souvent un quart de sa vie.
+- ⚠️ **Le groupe `enemies`, lui, RESTE, et ce n'est pas une exception concédée.** Un
+  singleton déguisé et un **ensemble** ne sont pas la même chose : « le directeur de jeu »
+  est un objet unique qu'on peut injecter, « tous les ennemis vivants » est une population
+  qui change à chaque vague — le groupe est l'outil que la doc prévoit pour ça. Ce qui a
+  changé, c'est qu'il n'a plus **qu'un seul lecteur** (`GameRoot.enemies()`) au lieu de six,
+  et que ce lecteur rend un tableau **typé**. Les six boucles ont perdu leur préambule
+  identique — recherche de groupe, `as Enemy`, `is_instance_valid`. Six copies d'un
+  préambule, c'est six endroits où en oublier un morceau, **et l'oubli ne lève pas** : il
+  rend une liste un peu plus courte que la vérité, donc une arme qui rate silencieusement.
+
+> ⚠️ **Vérifier cette passe demande `--walk` ET `--autofire`.** Sans eux, un run de capture
+> laisse le chat planté et muet : `dust_skill._drop()` n'atteint jamais son `MIN_SPACING`,
+> donc `add_fx()` — le site le plus couplé du dépôt — **n'est pas exécuté une seule fois**,
+> et la vérification passe au vert sans avoir rien vérifié.
+>
+> ```bash
+> "C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --headless --path . \
+>   --fixed-fps 60 --quit-after 900 -- --skill=dust:3 --skill=hairball:3 --breath=3 \
+>   --autofire --walk
+> ```
+
 ---
 
 ## Règles de développement
@@ -1258,6 +1306,13 @@ pause » plus haut. Treize copies de `_is_run_paused()` et le `run_paused` maiso
 la place à `get_tree().paused` + les `process_mode` de `main.tscn`. Ça corrige au passage
 deux FX qui jouaient derrière les cartons — dont une griffure qui **perdait ses dégâts** —
 et ça remplace treize gardes illisibles par un banc, `pause_probe`.
+
+**Les nœuds ne se cherchent plus, on les leur donne — le 2026-08-18** (P3 de la revue de
+code) — voir « Qui connaît qui » plus haut. Les groupes `game_root` et `player` ont
+disparu : `main` injecte au `setup()`, `GameRoot` expose `add_fx()` et `enemies()`, et une
+compétence atteint le monde par **`player.game`**, le seul chemin typé. À volume de code
+constant (+55 / −54 lignes hors commentaires) : six recherches globales et deux couplages
+silencieux en moins, rien de gagné en lignes.
 
 **Le socle des compétences est posé le 2026-08-17** — voir « Les compétences » plus haut.
 Les 7 upgrades à plat ont cédé la place aux trois types (AUTO / ACTIF / PASSIF), aux

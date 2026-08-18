@@ -103,8 +103,8 @@ func _run() -> void:
 	var pos_paused := player.global_position
 	var enemy_positions: Array[Vector3] = []
 
-	for enemy in get_tree().get_nodes_in_group("enemies"):
-		enemy_positions.append((enemy as Enemy).global_position)
+	for enemy in _game.enemies():
+		enemy_positions.append(enemy.global_position)
 
 	await _wait(15)
 
@@ -116,9 +116,9 @@ func _run() -> void:
 	var moved := 0
 	var index := 0
 
-	for enemy in get_tree().get_nodes_in_group("enemies"):
+	for enemy in _game.enemies():
 		if index < enemy_positions.size() \
-				and not enemy_positions[index].is_equal_approx((enemy as Enemy).global_position):
+				and not enemy_positions[index].is_equal_approx(enemy.global_position):
 			moved += 1
 		index += 1
 

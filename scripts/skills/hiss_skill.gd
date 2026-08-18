@@ -94,12 +94,7 @@ func _sweep(reach: float, radius: float, damage: int, pushed: Dictionary) -> voi
 
 	var here: Vector3 = player.global_position
 
-	for node in player.get_tree().get_nodes_in_group("enemies"):
-		var enemy := node as Enemy
-
-		if not is_instance_valid(enemy):
-			continue
-
+	for enemy in enemies():
 		var id := enemy.get_instance_id()
 
 		if pushed.has(id):
