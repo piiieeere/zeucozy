@@ -164,7 +164,8 @@ var _autofire := false
 ##
 ## Le pendant exact de `--autofire`, pour la meme raison et sur l'autre moitie
 ## des entrees. Dans un `--write-movie` AUCUNE TOUCHE N'EST PRESSEE : le chat
-## reste plante, pousse seulement par les ennemis qui le bousculent. Toute
+## reste plante, et RIEN NE PEUT L'EN BOUGER — les corps ennemis sont en
+## `collision_layer = 2`, que le masque du chat ne contient pas. Toute
 ## competence dont l'effet depend du DEPLACEMENT est donc invisible en capture —
 ## les moutons de poussiere sont le cas qui l'a impose, puisqu'ils ne tombent
 ## qu'a `dust_skill.MIN_SPACING` d'ecart.
@@ -347,8 +348,8 @@ func _physics_process(delta: float) -> void:
 	if _walk:
 		# Une direction TANGENTE au cercle : on pilote la meme entree que le
 		# clavier, pas la position. Poser `global_position` court-circuiterait
-		# `move_and_slide`, donc les collisions, le clamp d'arene et la bascule
-		# idle/walk — et la capture montrerait un chat qui glisse.
+		# `move_and_slide`, donc la collision avec le mobilier, le clamp d'arene
+		# et la bascule idle/walk — et la capture montrerait un chat qui glisse.
 		_walk_angle += speed / WALK_RADIUS * delta
 		input_direction = Vector3(-sin(_walk_angle), 0.0, cos(_walk_angle))
 

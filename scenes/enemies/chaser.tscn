@@ -22,7 +22,7 @@ radius = 0.75
 
 [node name="Chaser" type="CharacterBody3D"]
 collision_layer = 2
-collision_mask = 0
+collision_mask = 4
 motion_mode = 1
 script = ExtResource("1_742fd")
 base_speed = 3.7

@@ -1849,6 +1849,71 @@ Trois fabriques de style coexistent désormais, et le découpage n'est pas arbit
 > **Reste connu :** de profil strict (90°), l'accoudoir éloigné pointe au-dessus du dossier
 > comme une fine antenne. Quelques pixels au cadrage de jeu — non traité.
 
+### Le canapé bloque — la 1ʳᵉ collision du jeu (2026-08-18)
+
+Le mobilier était **purement visuel** : on traversait un canapé. Il est désormais un
+**obstacle plein** pour le chat comme pour les ennemis. C'est le premier pas du chantier
+« le meuble comme terrain de jeu » ; le saut sur l'assise et le ralentissement des ennemis
+viendront après, et le blocage franc leur cédera la place.
+
+> ⚠️ **AVANT CE JOUR, RIEN NE COLLISIONNAIT — ET DEUX COMMENTAIRES DU DÉPÔT DISAIENT
+> L'INVERSE.** Tous les `CharacterBody3D` étaient en `collision_mask = 0` et le projet
+> n'avait **aucun `StaticBody3D`** : `move_and_slide()` ne résolvait jamais rien, et c'est
+> `clamp_to_arena()` qui tenait lieu de mur. C'est le P4 de la revue de code, qui demandait
+> de trancher ce point *avant* ce chantier — partir avec une couche physique qu'on croit
+> branchée fait chercher le bug du mauvais côté.
+> **Le mur de bordure n'a pas changé** : il reste un `MeshInstance3D` nu, et c'est toujours
+> le clamp qui l'applique. Seul le mobilier collisionne.
+
+| | Choix | Pourquoi celui-là |
+|---|---|---|
+| Corps | **`StaticBody3D`** enfant du modèle | Ce que le manuel prescrit pour un décor immobile (*Physics introduction* : « walls and other obstacles ») |
+| Forme | `BoxShape3D` relevée sur l'**AABB du maillage** | Un `"height"` écrit à la main serait un 2ᵉ nombre à tenir synchronisé avec Blender |
+| Couche | bit 3, `decor_bloquant` | Les neuf couches du projet sont **nommées** dans `project.godot` — le manuel prévient que les suivre devient vite impossible |
+| Masque du meuble | **0** | Un corps statique n'a rien à scruter ; ce sont le chat et les ennemis qui l'ajoutent à leur masque |
+
+- ⚠️ **Le corps est ENFANT du modèle, jamais son frère.** Il hérite ainsi du `yaw` du
+  meuble sans avoir à le refaire : un canapé tourné d'un quart de tour emmène sa collision
+  avec lui, et les deux **ne peuvent pas** diverger.
+- **Les attaques, elles, traversent le mobilier.** Griffure, morsure et projectile sont sur
+  la couche des hitbox (bit 7) et ne masquent pas le décor. C'est délibéré pour l'instant :
+  un canapé qui arrête une griffure demanderait un test de ligne de vue par ennemi, et
+  §15 (lisibilité > détail) ne le réclame pas tant que le meuble n'est pas franchissable.
+- 🅿️ **Un ennemi peut naître DANS un canapé** — `main._get_enemy_spawn_position()` tire un
+  point au hasard sur un anneau autour du chat, sans rien savoir du mobilier. ✅ Mesuré, et
+  ça se résout tout seul : posé pile au centre d'un canapé, un chaser en ressort et
+  rejoint sa cible (0,04 m du but après 5 s). La dépénétration de Godot fait le travail.
+
+### Les canapés sur les deux axes (2026-08-18)
+
+Les deux canapés d'une cellule étaient couchés dans le même sens (`yaw` 0 et 180). Le
+second passe à **90°** : sur les 24 canapés de l'arène, **12 dans l'axe X, 12 dans l'axe Z**.
+
+- **Le quart de tour dit ce que le demi-tour ne disait pas.** À 45° de plongée, un canapé
+  retourné garde exactement la même silhouette au sol — l'argument « deux exemplaires dans
+  le même sens se lisent comme du papier peint » ne tenait qu'à moitié.
+- **Et ce n'est pas qu'une question de lecture.** Tant que tout obstacle barre l'arène dans
+  le même sens, le contourner est toujours le même mouvement. Il en faut sur les **deux
+  axes** pour que le placement du chat devienne une décision.
+
+> ⚠️ **L'emprise déclarée dans `arena.PROPS` est celle du MODÈLE** (6,4 × 2,6, mesurée sur
+> son AABB), donc un quart de tour l'**échange**. `arena._footprint()` applique la rotation
+> avant le test de placement — sans quoi un canapé vertical serait jugé sur l'emprise de
+> l'horizontal, soit 3,8 m de trop d'un côté. Le défaut serait **silencieux** (un meuble
+> accepté qui déborde du mur, ou écarté à tort), et il est devenu un vrai bug le jour même,
+> puisque c'est cette emprise que la collision reprend.
+
+> ✅ **Tout est vérifié par sonde, rien n'est supposé.** 24 canapés posés, 0 hors arène,
+> 0 sur le point d'apparition, **0 chevauchement** sur les 90 emprises de mobilier ; un
+> rayon physique sur le masque 4 touche **24 / 24** ; et chat, chaser et brute poussés sur
+> le grand côté s'arrêtent tous les trois **au centimètre attendu** (1,30 m de demi-canapé
+> + leur rayon), sur les deux orientations.
+>
+> ⚠️ **`--walk` ne suffit PAS à vérifier une collision, et son verdict est rassurant et
+> vide.** Le cercle de marche fait 9 m et ne croise aucun canapé : 1 200 frames physiques
+> rendent **0 collision**, exactement le même chiffre qu'un mobilier resté fantôme. Une
+> collision se vérifie en **poussant un corps dessus**, pas en laissant le jeu tourner.
+
 ### Le trait du décor — moitié moins, tranché le 2026-08-16
 
 Le mobilier — canapés **et** boîtes pastel — est cerné à **la moitié** du trait des
@@ -1911,10 +1976,14 @@ couleur de palette.
 0. 🅿️ **Le squash du `hit`** — l'impact frame est débranchée, mais §7 demande aussi un
    squash/stretch franc sur le squelette quand le chat encaisse. C'est du travail
    Blender (`tools/build_animations.py`), pas du shader.
-1. **Le meuble comme terrain de jeu** — le chat saute sur le canapé, les ennemis sont
-   fortement ralentis pour le franchir. Rien n'en est écrit : ni collision, ni saut, ni
-   ralentissement n'existent aujourd'hui, le mobilier est purement visuel. C'est un
-   chantier de **gameplay**, à spécifier dans le Game Manifest avant d'être codé.
+1. **Le meuble comme terrain de jeu** — le chat saute sur le canapé, en redescend en
+   sautant, et les ennemis sont **fortement ralentis** pour le franchir. ✅ **La collision
+   est faite** (2026-08-18, voir « Le canapé bloque »), donc le canapé est déjà un
+   obstacle plein. Restent le **saut** — un déplacement vertical, ce que le bond retiré le
+   2026-08-17 devait devenir — et le **ralentissement** des ennemis, qui remplacera le
+   blocage franc. Les deux touchent le déplacement du joueur, celui des ennemis et la
+   caméra (un chat sur un meuble est plus haut que tout le reste) : à spécifier dans le
+   Game Manifest avant d'être codés.
 2. Modéliser l'aspirateur, le chien et le concombre — budget géométrie **serré** (§11) :
    ils se multiplient à l'écran et la coque inversée double le compte.
 3. Les meubles restants — table basse, plante, coussin — encore en boîtes pastel.
