@@ -1,4 +1,5 @@
-extends MeshInstance3D
+class_name BreathAura
+extends DrivenFx
 
 ## L'haleine puante — l'aura de souffle du chat, premiere competence lootable.
 ##
@@ -144,9 +145,9 @@ func _bite() -> void:
 
 	# Une liste, pas un iterateur vif : `take_damage` peut liberer l'ennemi.
 	for node in get_tree().get_nodes_in_group("enemies"):
-		var enemy := node as Node3D
+		var enemy := node as Enemy
 
-		if not is_instance_valid(enemy) or not enemy.has_method("take_damage"):
+		if not is_instance_valid(enemy):
 			continue
 
 		var to_enemy := enemy.global_position - here

@@ -1,3 +1,4 @@
+class_name Skill
 extends Node3D
 
 ## ⭐ LE contrat commun a toutes les competences jouees — AUTO et ACTIF.
@@ -36,8 +37,11 @@ extends Node3D
 
 const SkillDefinitions := preload("res://scripts/systems/skill_definitions.gd")
 
-## Le chat. Non type : il porte un script et on appelle ses methodes a lui.
-var player = null
+## Le chat. Type depuis le 2026-08-18 : `player.gd` porte `class_name Player`,
+## donc `aim_direction`, `global_position` et `muzzle_height` — que toutes les
+## competences lisent — sont verifies a la compilation au lieu de partir en
+## appel dynamique.
+var player: Player = null
 
 var id := ""
 ## 1-base, comme dans "Gameplay et Progression" §2.2. Zero n'existe pas ici :
@@ -47,7 +51,7 @@ var tier := 0
 var values := {}
 
 
-func setup(new_player, new_id: String) -> void:
+func setup(new_player: Player, new_id: String) -> void:
 	player = new_player
 	id = new_id
 

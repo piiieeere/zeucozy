@@ -1,4 +1,4 @@
-extends "res://scripts/skills/skill.gd"
+extends Skill
 
 ## Les moutons de poussiere — l'arme AUTO qui recompense de BOUGER.
 ##
@@ -55,7 +55,7 @@ const MAX_BUNNIES := 10
 
 ## `bunny` -> secondes de vie restantes. Un Dictionary et non un tableau parallele :
 ## une touffe consommee doit disparaitre des deux d'un seul geste.
-var _bunnies := {}
+var _bunnies: Dictionary[DustBunny, float] = {}
 var _cooldown := 0.0
 var _last_drop := Vector3.INF
 
@@ -109,7 +109,7 @@ func _drop() -> void:
 	if _last_drop.is_finite() and here.distance_to(_last_drop) < MIN_SPACING:
 		return
 
-	var game = player.get_tree().get_first_node_in_group("game_root")
+	var game := player.get_tree().get_first_node_in_group("game_root") as GameRoot
 
 	if game == null:
 		return
@@ -117,7 +117,7 @@ func _drop() -> void:
 	# ⚠️ La touffe est plantee DANS LE MONDE, pas sous le chat. C'est toute la
 	# difference avec l'aura de l'haleine : celle-ci est un souffle et suit son
 	# porteur, celle-la est un objet tombe par terre et y reste.
-	var bunny = DUST_BUNNY_SCENE.instantiate()
+	var bunny := DUST_BUNNY_SCENE.instantiate() as DustBunny
 	game.fx_container.add_child(bunny)
 	bunny.global_position = Vector3(here.x, 0.0, here.z)
 	# Sans ca, l'interpolation physique fait partir la touffe de l'origine du
@@ -129,7 +129,7 @@ func _drop() -> void:
 	_last_drop = here
 
 	while _bunnies.size() > MAX_BUNNIES:
-		var oldest = _bunnies.keys()[0]
+		var oldest := _bunnies.keys()[0] as DustBunny
 		_bunnies.erase(oldest)
 
 		if is_instance_valid(oldest):
@@ -148,9 +148,9 @@ func _bite() -> void:
 	var radius := float(values["radius"])
 
 	for node in player.get_tree().get_nodes_in_group("enemies"):
-		var enemy := node as Node3D
+		var enemy := node as Enemy
 
-		if not is_instance_valid(enemy) or not enemy.has_method("take_damage"):
+		if not is_instance_valid(enemy):
 			continue
 
 		for bunny in _bunnies.keys():

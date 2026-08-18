@@ -1,3 +1,4 @@
+class_name SkillSet
 extends Node3D
 
 ## ⭐ CE QUE LE CHAT PORTE — l'etat de build d'une run.
@@ -27,12 +28,12 @@ var _tiers := {}
 
 ## id -> node de competence. Uniquement les AUTO et les ACTIFS : un passif ne se
 ## joue pas, il ne fait que poser des chiffres sur le chat.
-var _nodes := {}
+var _nodes: Dictionary[String, Skill] = {}
 
-var _player = null
+var _player: Player = null
 
 
-func setup(new_player) -> void:
+func setup(new_player: Player) -> void:
 	_player = new_player
 
 
@@ -48,12 +49,12 @@ func tick(delta: float) -> void:
 ## active prise occupe donc la slot 1 (clic gauche) et y reste — une slot qui se
 ## reordonnerait toute seule ferait changer de touche une competence en pleine
 ## run, ce qu'aucun joueur ne peut suivre.
-func active_slots() -> Array:
-	var slots: Array = []
+func active_slots() -> Array[ActiveSkill]:
+	var slots: Array[ActiveSkill] = []
 
 	for id in _tiers:
 		if SkillDefinitions.kind_of(id) == SkillDefinitions.Kind.ACTIVE and _nodes.has(id):
-			slots.append(_nodes[id])
+			slots.append(_nodes[id] as ActiveSkill)
 
 	return slots
 
@@ -214,14 +215,17 @@ func _weighted_index(pool: Array[Dictionary]) -> int:
 	return pool.size() - 1
 
 
-func _ensure_node(definition: Dictionary):
+func _ensure_node(definition: Dictionary) -> Skill:
 	var id: String = definition["id"]
 
 	if _nodes.has(id) and is_instance_valid(_nodes[id]):
 		return _nodes[id]
 
+	# `load` et non `preload` : le chemin vient du catalogue, il n'est pas connu
+	# a la compilation. C'est le seul endroit du jeu ou une competence se cree,
+	# donc le seul ou le type ne peut pas venir de l'appelant — d'ou le cast.
 	var script: Script = load(definition["script"])
-	var node = script.new()
+	var node := script.new() as Skill
 	# Le nom du node EST l'id : c'est ce qui rend un build lisible dans le
 	# debugueur de scene sans avoir a deplier quoi que ce soit.
 	node.name = id

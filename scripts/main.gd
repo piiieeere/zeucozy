@@ -1,3 +1,4 @@
+class_name GameRoot
 extends Node3D
 
 ## Directeur de jeu — spawn, difficulte, UI.
@@ -31,13 +32,12 @@ var game_over := false
 var current_upgrade_choices: Array[Dictionary] = []
 var arena_rect := Rect2(-ARENA_SIZE * 0.5, ARENA_SIZE)
 
-@onready var player = $Player
-# Non types : ils portent un script et on appelle leurs methodes a eux.
-@onready var arena = $Arena
-@onready var camera_rig = $CameraRig
+@onready var player: Player = $Player
+@onready var arena: Arena = $Arena
+@onready var camera_rig: CameraRig = $CameraRig
 # 💤 Plus appele depuis le 2026-08-17 — le flash plein cadre est debranche
 # (voir `_on_player_hit`). Garde pour que le rebrancher tienne en une ligne.
-@onready var impact_frame = $ImpactFrame
+@onready var impact_frame: ImpactFrame = $ImpactFrame
 @onready var enemies_container: Node3D = $Enemies
 @onready var projectiles_container: Node3D = $Projectiles
 @onready var pickups_container: Node3D = $Pickups
@@ -47,7 +47,7 @@ var arena_rect := Rect2(-ARENA_SIZE * 0.5, ARENA_SIZE)
 ## dessinent. C'est ce qui a permis de supprimer `_update_ui_layout()` et sa
 ## trentaine de decalages en dur, qui refaisaient a la main le travail des
 ## ancrages de Godot.
-@onready var hud = $HudLayer/Hud
+@onready var hud: Hud = $HudLayer/Hud
 
 
 func _ready() -> void:
@@ -272,7 +272,7 @@ func clamp_to_arena(world_position: Vector3, padding: Vector2 = Vector2(1.0, 1.0
 
 
 func spawn_projectile(origin: Vector3, direction: Vector3, damage: int, speed: float, max_distance: float) -> void:
-	var projectile = PROJECTILE_SCENE.instantiate()
+	var projectile := PROJECTILE_SCENE.instantiate() as Projectile
 	projectiles_container.add_child(projectile)
 	projectile.global_position = origin
 	# Sans ca, l'interpolation physique fait partir la croquette de l'origine
@@ -290,7 +290,7 @@ func _spawn_wave() -> void:
 
 	for _index in range(enemy_count):
 		var enemy_scene := _pick_enemy_scene()
-		var enemy = enemy_scene.instantiate()
+		var enemy := enemy_scene.instantiate() as Enemy
 		var difficulty_scale := 1.0 + elapsed_time / 90.0
 
 		enemies_container.add_child(enemy)
@@ -339,7 +339,7 @@ func _on_enemy_defeated(world_position: Vector3, xp_value: int) -> void:
 
 
 func _spawn_xp_orb(world_position: Vector3, xp_value: int) -> void:
-	var orb = XP_ORB_SCENE.instantiate()
+	var orb := XP_ORB_SCENE.instantiate() as XpOrb
 	pickups_container.add_child(orb)
 	orb.global_position = Vector3(world_position.x, 0.0, world_position.z)
 	orb.reset_physics_interpolation()
@@ -359,7 +359,7 @@ func _spawn_xp_orb(world_position: Vector3, xp_value: int) -> void:
 ## `$ImpactFrame` et son script sont gardes entiers — rebrancher tient a
 ## reecrire `impact_frame.flash()` ici (voir impact_frame.gd).
 func _on_player_hit(contact_position: Vector3) -> void:
-	var burst = HIT_BURST_SCENE.instantiate()
+	var burst := HIT_BURST_SCENE.instantiate() as HitBurst
 	fx_container.add_child(burst)
 	burst.global_position = contact_position
 	# Sans ca, l'interpolation physique fait partir l'eclat de l'origine du

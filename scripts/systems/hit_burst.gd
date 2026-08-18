@@ -1,3 +1,4 @@
+class_name HitBurst
 extends MeshInstance3D
 
 ## L'eclat de collision — "Visual Art Direction" §8.

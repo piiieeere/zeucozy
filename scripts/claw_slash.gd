@@ -1,3 +1,4 @@
+class_name ClawSlash
 extends Area3D
 
 ## La griffure — l'attaque au corps a corps du chat.
@@ -151,9 +152,9 @@ func _physics_process(_delta: float) -> void:
 		return
 
 	for area in get_overlapping_areas():
-		var enemy := area.get_parent() as Node3D
+		var enemy := area.get_parent() as Enemy
 
-		if enemy == null or not enemy.has_method("take_damage"):
+		if enemy == null:
 			continue
 
 		var id := enemy.get_instance_id()
@@ -189,10 +190,10 @@ func _show(pose: int) -> void:
 	_material.set_shader_parameter("roll", float(values["roll"]) * _sweep)
 
 
-func _get_game() -> Node:
-	return get_tree().get_first_node_in_group("game_root")
+func _get_game() -> GameRoot:
+	return get_tree().get_first_node_in_group("game_root") as GameRoot
 
 
 func _is_run_paused() -> bool:
-	var game = _get_game()
+	var game := _get_game()
 	return game != null and game.is_run_paused()

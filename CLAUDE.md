@@ -435,6 +435,9 @@ zeucozy/
 │   │   ├── cel_model.gd            # ⭐ Le style du chat — partagé jeu ↔ banc de test
 │   │   ├── cel_prop.gd             # ⭐ Le style des meubles — .glb sans squelette
 │   │   ├── fx_cadence.gd           # ⭐ Les 3 durées de pose des FX (§7) — source unique
+│   │   ├── driven_fx.gd            # ⭐ `class_name DrivenFx` — les FX dont l'horloge vient
+│   │   │                           #    de DEHORS (aura, mouton, onde). Une méthode :
+│   │   │                           #    `advance(delta)`. Les FX autonomes n'en sont pas
 │   │   ├── breath_aura.gd          # 💨 L'haleine puante — aura lootable, poses + morsure
 │   │   ├── bite_fx.gd              # 🦷 Les mâchoires de la morsure — 8 poses, crocs dessinés
 │   │   ├── shout_fx.gd             # 💥 L'onomatopée des ACTIFS — CHOMP, en pas, dans le monde
@@ -1140,6 +1143,22 @@ Le rig de caméra fait exception : il bouge dans `_process`, donc son interpolat
   et quand le manuel recommande une façon de faire, c'est elle qu'on suit — les pièges de ce
   projet montrent assez ce que coûte un comportement du moteur découvert après coup.
 - **Respecter l'arborescence** : `scenes/`, `scripts/`, `assets/`.
+- **Tout script de NŒUD porte un `class_name`, et on s'en sert** (depuis le 2026-08-18 —
+  P2 de la revue de code). Il y en a 21 : `Player`, `Enemy`, `GameRoot`, `Skill`,
+  `ActiveSkill`, `SkillSet`, `DrivenFx`, `Arena`, `CameraRig`, `Hud`, `CelModel`… Un nœud
+  qu'on récupère se **type** (`area.get_parent() as Player`, `child is DrivenFx`) — plus
+  jamais un `has_method("…")`, qui ne vérifie pas l'arité et laisse l'erreur tomber en
+  pleine frame de jeu.
+  ⚠️ **Deux exceptions, toutes deux voulues :** les **fabriques statiques** (`Locale`,
+  `UiStyle`, `CelStyle`, `SkillDefinitions`, `FxCadence`, `SettingsStore`, `CelProp`,
+  `SkillThumb`) restent des `RefCounted` préchargés en `const` — un `class_name` en ferait
+  des noms globaux, soit l'accès de partout que ce projet refuse aux autoloads ; et les
+  deux `Variant` de `cel_model._keep_only_real_poses`, où la clé d'animation vaut
+  `Vector3` ou `Quaternion` selon la piste.
+  ⚠️ Poser un `class_name` **oblige à supprimer le `const … := preload(…)` du même nom**,
+  et il faut relancer `--headless --import` pour que le cache de classes globales le voie
+  — sans quoi tous les fichiers sortent en « Could not find type », ce qui ressemble à
+  une dépendance cyclique et n'en est pas.
 - **Langue UI : français ET anglais depuis le 2026-08-17.** Le français reste la langue
   d'écriture — on rédige en français, on traduit ensuite. ⚠️ **Aucun texte affichable ne
   s'écrit en dur** : tout passe par `scripts/systems/locale.gd`, avec les deux langues

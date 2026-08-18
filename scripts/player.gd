@@ -1,3 +1,4 @@
+class_name Player
 extends CharacterBody3D
 
 ## Le joueur — le chat.
@@ -32,10 +33,7 @@ extends CharacterBody3D
 ## methode du chat.
 
 const CelStyle := preload("res://scripts/systems/cel_style.gd")
-const CelModel := preload("res://scripts/systems/cel_model.gd")
 const SkillDefinitions := preload("res://scripts/systems/skill_definitions.gd")
-const SkillSet := preload("res://scripts/systems/skill_set.gd")
-const BreathAura := preload("res://scripts/systems/breath_aura.gd")
 const Locale := preload("res://scripts/systems/locale.gd")
 
 signal health_changed(current_health: int, max_health: int)
@@ -123,7 +121,7 @@ const IMMORTAL := true
 @export var hit_height: float = 0.95
 @export var hit_offset: float = 0.55
 
-@onready var model: Node3D = $Model
+@onready var model: CelModel = $Model
 @onready var pickup_collision: CollisionShape3D = $PickupArea/CollisionShape3D
 
 var health: int
@@ -341,7 +339,7 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	_sync_animation(input_direction != Vector3.ZERO)
 
-	var game = _get_game()
+	var game := _get_game()
 
 	if game != null:
 		global_position = game.clamp_to_arena(global_position)
@@ -680,7 +678,7 @@ func _face_direction(delta: float) -> void:
 ## dans main.gd n'ont pas bouge non plus. Le rebrancher tient en une ligne dans
 ## `_process`.
 func _fire_at_nearest_enemy() -> void:
-	var game = _get_game()
+	var game := _get_game()
 
 	if game == null:
 		return
@@ -690,7 +688,7 @@ func _fire_at_nearest_enemy() -> void:
 	var best_distance := INF
 
 	for node in get_tree().get_nodes_in_group("enemies"):
-		var enemy := node as Node3D
+		var enemy := node as Enemy
 
 		if not is_instance_valid(enemy):
 			continue
@@ -719,10 +717,10 @@ func _emit_all_state() -> void:
 	stats_changed.emit(build_stats_text())
 
 
-func _get_game() -> Node:
-	return get_tree().get_first_node_in_group("game_root")
+func _get_game() -> GameRoot:
+	return get_tree().get_first_node_in_group("game_root") as GameRoot
 
 
 func _is_run_paused() -> bool:
-	var game = _get_game()
+	var game := _get_game()
 	return game != null and game.is_run_paused()

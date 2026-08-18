@@ -1,3 +1,4 @@
+class_name Arena
 extends Node3D
 
 ## Construit le decor 3D de l'arene : sol, tapis, mobilier et mur de bordure.

@@ -1,3 +1,4 @@
+class_name Hud
 extends Control
 
 ## L'interface du jeu — HUD permanent + cartons de moment.

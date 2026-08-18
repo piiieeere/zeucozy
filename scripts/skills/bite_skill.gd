@@ -1,4 +1,4 @@
-extends "res://scripts/skills/active_skill.gd"
+extends ActiveSkill
 
 ## La morsure — la PREMIERE competence active du jeu (2026-08-17).
 ##
@@ -77,7 +77,7 @@ func _fire() -> void:
 	var reach := float(values["range"])
 	var aim: Vector3 = player.aim_direction
 
-	var fx = BITE_SCENE.instantiate()
+	var fx := BITE_SCENE.instantiate() as BiteFx
 	player.add_child(fx)
 	fx.setup(aim, reach)
 	# Sans ca, l'interpolation physique fait partir le decalque de l'origine du
@@ -107,26 +107,26 @@ func _fire() -> void:
 
 
 func _apply_damage(target_id: int, damage: int) -> void:
-	var target := instance_from_id(target_id)
+	var target := instance_from_id(target_id) as Enemy
 
 	# L'ennemi a pu mourir sous une griffure ou un souffle pendant les deux poses.
-	if target == null or not is_instance_valid(target) or not target.has_method("take_damage"):
+	if target == null or not is_instance_valid(target):
 		return
 
 	target.take_damage(damage)
 
 
 ## L'ennemi le plus proche DANS l'arc de visee. `null` si la morsure part a vide.
-func _pick_target(aim: Vector3, reach: float) -> Node3D:
+func _pick_target(aim: Vector3, reach: float) -> Enemy:
 	var cos_half := cos(deg_to_rad(ARC_DEGREES * 0.5))
 	var here: Vector3 = player.global_position
-	var best: Node3D = null
+	var best: Enemy = null
 	var best_distance := INF
 
 	for node in player.get_tree().get_nodes_in_group("enemies"):
-		var enemy := node as Node3D
+		var enemy := node as Enemy
 
-		if not is_instance_valid(enemy) or not enemy.has_method("take_damage"):
+		if not is_instance_valid(enemy):
 			continue
 
 		var to_enemy := enemy.global_position - here

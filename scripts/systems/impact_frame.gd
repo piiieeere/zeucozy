@@ -1,3 +1,4 @@
+class_name ImpactFrame
 extends CanvasLayer
 
 ## 💤 EN SOMMEIL DEPUIS LE 2026-08-17 — plus personne n'appelle `flash()`.
