@@ -1,3 +1,4 @@
+class_name Player
 extends CharacterBody3D
 
 ## Le joueur — le chat.
@@ -32,10 +33,7 @@ extends CharacterBody3D
 ## methode du chat.
 
 const CelStyle := preload("res://scripts/systems/cel_style.gd")
-const CelModel := preload("res://scripts/systems/cel_model.gd")
 const SkillDefinitions := preload("res://scripts/systems/skill_definitions.gd")
-const SkillSet := preload("res://scripts/systems/skill_set.gd")
-const BreathAura := preload("res://scripts/systems/breath_aura.gd")
 const Locale := preload("res://scripts/systems/locale.gd")
 
 signal health_changed(current_health: int, max_health: int)
@@ -123,7 +121,7 @@ const IMMORTAL := true
 @export var hit_height: float = 0.95
 @export var hit_offset: float = 0.55
 
-@onready var model: Node3D = $Model
+@onready var model: CelModel = $Model
 @onready var pickup_collision: CollisionShape3D = $PickupArea/CollisionShape3D
 
 var health: int
@@ -311,14 +309,14 @@ func _report_build() -> void:
 		print("    %s" % str(skills.roll(3)))
 
 
+## ⚠️ AUCUNE GARDE DE PAUSE ICI, ET C'EST LE MOTEUR QUI LA REMPLACE.
+##
+## Le chat est en PROCESS_MODE_PAUSABLE (main.tscn) : pendant un carton, Godot
+## n'appelle plus ni `_physics_process`, ni `_process`, ni `_unhandled_input`, et
+## il arrete aussi l'AnimationPlayer du modele. Le chat se fige sur sa pose,
+## comme tout le reste du monde — la ou l'ancien code le remettait en `idle`
+## derriere le panneau.
 func _physics_process(delta: float) -> void:
-	if _is_run_paused():
-		velocity = Vector3.ZERO
-		# Choix d'upgrade ou Game Over : le chat s'arrete de marcher, sinon il
-		# pietine sur place derriere le panneau.
-		_sync_animation(false)
-		return
-
 	# "up" pousse vers le fond de l'ecran : -Z, l'avant de Godot.
 	#
 	# ⚠️ `move_*` et non `ui_*` depuis le 2026-08-17 : le jeu est passe aux
@@ -341,7 +339,7 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	_sync_animation(input_direction != Vector3.ZERO)
 
-	var game = _get_game()
+	var game := _get_game()
 
 	if game != null:
 		global_position = game.clamp_to_arena(global_position)
@@ -388,27 +386,28 @@ func _input(event: InputEvent) -> void:
 ## ⚠️ Le HUD permanent, lui, ne consomme rien : sa racine et ses labels sont en
 ## MOUSE_FILTER_IGNORE. Un actif part donc meme quand le curseur survole l'ATH —
 ## c'est-a-dire precisement quand on regarde ses pastilles de cooldown.
+##
+## ⚠️ Plus de test de pause non plus : un node en pause ne recoit pas
+## `_unhandled_input`, donc le clic ne peut plus fuiter derriere un carton.
 func _unhandled_input(event: InputEvent) -> void:
-	if _is_run_paused():
-		return
-
 	if event.is_action_pressed("skill_slot_1"):
 		skills.trigger_slot(0)
 	elif event.is_action_pressed("skill_slot_2"):
 		skills.trigger_slot(1)
 
 
-## L'HORLOGE DE TOUTES LES COMPETENCES, et le seul endroit ou la pause se teste.
+## L'HORLOGE DE TOUTES LES COMPETENCES — une seule, pour toutes.
 ##
 ## Chaque competence avait la sienne : un compteur en dur ici pour la griffure,
 ## un `_process` prive avec son propre test de pause pour l'aura d'haleine. A
-## seize competences (§2.3), c'est seize endroits ou oublier de s'arreter
-## derriere un carton de niveau — un defaut qui ne se VOIT pas, il se constate a
-## la barre de vie d'un ennemi.
+## seize competences (§2.3), c'est seize horloges a arreter derriere un carton de
+## niveau — un defaut qui ne se VOIT pas, il se constate a la barre de vie d'un
+## ennemi.
+##
+## Depuis le 2026-08-18 la pause n'est meme plus testee : le chat est en
+## PROCESS_MODE_PAUSABLE, donc c'est le moteur qui ne rappelle pas ce `_process`,
+## et les seize horloges s'arretent toutes du meme geste.
 func _process(delta: float) -> void:
-	if _is_run_paused():
-		return
-
 	skills.tick(delta)
 
 	# Le declenchement des actifs, lui, est dans `_unhandled_input` — voir plus
@@ -680,7 +679,7 @@ func _face_direction(delta: float) -> void:
 ## dans main.gd n'ont pas bouge non plus. Le rebrancher tient en une ligne dans
 ## `_process`.
 func _fire_at_nearest_enemy() -> void:
-	var game = _get_game()
+	var game := _get_game()
 
 	if game == null:
 		return
@@ -690,7 +689,7 @@ func _fire_at_nearest_enemy() -> void:
 	var best_distance := INF
 
 	for node in get_tree().get_nodes_in_group("enemies"):
-		var enemy := node as Node3D
+		var enemy := node as Enemy
 
 		if not is_instance_valid(enemy):
 			continue
@@ -719,10 +718,5 @@ func _emit_all_state() -> void:
 	stats_changed.emit(build_stats_text())
 
 
-func _get_game() -> Node:
-	return get_tree().get_first_node_in_group("game_root")
-
-
-func _is_run_paused() -> bool:
-	var game = _get_game()
-	return game != null and game.is_run_paused()
+func _get_game() -> GameRoot:
+	return get_tree().get_first_node_in_group("game_root") as GameRoot

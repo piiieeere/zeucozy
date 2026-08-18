@@ -20,7 +20,6 @@ extends Node3D
 ##       --path . res://scenes/tests/prop_test.tscn -- --capture
 
 const CelProp := preload("res://scripts/systems/cel_prop.gd")
-const CelModel := preload("res://scripts/systems/cel_model.gd")
 const CelStyle := preload("res://scripts/systems/cel_style.gd")
 
 const MODEL := "res://assets/models/prop_canape.glb"
@@ -54,7 +53,7 @@ const SEAT_CENTER_Z := 0.35
 var _camera: Camera3D
 var _pivot: Node3D
 var _couch: Node3D
-var _cat: Node3D
+var _cat: CelModel
 
 var _yaw := 0.0
 var _pitch := CAM_PITCH_DEG

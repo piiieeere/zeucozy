@@ -1,3 +1,4 @@
+class_name Enemy
 extends CharacterBody3D
 
 ## Ennemi de base — suit le joueur et lui fait mal au contact.
@@ -68,11 +69,11 @@ func setup(new_target: Node3D, difficulty_scale: float) -> void:
 	contact_damage = max(1, int(round(contact_damage * (1.0 + (difficulty_scale - 1.0) * 0.2))))
 
 
+## Aucune garde de pause : les ennemis vivent sous le node `Enemies`, qui est en
+## PROCESS_MODE_PAUSABLE (main.tscn). Derriere un carton, Godot n'appelle plus
+## cette methode — et il coupe aussi les serveurs physiques, donc les
+## recouvrements d'Area3D cessent d'eux-memes.
 func _physics_process(delta: float) -> void:
-	if _is_run_paused():
-		velocity = Vector3.ZERO
-		return
-
 	if damage_cooldown > 0.0:
 		damage_cooldown -= delta
 
@@ -94,9 +95,17 @@ func _physics_process(delta: float) -> void:
 		return
 
 	for area in damage_area.get_overlapping_areas():
-		var actor := area.get_parent()
+		# ⚠️ `as Player` ET NON `has_method("take_damage")`. Le chat et l'ennemi
+		# portent tous deux une methode de ce nom, avec des signatures
+		# DIFFERENTES (celle du chat prend la position de l'agresseur en plus).
+		# Le jour ou un masque de collision bouge et qu'une DamageArea ennemie
+		# croise une Hurtbox ennemie, `has_method` laissait passer l'appel et
+		# l'erreur d'arite tombait en pleine frame de jeu. Avec le type, un
+		# ennemi rend simplement `null` — et une erreur d'appel se voit
+		# desormais a la compilation.
+		var actor := area.get_parent() as Player
 
-		if actor != null and actor.has_method("take_damage"):
+		if actor != null:
 			# La position sert a placer l'eclat de collision, pas a calculer le
 			# degat : c'est le chat qui decide ou tombe le point de contact.
 			actor.take_damage(contact_damage, global_position)
@@ -130,12 +139,3 @@ func take_damage(amount: int) -> void:
 	if current_health <= 0:
 		defeated.emit(global_position, xp_drop)
 		queue_free()
-
-
-func _get_game() -> Node:
-	return get_tree().get_first_node_in_group("game_root")
-
-
-func _is_run_paused() -> bool:
-	var game = _get_game()
-	return game != null and game.is_run_paused()

@@ -1,3 +1,4 @@
+class_name ClawSlash
 extends Area3D
 
 ## La griffure — l'attaque au corps a corps du chat.
@@ -131,6 +132,17 @@ func setup(
 	_show(0)
 
 
+## ⚠️ CE `_process` N'AVAIT AUCUNE GARDE DE PAUSE alors que `_physics_process` en
+## avait une, et le defaut etait entierement silencieux : une griffure en cours
+## quand le carton de niveau s'ouvrait continuait d'avancer ses six poses
+## derriere le panneau, se liberait ~200 ms plus tard, et ne distribuait AUCUN
+## degat — sa fenetre active avait ete sautee pendant la pause. Rien a l'ecran ne
+## le disait.
+##
+## C'est exactement ce que treize gardes recopiees a la main finissent par
+## produire. La griffure etant enfant du chat, elle herite desormais de son
+## PROCESS_MODE_PAUSABLE : les deux methodes s'arretent ensemble, sans qu'aucune
+## des deux ne le demande.
 func _process(delta: float) -> void:
 	if _pose < 0:
 		return
@@ -147,13 +159,13 @@ func _process(delta: float) -> void:
 ## Les degats sont distribues dans le tick physique : c'est le seul endroit ou
 ## les recouvrements d'Area3D sont a jour.
 func _physics_process(_delta: float) -> void:
-	if _pose < 0 or _pose >= DAMAGE_POSES or _is_run_paused():
+	if _pose < 0 or _pose >= DAMAGE_POSES:
 		return
 
 	for area in get_overlapping_areas():
-		var enemy := area.get_parent() as Node3D
+		var enemy := area.get_parent() as Enemy
 
-		if enemy == null or not enemy.has_method("take_damage"):
+		if enemy == null:
 			continue
 
 		var id := enemy.get_instance_id()
@@ -187,12 +199,3 @@ func _show(pose: int) -> void:
 	_material.set_shader_parameter("thick", values["thick"])
 	_material.set_shader_parameter("taper", values["taper"])
 	_material.set_shader_parameter("roll", float(values["roll"]) * _sweep)
-
-
-func _get_game() -> Node:
-	return get_tree().get_first_node_in_group("game_root")
-
-
-func _is_run_paused() -> bool:
-	var game = _get_game()
-	return game != null and game.is_run_paused()

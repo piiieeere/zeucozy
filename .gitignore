@@ -3,3 +3,7 @@
 /android/
 .vscode/
 zeucozy.code-workspace
+
+# Claude Code — permissions locales à CETTE machine, jamais synchronisées
+# (settings.json reste partagé/commité, générique multi-plateforme)
+.claude/settings.local.json

@@ -1,4 +1,4 @@
-extends "res://scripts/skills/skill.gd"
+extends Skill
 
 ## L'haleine puante — l'aura de souffle, slot AUTO libre.
 ##
@@ -16,14 +16,14 @@ extends "res://scripts/skills/skill.gd"
 
 const BREATH_AURA_SCENE := preload("res://scenes/fx/breath_aura.tscn")
 
-var _aura: Node3D = null
+var _aura: BreathAura = null
 
 
 ## L'aura n'existe qu'a partir du premier palier — il n'y a pas d'etat "arme
 ## presente mais eteinte". Une competence non prise n'a pas de node du tout.
 func _on_tier_changed() -> void:
 	if _aura == null or not is_instance_valid(_aura):
-		_aura = BREATH_AURA_SCENE.instantiate()
+		_aura = BREATH_AURA_SCENE.instantiate() as BreathAura
 		add_child(_aura)
 		# Sans ca, l'interpolation physique fait partir la couronne de l'origine
 		# du monde sur sa premiere frame.

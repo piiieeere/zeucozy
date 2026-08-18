@@ -1,4 +1,4 @@
-extends "res://scripts/skills/active_skill.gd"
+extends ActiveSkill
 
 ## Le feulement — le 2e ACTIF, et la premiere competence qui ne compte pas en
 ## degats.
@@ -52,7 +52,7 @@ func _fire() -> void:
 	var radius := float(values["radius"])
 	var damage := int(values["damage"])
 
-	var ring = HISS_RING_SCENE.instantiate()
+	var ring := HISS_RING_SCENE.instantiate() as HissRing
 	# ⚠️ Enfant de la COMPETENCE, donc petite-fille du chat, et surtout pas
 	# enfant du modele : le node `Player` ne tourne pas, seul `$Model` tourne. Un
 	# anneau accroche au modele pivoterait des que le joueur vise ailleurs, et un
@@ -78,8 +78,8 @@ func tick(delta: float) -> void:
 	super.tick(delta)
 
 	for child in get_children():
-		if child.has_method("advance"):
-			child.advance(delta)
+		if child is DrivenFx:
+			(child as DrivenFx).advance(delta)
 
 
 ## Le front vient d'atteindre `reach` : on pousse ce qu'il a rattrape.
@@ -95,9 +95,9 @@ func _sweep(reach: float, radius: float, damage: int, pushed: Dictionary) -> voi
 	var here: Vector3 = player.global_position
 
 	for node in player.get_tree().get_nodes_in_group("enemies"):
-		var enemy := node as Node3D
+		var enemy := node as Enemy
 
-		if not is_instance_valid(enemy) or not enemy.has_method("push"):
+		if not is_instance_valid(enemy):
 			continue
 
 		var id := enemy.get_instance_id()
@@ -120,5 +120,5 @@ func _sweep(reach: float, radius: float, damage: int, pushed: Dictionary) -> voi
 		pushed[id] = true
 		enemy.push(away / distance, PUSH_SPEED, PUSH_DRAG)
 
-		if damage > 0 and enemy.has_method("take_damage"):
+		if damage > 0:
 			enemy.take_damage(damage)

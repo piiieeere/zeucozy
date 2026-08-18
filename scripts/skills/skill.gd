@@ -1,3 +1,4 @@
+class_name Skill
 extends Node3D
 
 ## ⭐ LE contrat commun a toutes les competences jouees — AUTO et ACTIF.
@@ -18,14 +19,15 @@ extends Node3D
 ## ─── L'HORLOGE VIENT DE DEHORS, ET C'EST LE POINT ───
 ##
 ## Aucune competence n'a de `_process`. C'est le `SkillSet` qui les avance depuis
-## `player._process`, lequel rend deja la main quand la run est en pause.
+## `player._process` — et le chat etant en PROCESS_MODE_PAUSABLE, c'est le MOTEUR
+## qui arrete les seize horloges d'un coup pendant un carton (voir main.tscn).
 ##
-## Sans ca, chaque competence reimplemente son propre test de pause — c'est ce
-## que faisait `breath_aura.gd`, avec son `_get_game()` et son `_is_run_paused()`
-## a lui. Multiplie par seize competences, c'est seize endroits ou oublier de
-## s'arreter pendant un carton de niveau, et le defaut serait invisible : une
-## aura qui continue de mordre derriere un panneau ne se voit pas, elle se
-## constate a la barre de vie d'un ennemi.
+## Sans ce point unique, chaque competence reimplemente son propre test de pause
+## — c'est ce que faisait `breath_aura.gd`, avec son `_get_game()` et son
+## `_is_run_paused()` a lui. Multiplie par seize competences, c'est seize
+## endroits ou oublier de s'arreter pendant un carton de niveau, et le defaut
+## serait invisible : une aura qui continue de mordre derriere un panneau ne se
+## voit pas, elle se constate a la barre de vie d'un ennemi.
 ##
 ## ─── Ce que le contrat NE DIT PAS, volontairement ───
 ##
@@ -36,8 +38,11 @@ extends Node3D
 
 const SkillDefinitions := preload("res://scripts/systems/skill_definitions.gd")
 
-## Le chat. Non type : il porte un script et on appelle ses methodes a lui.
-var player = null
+## Le chat. Type depuis le 2026-08-18 : `player.gd` porte `class_name Player`,
+## donc `aim_direction`, `global_position` et `muzzle_height` — que toutes les
+## competences lisent — sont verifies a la compilation au lieu de partir en
+## appel dynamique.
+var player: Player = null
 
 var id := ""
 ## 1-base, comme dans "Gameplay et Progression" §2.2. Zero n'existe pas ici :
@@ -47,7 +52,7 @@ var tier := 0
 var values := {}
 
 
-func setup(new_player, new_id: String) -> void:
+func setup(new_player: Player, new_id: String) -> void:
 	player = new_player
 	id = new_id
 

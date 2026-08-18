@@ -1,3 +1,4 @@
+class_name Projectile
 extends Area3D
 
 ## Projectile — la croquette lancee.
@@ -39,9 +40,6 @@ func setup(new_direction: Vector3, new_damage: int, new_speed: float, new_max_di
 
 
 func _physics_process(delta: float) -> void:
-	if _is_run_paused():
-		return
-
 	var step := direction * speed * delta
 	global_position += step
 	travelled_distance += step.length()
@@ -51,17 +49,8 @@ func _physics_process(delta: float) -> void:
 
 
 func _on_area_entered(area: Area3D) -> void:
-	var enemy = area.get_parent()
+	var enemy := area.get_parent() as Enemy
 
-	if enemy != null and enemy.has_method("take_damage"):
+	if enemy != null:
 		enemy.take_damage(damage)
 		queue_free()
-
-
-func _get_game() -> Node:
-	return get_tree().get_first_node_in_group("game_root")
-
-
-func _is_run_paused() -> bool:
-	var game = _get_game()
-	return game != null and game.is_run_paused()

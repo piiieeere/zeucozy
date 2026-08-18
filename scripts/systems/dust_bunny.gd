@@ -1,4 +1,5 @@
-extends MeshInstance3D
+class_name DustBunny
+extends DrivenFx
 
 ## Un mouton de poussiere pose au sol.
 ##

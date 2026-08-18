@@ -1,3 +1,4 @@
+class_name CelModel
 extends Node3D
 
 ## Instancie un modele .glb et lui applique le style cel du projet.
@@ -532,6 +533,11 @@ func _smooth_root_translation(anim: Animation) -> void:
 ## l'importateur a fabriquees en reechantillonnant a 60 fps. Ne reste que les
 ## poses reellement posees dans Blender, aux instants ou la valeur CHANGE.
 func _keep_only_real_poses(anim: Animation, track: int) -> void:
+	# ⚠️ Les deux seules Variant qui restent dans le jeu, et elles le restent
+	# expres : une cle d'animation vaut un Vector3 sur une piste de position et
+	# un Quaternion sur une piste de rotation. Aucun type ne les couvre, et
+	# `is_equal_approx` existe sur les deux — c'est du duck typing assume, sur
+	# une API du moteur, pas entre deux scripts du projet.
 	var kept := []
 	var previous = null
 

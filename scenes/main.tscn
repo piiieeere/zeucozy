@@ -14,26 +14,50 @@ background_color = Color(0.960784, 0.925490, 0.847059, 1)
 ambient_light_source = 1
 tonemap_mode = 0
 
+; ⚠️ LA PAUSE EST CELLE DU MOTEUR (`get_tree().paused`), ET ELLE SE REGLE ICI.
+;
+; `Main` est en PROCESS_MODE_ALWAYS : sans ca, Échap ne rouvrirait plus rien une
+; fois le jeu en pause et les cartons ne s'animeraient plus. Mais un mode
+; explicite se PROPAGE — tout enfant en "Inherit" hériterait de ALWAYS, et plus
+; rien ne se mettrait en pause.
+;
+; D'où la règle, et elle est complète : ce qui est LE MONDE est explicitement
+; PROCESS_MODE_PAUSABLE (= 1). `HudLayer`, `RetroPost` et `WorldEnvironment`
+; restent en Inherit, donc ALWAYS — l'interface doit vivre pendant la pause, et
+; les deux autres ne calculent rien.
+;
+; Ajouter un node de gameplay sous `Main` sans lui poser `process_mode = 1`,
+; c'est le faire tourner derrière les cartons. Le défaut est silencieux : une
+; griffure qui avance ses poses derrière un panneau se libère sans avoir
+; distribué ses dégâts, et rien à l'écran ne le dit.
 [node name="Main" type="Node3D"]
+process_mode = 3
 script = ExtResource("1_rhi7x")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_arena")
 
 [node name="Arena" type="Node3D" parent="."]
+process_mode = 1
 script = ExtResource("3_arena")
 
 [node name="Enemies" type="Node3D" parent="."]
+process_mode = 1
 
 [node name="Projectiles" type="Node3D" parent="."]
+process_mode = 1
 
 [node name="Pickups" type="Node3D" parent="."]
+process_mode = 1
 
 [node name="Fx" type="Node3D" parent="."]
+process_mode = 1
 
 [node name="Player" parent="." instance=ExtResource("2_h0b1r")]
+process_mode = 1
 
 [node name="CameraRig" type="Node3D" parent="."]
+process_mode = 1
 physics_interpolation_mode = 2
 script = ExtResource("4_camrig")
 
@@ -60,5 +84,6 @@ grow_vertical = 2
 script = ExtResource("7_hud")
 
 [node name="ImpactFrame" parent="." instance=ExtResource("6_impactframe")]
+process_mode = 1
 
 [node name="RetroPost" parent="." instance=ExtResource("5_retropost")]

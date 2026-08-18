@@ -1,4 +1,5 @@
-extends MeshInstance3D
+class_name HissRing
+extends DrivenFx
 
 ## L'onde du feulement — l'anneau qui s'ouvre au sol.
 ##

@@ -1,4 +1,4 @@
-extends "res://scripts/skills/skill.gd"
+extends Skill
 
 ## La griffure — l'arme DIRIGEE du chat, slot AUTO n°1 (§2.3).
 ##
@@ -48,7 +48,7 @@ func _swing() -> void:
 	if player == null:
 		return
 
-	var slash = CLAW_SLASH_SCENE.instantiate()
+	var slash := CLAW_SLASH_SCENE.instantiate() as ClawSlash
 	player.add_child(slash)
 	slash.setup(
 		player.aim_direction,

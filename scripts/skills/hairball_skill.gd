@@ -1,4 +1,4 @@
-extends "res://scripts/skills/skill.gd"
+extends Skill
 
 ## La boule de poils — l'arme AUTO a distance.
 ##
@@ -56,7 +56,7 @@ func _spit() -> void:
 	if player == null:
 		return
 
-	var game = player.get_tree().get_first_node_in_group("game_root")
+	var game := player.get_tree().get_first_node_in_group("game_root") as GameRoot
 
 	if game == null:
 		return
@@ -84,7 +84,7 @@ func _nearest_direction() -> Vector3:
 	var best_distance := INF
 
 	for node in player.get_tree().get_nodes_in_group("enemies"):
-		var enemy := node as Node3D
+		var enemy := node as Enemy
 
 		if not is_instance_valid(enemy):
 			continue

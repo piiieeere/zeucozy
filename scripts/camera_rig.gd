@@ -1,3 +1,4 @@
+class_name CameraRig
 extends Node3D
 
 ## Camera de jeu — vue plongeante qui suit le joueur.
@@ -50,8 +51,7 @@ extends Node3D
 @onready var camera: Camera3D = $Camera3D
 
 var _target: Node3D
-# Non type : on lui demande get_arena_rect(), qui n'existe que sur son script.
-var _game
+var _game: GameRoot
 
 
 func _ready() -> void:
@@ -110,12 +110,12 @@ func _focus_point(world_position: Vector3) -> Vector3:
 	var focus := Vector3(world_position.x, 0.0, world_position.z)
 
 	if not is_instance_valid(_game):
-		_game = get_tree().get_first_node_in_group("game_root")
+		_game = get_tree().get_first_node_in_group("game_root") as GameRoot
 
 	if _game == null:
 		return focus
 
-	var bounds: Rect2 = _game.get_arena_rect().grow_individual(
+	var bounds := _game.get_arena_rect().grow_individual(
 		-arena_margin.x, -arena_margin.y, -arena_margin.x, -arena_margin.y
 	)
 

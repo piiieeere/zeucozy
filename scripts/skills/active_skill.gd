@@ -1,4 +1,5 @@
-extends "res://scripts/skills/skill.gd"
+class_name ActiveSkill
+extends Skill
 
 ## Le socle des competences ACTIVES — celles qu'une touche declenche.
 ##
@@ -37,7 +38,6 @@ extends "res://scripts/skills/skill.gd"
 ##
 ## Le socle le fait donc UNE fois, pour toutes les competences actives a venir.
 
-const ShoutFx := preload("res://scripts/systems/shout_fx.gd")
 const Locale := preload("res://scripts/systems/locale.gd")
 
 ## Le temps qu'il reste a attendre, en secondes. Zero = pret.

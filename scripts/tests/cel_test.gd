@@ -20,8 +20,6 @@ extends Node3D
 ## 2. Capture — tour de camera 8 directions + sondes de skinning, puis quitte.
 ##      ... res://scenes/tests/cel_test.tscn -- --capture
 
-const CelModel := preload("res://scripts/systems/cel_model.gd")
-
 const CAPTURE_DIR := "C:/Users/tibo/AppData/Local/Temp/claude/c--Users-tibo-Games-zeucozy/e5b98d13-5f39-461b-a336-1f8fdf50a087/scratchpad"
 const CAPTURE_SIZE := Vector2i(720, 720)
 const WINDOW_SIZE := Vector2i(1100, 820)
@@ -43,7 +41,7 @@ const PITCH_LIMITS := Vector2(-10.0, 89.0)
 
 var _camera: Camera3D
 var _pivot: Node3D
-var _model: Node3D
+var _model: CelModel
 var _skeleton: Skeleton3D
 var _hud: Label
 
@@ -280,7 +278,7 @@ func _set_face_pitch(value: float) -> void:
 ## rendu fixe ne montre pas : le contour tient-il sous deformation, et la
 ## peinture reste-t-elle accrochee au visage et a l'oreille ?
 func _apply_clip() -> void:
-	var player: AnimationPlayer = _model.animation_player
+	var player := _model.animation_player
 
 	if player == null:
 		return
@@ -402,7 +400,7 @@ func _capture_skinning_probe() -> void:
 ## §7 demande une pose toutes les 3 frames : les ecarts doivent etre des 3,
 ## et rien d'autre.
 func _capture_cadence() -> void:
-	var player: AnimationPlayer = _model.animation_player
+	var player := _model.animation_player
 
 	if player == null or _skeleton == null:
 		_log("cadence : pas d'AnimationPlayer, mesure ignoree")

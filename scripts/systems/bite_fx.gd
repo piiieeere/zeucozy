@@ -1,3 +1,4 @@
+class_name BiteFx
 extends MeshInstance3D
 
 ## Le dessin de la morsure — les machoires qui claquent.
@@ -151,7 +152,7 @@ func setup(direction: Vector3, reach: float) -> void:
 
 
 func _process(delta: float) -> void:
-	if _pose < 0 or _is_run_paused():
+	if _pose < 0:
 		return
 
 	_held += delta
@@ -189,12 +190,3 @@ func _show(pose: int) -> void:
 	_material.set_shader_parameter("thick", values["thick"])
 	_material.set_shader_parameter("tooth_len", values["tooth_len"])
 	_material.set_shader_parameter("taper", values["taper"])
-
-
-func _get_game() -> Node:
-	return get_tree().get_first_node_in_group("game_root")
-
-
-func _is_run_paused() -> bool:
-	var game = _get_game()
-	return game != null and game.is_run_paused()

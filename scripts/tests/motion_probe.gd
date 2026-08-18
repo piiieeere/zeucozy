@@ -53,8 +53,8 @@ var _nograin := false
 var _oldgrain := false
 var _shots := false
 
-var _game: Node
-var _player: Node3D
+var _game: GameRoot
+var _player: Player
 var _prev_full: Image
 var _prev_blur: Image
 var _prev_paw := INF
@@ -76,10 +76,10 @@ func _ready() -> void:
 			_shots = true
 			DirAccess.make_dir_recursive_absolute(SHOT_DIR)
 
-	_game = MAIN_SCENE.instantiate()
+	_game = MAIN_SCENE.instantiate() as GameRoot
 	add_child(_game)
 	await get_tree().process_frame
-	_player = _game.get_node("Player")
+	_player = _game.player
 
 	var grain := (_game.get_node("RetroPost/Screen") as ColorRect).material as ShaderMaterial
 
@@ -209,7 +209,7 @@ func _silhouette_centroid(image: Image, box: Rect2i) -> float:
 ## Et lire une POSITION plutot qu'un euler tire du quaternion, qui melangerait
 ## les axes des que l'os a une orientation de repos.
 func _paw_position() -> float:
-	var skeleton: Skeleton3D = _player.get_node("Model").skeleton
+	var skeleton := _player.model.skeleton
 
 	if skeleton == null:
 		return INF
@@ -219,9 +219,9 @@ func _paw_position() -> float:
 
 
 func _anim_state() -> String:
-	var model := _player.get_node("Model")
-	var player: AnimationPlayer = model.animation_player
-	var skeleton: Skeleton3D = model.skeleton
+	var model := _player.model
+	var player := model.animation_player
+	var skeleton := model.skeleton
 
 	if player == null or skeleton == null:
 		return "pas d'anim"

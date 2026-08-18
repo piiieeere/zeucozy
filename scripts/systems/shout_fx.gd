@@ -1,3 +1,4 @@
+class_name ShoutFx
 extends Node3D
 
 ## ⭐ L'ONOMATOPEE — le bruit d'une competence active, ECRIT dans l'image.
@@ -137,7 +138,7 @@ func setup(word: String) -> void:
 
 
 func _process(delta: float) -> void:
-	if _pose < 0 or _is_run_paused():
+	if _pose < 0:
 		return
 
 	_held += delta
@@ -168,8 +169,3 @@ func _show(pose: int) -> void:
 	var factor := float(values["scale"])
 	_label.scale = Vector3(factor, factor, 1.0)
 	position = _base + Vector3(0.0, float(values["rise"]), 0.0)
-
-
-func _is_run_paused() -> bool:
-	var game := get_tree().get_first_node_in_group("game_root")
-	return game != null and game.is_run_paused()

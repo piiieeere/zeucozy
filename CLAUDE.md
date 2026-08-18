@@ -318,6 +318,9 @@ powershell -ExecutionPolicy Bypass -File tools/fetch_fonts.ps1
   --python tools/export_prop.py -- --mesh MSH_canape --out prop_canape.glb
 # Banc des meubles — 8 directions + le chat a cote et sur l'assise, au cadrage de jeu
 "C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64.exe" --path . res://scenes/tests/prop_test.tscn -- --capture
+# Banc de PAUSE — ce qui se fige, ce qui vit, ce qui repart (18 verdicts)
+"C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --headless --path . \
+  res://scenes/tests/pause_probe.tscn
 # Banc de FLUIDITE — le chat marche, on mesure le battement de l'image sur 3 frames
 "C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --path . --fixed-fps 60 \
   res://scenes/tests/motion_probe.tscn -- --frames=64
@@ -409,7 +412,8 @@ zeucozy/
 │   └── tests/
 │       ├── cel_test.tscn  # Banc de test du cel-shading du chat, isolé du gameplay
 │       ├── prop_test.tscn # Banc de test du mobilier
-│       └── motion_probe.tscn # ⏱️ Banc de fluidité — mesure le battement de l'image
+│       ├── motion_probe.tscn # ⏱️ Banc de fluidité — mesure le battement de l'image
+│       └── pause_probe.tscn  # ⏸️ Banc de PAUSE — ce qui se fige, ce qui vit, ce qui repart
 ├── scripts/          # Logique GDScript
 │   ├── main.gd       # Directeur de jeu, spawn, difficulté, UI
 │   ├── player.gd     # Le CORPS du chat : mouvement, visée, vie, XP — plus aucune arme
@@ -435,6 +439,9 @@ zeucozy/
 │   │   ├── cel_model.gd            # ⭐ Le style du chat — partagé jeu ↔ banc de test
 │   │   ├── cel_prop.gd             # ⭐ Le style des meubles — .glb sans squelette
 │   │   ├── fx_cadence.gd           # ⭐ Les 3 durées de pose des FX (§7) — source unique
+│   │   ├── driven_fx.gd            # ⭐ `class_name DrivenFx` — les FX dont l'horloge vient
+│   │   │                           #    de DEHORS (aura, mouton, onde). Une méthode :
+│   │   │                           #    `advance(delta)`. Les FX autonomes n'en sont pas
 │   │   ├── breath_aura.gd          # 💨 L'haleine puante — aura lootable, poses + morsure
 │   │   ├── bite_fx.gd              # 🦷 Les mâchoires de la morsure — 8 poses, crocs dessinés
 │   │   ├── shout_fx.gd             # 💥 L'onomatopée des ACTIFS — CHOMP, en pas, dans le monde
@@ -451,7 +458,8 @@ zeucozy/
 │   └── tests/
 │       ├── cel_test.gd  # Cadrage, bascules et captures du banc du chat
 │       ├── prop_test.gd # Banc des meubles : 8 directions + rapport de taille au chat
-│       └── motion_probe.gd # ⏱️ Fluidité : temps de frame + battement sur 3 frames
+│       ├── motion_probe.gd # ⏱️ Fluidité : temps de frame + battement sur 3 frames
+│       └── pause_probe.gd  # ⏸️ Pause : 18 verdicts sur `get_tree().paused` + process_mode
 ├── shaders/          # cel_toon, cel_outline, cel_face, cel_paws, retro_post
 │                     # ui_frame (plaque grise, angles droits, repères d'angle,
 │                     #           + le RELIEF : biseau, facette, ombre portée dure)
@@ -718,11 +726,13 @@ remplacement (chantier 2) ne sont **pas** écrits.
 > (`move_speed`, `max_health`, `pickup_radius`), jamais une arme. C'est la ligne de partage.
 
 > ⚠️ **AUCUNE COMPÉTENCE N'A DE `_process`.** L'horloge vient de `player._process` →
-> `skills.tick(delta)`, qui rend déjà la main en pause. Chaque compétence testait la pause
-> elle-même — `breath_aura.gd` avait son `_get_game()` et son `_is_run_paused()` privés. À
-> seize compétences, c'est seize endroits où oublier de s'arrêter derrière un carton, et le
-> défaut est **invisible** : une aura qui continue de mordre pendant qu'on choisit une
-> upgrade ne se voit pas, elle se constate à la barre de vie d'un ennemi.
+> `skills.tick(delta)` — et le chat étant en `PROCESS_MODE_PAUSABLE`, c'est **le moteur**
+> qui arrête les seize horloges d'un coup derrière un carton (voir « La pause »). Chaque
+> compétence testait la pause elle-même — `breath_aura.gd` avait son `_get_game()` et son
+> `_is_run_paused()` privés. À seize compétences, c'est seize endroits où oublier de
+> s'arrêter derrière un carton, et le défaut est **invisible** : une aura qui continue de
+> mordre pendant qu'on choisit une upgrade ne se voit pas, elle se constate à la barre de
+> vie d'un ennemi.
 
 > ⚠️ **LE POOL PEUT DÉSORMAIS ÊTRE VIDE, et il ne pouvait pas l'être avant.** Les 7
 > upgrades se reprenaient à l'infini ; les compétences plafonnent. Trouvé **par la sonde**,
@@ -1126,6 +1136,52 @@ reperdre :
 Le rig de caméra fait exception : il bouge dans `_process`, donc son interpolation est
 **désactivée** et il lit la position du joueur via `get_global_transform_interpolated()`.
 
+### La pause — celle du moteur (2026-08-18, P1 de la revue de code)
+
+Treize scripts portaient la même paire de méthodes privées (`_get_game()` +
+`_is_run_paused()`) recopiée à l'identique, et `main.gd` un `run_paused` maison. Tout est
+remplacé par **`get_tree().paused`**, ce que la doc Godot fournit et documente
+(*Scripting / Pausing games and process mode*).
+
+**Le réglage est dans `main.tscn`, plus dans le code :**
+
+| Node | `process_mode` | Pourquoi |
+|---|---|---|
+| `Main` | **ALWAYS** | Échap et les cartons doivent survivre à la pause |
+| `Arena` · `Enemies` · `Projectiles` · `Pickups` · `Fx` · `Player` · `CameraRig` · `ImpactFrame` | **PAUSABLE** | c'est le monde |
+| `HudLayer` · `RetroPost` · `WorldEnvironment` | *Inherit* | héritent d'ALWAYS ; l'UI doit vivre, les deux autres ne calculent rien |
+
+> ⚠️ **UN `process_mode` EXPLICITE SE PROPAGE AUX ENFANTS EN *INHERIT*.** C'est pour ça
+> que le monde doit être marqué à la main : `Main` étant ALWAYS, tout ce qui est en
+> *Inherit* sous lui l'est aussi. **Ajouter un nœud de gameplay sous `Main` sans lui poser
+> `process_mode = 1`, c'est le faire tourner derrière les cartons** — ni erreur, ni
+> avertissement, ni rien à l'écran. C'est exactement le défaut que P1 corrige, et le seul
+> chemin par lequel il peut revenir.
+
+- **Le bug que les gardes recopiées laissaient passer :** `claw_slash._process` n'en avait
+  aucune (`_physics_process` si). Une griffure en cours quand le carton s'ouvrait défilait
+  ses six poses derrière le panneau, se libérait ~200 ms plus tard et **ne distribuait
+  aucun dégât** — sa fenêtre active était sautée. `hit_burst` avait le même trou.
+- ⚠️ **`reload_current_scene()` NE LÈVE PAS LA PAUSE** — `paused` appartient au `SceneTree`,
+  pas à la scène. Or son seul appelant est RELANCER, sur le carton de K.O., le seul écran
+  où le jeu est en pause : la run repartait figée, sans rien à cliquer.
+  `_on_restart_button_pressed` la lève avant de recharger.
+- **Le chat se fige au lieu de repasser en `idle`.** Godot met l'`AnimationPlayer` en pause
+  avec le nœud. La pause lit désormais comme un arrêt sur image, ennemis et FX compris.
+- **Ce qui vit pendant la pause :** le carton s'ouvre en 4 poses grâce au
+  `create_timer(FX_POSE, true, false, true)` de `hud._open_card` — le drapeau
+  `process_always`, qui était déjà là.
+
+**Un `process_mode` oublié ne se voit nulle part** — d'où un banc, `pause_probe`, qui
+mesure les deux sens :
+
+```bash
+"C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --headless --path . \
+  res://scenes/tests/pause_probe.tscn
+#   18 verdicts. Le monde se FIGE (temps, chat, ennemis, poses d'une griffure en vol)
+#   et l'interface VIT (le carton s'ouvre, Échap est recu PENDANT la pause).
+```
+
 ---
 
 ## Règles de développement
@@ -1140,6 +1196,22 @@ Le rig de caméra fait exception : il bouge dans `_process`, donc son interpolat
   et quand le manuel recommande une façon de faire, c'est elle qu'on suit — les pièges de ce
   projet montrent assez ce que coûte un comportement du moteur découvert après coup.
 - **Respecter l'arborescence** : `scenes/`, `scripts/`, `assets/`.
+- **Tout script de NŒUD porte un `class_name`, et on s'en sert** (depuis le 2026-08-18 —
+  P2 de la revue de code). Il y en a 21 : `Player`, `Enemy`, `GameRoot`, `Skill`,
+  `ActiveSkill`, `SkillSet`, `DrivenFx`, `Arena`, `CameraRig`, `Hud`, `CelModel`… Un nœud
+  qu'on récupère se **type** (`area.get_parent() as Player`, `child is DrivenFx`) — plus
+  jamais un `has_method("…")`, qui ne vérifie pas l'arité et laisse l'erreur tomber en
+  pleine frame de jeu.
+  ⚠️ **Deux exceptions, toutes deux voulues :** les **fabriques statiques** (`Locale`,
+  `UiStyle`, `CelStyle`, `SkillDefinitions`, `FxCadence`, `SettingsStore`, `CelProp`,
+  `SkillThumb`) restent des `RefCounted` préchargés en `const` — un `class_name` en ferait
+  des noms globaux, soit l'accès de partout que ce projet refuse aux autoloads ; et les
+  deux `Variant` de `cel_model._keep_only_real_poses`, où la clé d'animation vaut
+  `Vector3` ou `Quaternion` selon la piste.
+  ⚠️ Poser un `class_name` **oblige à supprimer le `const … := preload(…)` du même nom**,
+  et il faut relancer `--headless --import` pour que le cache de classes globales le voie
+  — sans quoi tous les fichiers sortent en « Could not find type », ce qui ressemble à
+  une dépendance cyclique et n'en est pas.
 - **Langue UI : français ET anglais depuis le 2026-08-17.** Le français reste la langue
   d'écriture — on rédige en français, on traduit ensuite. ⚠️ **Aucun texte affichable ne
   s'écrit en dur** : tout passe par `scripts/systems/locale.gd`, avec les deux langues
@@ -1180,6 +1252,12 @@ Le rig de caméra fait exception : il bouge dans `_process`, donc son interpolat
 ennemis, **attaque de griffure au corps à corps**, **aura d'haleine puante**, XP/niveaux,
 **système de compétences à paliers**, scaling difficulté, HUD complet, Game Over/restart,
 arène large. Toute la logique de gameplay tourne — le passage en 3D ne l'a pas touchée.
+
+**La pause est passée au moteur le 2026-08-18** (P1 de la revue de code) — voir « La
+pause » plus haut. Treize copies de `_is_run_paused()` et le `run_paused` maison ont cédé
+la place à `get_tree().paused` + les `process_mode` de `main.tscn`. Ça corrige au passage
+deux FX qui jouaient derrière les cartons — dont une griffure qui **perdait ses dégâts** —
+et ça remplace treize gardes illisibles par un banc, `pause_probe`.
 
 **Le socle des compétences est posé le 2026-08-17** — voir « Les compétences » plus haut.
 Les 7 upgrades à plat ont cédé la place aux trois types (AUTO / ACTIF / PASSIF), aux

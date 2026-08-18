@@ -1,3 +1,4 @@
+class_name XpOrb
 extends Area3D
 
 ## Croquette d'XP — attiree par le joueur quand il approche.
@@ -21,7 +22,7 @@ const CelStyle := preload("res://scripts/systems/cel_style.gd")
 
 @onready var body: MeshInstance3D = $Body
 
-var player: Node3D
+var player: Player
 
 var _time := 0.0
 
@@ -34,15 +35,12 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if _is_run_paused():
-		return
-
 	_time += delta
 	body.position.y = hover_height + sin(_time * 3.0) * hover_amplitude
 	body.rotate_y(spin_speed * delta)
 
 	if not is_instance_valid(player):
-		player = get_tree().get_first_node_in_group("player") as Node3D
+		player = get_tree().get_first_node_in_group("player") as Player
 
 	if not is_instance_valid(player):
 		return
@@ -59,17 +57,8 @@ func _physics_process(delta: float) -> void:
 
 
 func _on_area_entered(area: Area3D) -> void:
-	var actor = area.get_parent()
+	var actor := area.get_parent() as Player
 
-	if actor != null and actor.has_method("collect_xp"):
+	if actor != null:
 		actor.collect_xp(xp_value)
 		queue_free()
-
-
-func _get_game() -> Node:
-	return get_tree().get_first_node_in_group("game_root")
-
-
-func _is_run_paused() -> bool:
-	var game = _get_game()
-	return game != null and game.is_run_paused()
