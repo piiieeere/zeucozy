@@ -123,12 +123,7 @@ func _pick_target(aim: Vector3, reach: float) -> Enemy:
 	var best: Enemy = null
 	var best_distance := INF
 
-	for node in player.get_tree().get_nodes_in_group("enemies"):
-		var enemy := node as Enemy
-
-		if not is_instance_valid(enemy):
-			continue
-
+	for enemy in enemies():
 		var to_enemy := enemy.global_position - here
 		# Tout le jeu vit dans le plan XZ : la hauteur ne doit pas rogner la portee.
 		to_enemy.y = 0.0

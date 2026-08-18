@@ -29,7 +29,7 @@ func _on_tier_changed() -> void:
 		# du monde sur sa premiere frame.
 		_aura.reset_physics_interpolation()
 
-	_aura.setup(values["radius"], values["damage"])
+	_aura.setup(player, values["radius"], values["damage"])
 
 
 ## L'aura n'a plus d'horloge a elle : c'est la competence qui l'avance, et elle

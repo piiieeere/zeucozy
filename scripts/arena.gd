@@ -42,6 +42,17 @@ const CELL_JITTER := Vector2(3.5, 2.5)
 ## Rayon garde libre autour du point d'apparition du chat.
 const SPAWN_CLEARANCE := 2.5
 
+## Couche de collision du mobilier bloquant — bit 3, nommee `decor_bloquant`
+## dans `project.godot`. Le chat et les ennemis l'ajoutent a leur MASQUE ; le
+## meuble, lui, ne scrute rien.
+##
+## C'est la premiere couche de CORPS que le projet branche vraiment : jusqu'ici
+## tous les `CharacterBody3D` etaient en `collision_mask = 0` et il n'existait
+## aucun `StaticBody3D` — `move_and_slide()` ne resolvait donc jamais rien, et
+## c'est `main.clamp_to_arena()` qui tenait lieu de mur. Il le tient toujours :
+## le mur de bordure reste un `MeshInstance3D` nu, seul le mobilier collisionne.
+const DECOR_LAYER := 1 << 2
+
 ## Trait du mobilier — canapes ET boites pastel, meme facteur. La decision et
 ## son pourquoi vivent dans `cel_prop.OUTLINE_SCALE` : c'est la fabrique de
 ## style des meubles, et la recopier ici ferait diverger le jeu du banc.
@@ -89,11 +100,20 @@ const RUGS := [
 const PROPS := [
 	{"at": Vector2(0.24, 0.30), "size": Vector2(6.4, 2.6),
 		"model": CANAPE, "variant": "bleu", "yaw": 0.0},
-	# Le second canape tourne le dos au premier. Deux exemplaires identiques
-	# poses dans le meme sens se liraient comme du papier peint — c'est deja la
-	# raison du decalage aleatoire par cellule.
+	# Le second canape est pose en TRAVERS du premier, pas dans son dos.
+	#
+	# Deux exemplaires identiques poses dans le meme sens se liraient comme du
+	# papier peint — c'est deja la raison du decalage aleatoire par cellule, et
+	# le quart de tour le dit plus fort que le demi-tour : a 45° de plongee, un
+	# canape retourne garde exactement la meme silhouette au sol.
+	#
+	# Ce n'est pas qu'une question de lecture. C'est le premier geste du
+	# chantier « le meuble comme terrain de jeu » : tant que tous les canapes
+	# barrent l'arene dans le meme sens, contourner un obstacle est toujours le
+	# meme mouvement. Il en faut sur les DEUX axes pour que le placement du chat
+	# devienne une decision.
 	{"at": Vector2(0.76, 0.66), "size": Vector2(6.4, 2.6),
-		"model": CANAPE, "variant": "sauge", "yaw": 180.0},
+		"model": CANAPE, "variant": "sauge", "yaw": 90.0},
 	{"at": Vector2(0.50, 0.52), "size": Vector2(3.0, 1.6), "height": 0.8,
 		"color": Color("#FDFDB6"), "alpha": 0.58},   # table basse
 	{"at": Vector2(0.90, 0.12), "size": Vector2(1.4, 1.4), "height": 2.6,
@@ -186,8 +206,32 @@ func _build_furnishings(rect: Rect2) -> void:
 
 ## Emprise au sol d'un element, une fois pose dans sa cellule.
 func _placed(origin: Vector2, item: Dictionary) -> Rect2:
-	var size: Vector2 = item["size"]
+	var size := _footprint(item)
 	return Rect2(origin + item["at"] * CELL - size * 0.5, size)
+
+
+## Emprise au sol d'un element une fois TOURNE, en metres.
+##
+## `size` est celle du modele, mesuree sur son AABB — le canape fait exactement
+## 6,4 x 2,6 — et elle ne le redimensionne pas. Mais `yaw` la fait tourner : un
+## quart de tour ECHANGE ses deux cotes.
+##
+## Sans ca, un canape vertical serait teste sur l'emprise du canape horizontal :
+## 3,8 m de trop en largeur, autant de manque en profondeur. Le defaut serait
+## silencieux — `_is_placeable` laisserait passer un meuble qui deborde du mur,
+## ou en ecarterait un qui tient — et il deviendrait un vrai bug le jour ou
+## cette emprise portera une collision.
+##
+## La formule vaut pour un angle quelconque (c'est la boite englobante de la
+## boite tournee), pas seulement pour les multiples de 90° : un `yaw` de biais
+## ne doit pas rendre un chiffre plausible et faux.
+func _footprint(item: Dictionary) -> Vector2:
+	var size: Vector2 = item["size"]
+	var angle := deg_to_rad(float(item.get("yaw", 0.0)))
+	var c := absf(cos(angle))
+	var s := absf(sin(angle))
+
+	return Vector2(size.x * c + size.y * s, size.x * s + size.y * c)
 
 
 ## Un element est ecarte s'il deborde de l'aire de jeu, ou s'il empiete sur le
@@ -252,7 +296,72 @@ func _add_model_prop(footprint: Rect2, prop: Dictionary) -> void:
 
 	node.position = Vector3(footprint.get_center().x, 0.0, footprint.get_center().y)
 	node.rotation_degrees.y = prop.get("yaw", 0.0)
+	_add_blocker(node, prop)
 	add_child(node)
+
+
+## Le meuble devient un OBSTACLE : un StaticBody3D pose en enfant du modele.
+##
+## `StaticBody3D` est ce que le manuel prescrit pour un decor qui ne bouge pas
+## ("Physics introduction" : *walls and other obstacles*). Il ne scrute rien
+## (`collision_mask = 0`) — ce sont le chat et les ennemis qui le voient, en
+## ajoutant DECOR_LAYER a leur masque.
+##
+## ⚠️ ENFANT DU MODELE, jamais frere. La boite herite ainsi du `yaw` du meuble
+## sans avoir a le refaire : un canape tourne d'un quart de tour emmene sa
+## collision avec lui, et les deux ne peuvent pas diverger. C'est le pendant
+## exact de `_footprint()`, qui fait tourner l'emprise du test de placement.
+##
+## ⚠️ La boite est relevee sur l'AABB du MAILLAGE, pas sur les chiffres de la
+## table. Un `"height"` ecrit a la main serait un second nombre a tenir
+## synchronise avec Blender, et le jour ou le canape change de hauteur rien ne
+## signalerait que la collision est restee sur l'ancienne.
+func _add_blocker(model: Node3D, prop: Dictionary) -> void:
+	var bounds := _model_bounds(model)
+
+	if bounds.size == Vector3.ZERO:
+		return
+
+	# Le meuble est modelise a l'echelle, pas mis a l'echelle : si l'emprise
+	# declaree s'ecarte de celle du maillage, c'est la TABLE qui est fausse, et
+	# le test de placement l'est avec elle. Sans ce garde le defaut est muet.
+	var declared: Vector2 = prop["size"]
+	if absf(bounds.size.x - declared.x) > 0.01 or absf(bounds.size.z - declared.y) > 0.01:
+		push_warning(
+			"arena : l'emprise declaree de %s (%.2f x %.2f) ne correspond pas a son maillage (%.2f x %.2f)"
+			% [prop["model"], declared.x, declared.y, bounds.size.x, bounds.size.z]
+		)
+
+	var shape := BoxShape3D.new()
+	shape.size = bounds.size
+
+	var collider := CollisionShape3D.new()
+	collider.shape = shape
+	collider.position = bounds.get_center()
+
+	var body := StaticBody3D.new()
+	body.collision_layer = DECOR_LAYER
+	body.collision_mask = 0
+	body.add_child(collider)
+	model.add_child(body)
+
+
+## Boite englobante du maillage d'un meuble, dans l'espace du modele.
+##
+## Rend une AABB nulle si le .glb n'a pas de maillage — `CelProp.spawn` a deja
+## prevenu dans ce cas, et un meuble sans dessin n'a rien a bloquer.
+func _model_bounds(node: Node) -> AABB:
+	if node is MeshInstance3D:
+		var mesh: Mesh = (node as MeshInstance3D).mesh
+		return mesh.get_aabb() if mesh != null else AABB()
+
+	for child in node.get_children():
+		var found := _model_bounds(child)
+
+		if found.size != Vector3.ZERO:
+			return found
+
+	return AABB()
 
 
 ## Mur de bordure — marque la limite de jeu, la meme que clamp_to_arena().

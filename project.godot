@@ -58,6 +58,24 @@ skill_slot_2={
 ])
 }
 
+[layer_names]
+
+; Les neuf couches etaient toutes anonymes, ce contre quoi le manuel met en
+; garde ("Physics introduction / Collision layers and masks" : suivre l'usage
+; de chaque couche devient vite difficile). Elles sont nommees ici, et le bit 3
+; — le mobilier — est le premier a etre pose en sachant ce qu'il porte.
+;
+; Le decoupage : les CORPS occupent 1-3, les zones de degat 4-7, l'XP 8-9.
+3d_physics/layer_1="corps_chat"
+3d_physics/layer_2="corps_ennemi"
+3d_physics/layer_3="decor_bloquant"
+3d_physics/layer_4="hurtbox_chat"
+3d_physics/layer_5="zone_degat_ennemi"
+3d_physics/layer_6="hurtbox_ennemi"
+3d_physics/layer_7="hitbox_arme"
+3d_physics/layer_8="croquette"
+3d_physics/layer_9="aimant_croquette"
+
 [physics]
 
 3d/physics_engine="Jolt Physics"

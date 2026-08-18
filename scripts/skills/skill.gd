@@ -74,3 +74,33 @@ func tick(_delta: float) -> void:
 ## Le crochet des sous-classes : la competence vient de changer de palier.
 func _on_tier_changed() -> void:
 	pass
+
+
+## Le directeur de jeu, vu depuis une competence. `null` tant que le chat n'est
+## pas dans une run — c'est le cas dans les vignettes de carte, qui instancient
+## un FX seul dans un SubViewport.
+##
+## ⚠️ IL SE LIT A TRAVERS LE CHAT, ET C'EST LE POINT — P3 de la revue de code.
+## Quatre competences appelaient `get_first_node_in_group("game_root")` : une
+## variable globale deguisee, que rien ne declare et que rien ne type. Le chat,
+## lui, est la seule chose qu'une competence connaisse par construction
+## (`setup`), et `main` lui a injecte le jeu. Un chemin, pas une recherche.
+func game() -> GameRoot:
+	if player == null:
+		return null
+
+	return player.game
+
+
+## Les ennemis vivants. Vide s'il n'y a pas de run.
+##
+## Six competences repetaient la meme boucle — recherche de groupe, `as Enemy`,
+## `is_instance_valid`. Le preambule vit desormais une seule fois, dans
+## `GameRoot.enemies()`.
+func enemies() -> Array[Enemy]:
+	var root := game()
+
+	if root == null:
+		return []
+
+	return root.enemies()

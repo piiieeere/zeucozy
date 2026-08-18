@@ -43,6 +43,11 @@ var _knockback_drag := 32.0
 
 
 func _ready() -> void:
+	# Le SEUL groupe qui reste dans le jeu, et le seul qui se justifie : ce n'est
+	# pas un singleton deguise, c'est un ENSEMBLE — "tous les ennemis vivants",
+	# que six armes interrogent a chaque frame. Il n'a plus qu'un lecteur,
+	# `GameRoot.enemies()`, qui le rend type (voir P3 de la revue de code) : une
+	# competence ne cherche plus rien elle-meme, elle demande au jeu.
 	add_to_group("enemies")
 	current_health = max_health
 	CelStyle.apply_outlined(body, body_color, outline_thickness)

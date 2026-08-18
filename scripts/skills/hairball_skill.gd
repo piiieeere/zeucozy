@@ -56,9 +56,9 @@ func _spit() -> void:
 	if player == null:
 		return
 
-	var game := player.get_tree().get_first_node_in_group("game_root") as GameRoot
+	var root := game()
 
-	if game == null:
+	if root == null:
 		return
 
 	var direction := _nearest_direction()
@@ -68,7 +68,7 @@ func _spit() -> void:
 
 	var origin: Vector3 = player.global_position + Vector3(0.0, player.muzzle_height, 0.0)
 
-	game.spawn_projectile(
+	root.spawn_projectile(
 		origin,
 		direction,
 		int(values["damage"]),
@@ -83,12 +83,7 @@ func _nearest_direction() -> Vector3:
 	var best := Vector3.ZERO
 	var best_distance := INF
 
-	for node in player.get_tree().get_nodes_in_group("enemies"):
-		var enemy := node as Enemy
-
-		if not is_instance_valid(enemy):
-			continue
-
+	for enemy in enemies():
 		var to_enemy := enemy.global_position - here
 		# Tout le jeu vit dans le plan XZ.
 		to_enemy.y = 0.0

@@ -22,9 +22,21 @@ const CelStyle := preload("res://scripts/systems/cel_style.gd")
 
 @onready var body: MeshInstance3D = $Body
 
+## Le chat. INJECTE par `main._spawn_xp_orb()` — P3 de la revue de code.
+##
+## Avant, la croquette le cherchait par groupe A CHAQUE FRAME PHYSIQUE tant
+## qu'elle ne l'avait pas ; au pire moment, donc, puisqu'une vague morte en
+## seme des dizaines d'un coup.
 var player: Player
 
 var _time := 0.0
+
+
+## Qui l'attire, et ce qu'elle vaut. Appelee par `main` juste apres l'avoir
+## posee, avant sa premiere frame.
+func setup(new_player: Player, new_xp_value: int) -> void:
+	player = new_player
+	xp_value = new_xp_value
 
 
 func _ready() -> void:
@@ -38,9 +50,6 @@ func _physics_process(delta: float) -> void:
 	_time += delta
 	body.position.y = hover_height + sin(_time * 3.0) * hover_amplitude
 	body.rotate_y(spin_speed * delta)
-
-	if not is_instance_valid(player):
-		player = get_tree().get_first_node_in_group("player") as Player
 
 	if not is_instance_valid(player):
 		return

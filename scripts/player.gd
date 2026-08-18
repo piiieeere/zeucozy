@@ -164,7 +164,8 @@ var _autofire := false
 ##
 ## Le pendant exact de `--autofire`, pour la meme raison et sur l'autre moitie
 ## des entrees. Dans un `--write-movie` AUCUNE TOUCHE N'EST PRESSEE : le chat
-## reste plante, pousse seulement par les ennemis qui le bousculent. Toute
+## reste plante, et RIEN NE PEUT L'EN BOUGER — les corps ennemis sont en
+## `collision_layer = 2`, que le masque du chat ne contient pas. Toute
 ## competence dont l'effet depend du DEPLACEMENT est donc invisible en capture —
 ## les moutons de poussiere sont le cas qui l'a impose, puisqu'ils ne tombent
 ## qu'a `dust_skill.MIN_SPACING` d'ecart.
@@ -202,9 +203,26 @@ var aim_source := AimSource.MOVEMENT
 ## leur cap partiraient dans deux directions differentes sur la meme frame.
 var aim_direction := Vector3.BACK
 
+## Le directeur de jeu. INJECTE par `main._ready()` via `setup()`, jamais
+## cherche — P3 de la revue de code.
+##
+## ⚠️ Il est `null` pendant tout le `_ready()` de ce fichier : Godot appelle
+## `_ready` de bas en haut, donc le chat est pret AVANT son parent. Rien ici
+## n'a besoin du jeu avant sa premiere frame, et c'est ce qui rend l'injection
+## par `setup()` suffisante — mais une nouveaute qui voudrait lire `game` dans
+## `_ready` trouverait `null`.
+##
+## Les competences le lisent a travers lui (`player.game`) : c'est le seul
+## chemin du chat vers l'arene, les projectiles et les FX.
+var game: GameRoot = null
+
+
+## Qui dirige la run. Appelee une fois, par `main._ready()`.
+func setup(game_root: GameRoot) -> void:
+	game = game_root
+
 
 func _ready() -> void:
-	add_to_group("player")
 	health = max_health
 
 	if IMMORTAL:
@@ -330,16 +348,14 @@ func _physics_process(delta: float) -> void:
 	if _walk:
 		# Une direction TANGENTE au cercle : on pilote la meme entree que le
 		# clavier, pas la position. Poser `global_position` court-circuiterait
-		# `move_and_slide`, donc les collisions, le clamp d'arene et la bascule
-		# idle/walk — et la capture montrerait un chat qui glisse.
+		# `move_and_slide`, donc la collision avec le mobilier, le clamp d'arene
+		# et la bascule idle/walk — et la capture montrerait un chat qui glisse.
 		_walk_angle += speed / WALK_RADIUS * delta
 		input_direction = Vector3(-sin(_walk_angle), 0.0, cos(_walk_angle))
 
 	velocity = input_direction * speed
 	move_and_slide()
 	_sync_animation(input_direction != Vector3.ZERO)
-
-	var game := _get_game()
 
 	if game != null:
 		global_position = game.clamp_to_arena(global_position)
@@ -679,8 +695,6 @@ func _face_direction(delta: float) -> void:
 ## dans main.gd n'ont pas bouge non plus. Le rebrancher tient en une ligne dans
 ## `_process`.
 func _fire_at_nearest_enemy() -> void:
-	var game := _get_game()
-
 	if game == null:
 		return
 
@@ -688,12 +702,7 @@ func _fire_at_nearest_enemy() -> void:
 	var direction := aim_direction
 	var best_distance := INF
 
-	for node in get_tree().get_nodes_in_group("enemies"):
-		var enemy := node as Enemy
-
-		if not is_instance_valid(enemy):
-			continue
-
+	for enemy in game.enemies():
 		var to_enemy := enemy.global_position - global_position
 		to_enemy.y = 0.0
 		var distance := to_enemy.length()
@@ -717,6 +726,3 @@ func _emit_all_state() -> void:
 	xp_changed.emit(current_xp, xp_to_next, level)
 	stats_changed.emit(build_stats_text())
 
-
-func _get_game() -> GameRoot:
-	return get_tree().get_first_node_in_group("game_root") as GameRoot

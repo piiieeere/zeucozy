@@ -109,20 +109,21 @@ func _drop() -> void:
 	if _last_drop.is_finite() and here.distance_to(_last_drop) < MIN_SPACING:
 		return
 
-	var game := player.get_tree().get_first_node_in_group("game_root") as GameRoot
+	var root := game()
 
-	if game == null:
+	if root == null:
 		return
 
 	# ⚠️ La touffe est plantee DANS LE MONDE, pas sous le chat. C'est toute la
 	# difference avec l'aura de l'haleine : celle-ci est un souffle et suit son
 	# porteur, celle-la est un objet tombe par terre et y reste.
+	#
+	# Elle passe par `add_fx()` et non par `game.fx_container` : le conteneur de
+	# FX est une affaire interne de `main` (P3). Cette ligne atteignait un node
+	# ENFANT d'un autre script en le nommant — renommer `$Fx` dans main.tscn
+	# cassait cette arme, en silence.
 	var bunny := DUST_BUNNY_SCENE.instantiate() as DustBunny
-	game.fx_container.add_child(bunny)
-	bunny.global_position = Vector3(here.x, 0.0, here.z)
-	# Sans ca, l'interpolation physique fait partir la touffe de l'origine du
-	# monde sur sa premiere frame.
-	bunny.reset_physics_interpolation()
+	root.add_fx(bunny, Vector3(here.x, 0.0, here.z))
 	bunny.setup(float(values["radius"]))
 
 	_bunnies[bunny] = float(values["life"])
@@ -147,12 +148,7 @@ func _bite() -> void:
 	var damage := int(values["damage"])
 	var radius := float(values["radius"])
 
-	for node in player.get_tree().get_nodes_in_group("enemies"):
-		var enemy := node as Enemy
-
-		if not is_instance_valid(enemy):
-			continue
-
+	for enemy in enemies():
 		for bunny in _bunnies.keys():
 			if not is_instance_valid(bunny):
 				continue

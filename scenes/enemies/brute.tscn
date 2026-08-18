@@ -22,7 +22,7 @@ radius = 1.0
 
 [node name="Brute" type="CharacterBody3D"]
 collision_layer = 2
-collision_mask = 0
+collision_mask = 4
 motion_mode = 1
 script = ExtResource("1_g4kf5")
 base_speed = 2.6
