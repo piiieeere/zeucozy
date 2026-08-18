@@ -216,8 +216,8 @@ const STRINGS := {
 		"en": "Drops tufts behind you. Whoever steps on one feels it.",
 	},
 	"skill.dust.t2.desc": {
-		"fr": "Des touffes plus grosses, plus souvent, et qui traînent plus longtemps.",
-		"en": "Bigger tufts, more often, and they linger longer.",
+		"fr": "Des touffes plus grosses, plus souvent, et qui piquent davantage.",
+		"en": "Bigger tufts, more often, and they sting harder.",
 	},
 	"skill.dust.t3.desc": {
 		"fr": "Une vraie traînée de moutons, et chacun fait deux fois plus mal.",

@@ -160,9 +160,23 @@ const DEFINITIONS: Array[Dictionary] = [
 		# a dix par `dust_skill.MAX_BUNNIES` — §2.3 previent que la lisibilite
 		# sera le premier mur, avant l'equilibrage. Baisser `interval` sans
 		# baisser `life` remplit le sol, pas la feuille de degats.
+		#
+		# ⚠️ `life` VAUT 5,0 A TOUS LES PALIERS (2026-08-18, demande directe) : une
+		# touffe dure cinq secondes, un point c'est tout. C'est le seul chiffre du
+		# semis que le joueur doit pouvoir tenir de tete — il seme derriere lui et
+		# repasse dessus, donc il a besoin de savoir combien de temps le sol reste
+		# piege, pas d'un nombre qui bouge a chaque reprise.
+		#   * La montee de palier passe donc entierement par `damage`, `interval`
+		#     et `radius` — elle n'a rien perdu, la duree n'etait que le 4e axe ;
+		#   * consequence a connaitre : le rapport `life / interval` passe a 9,1 /
+		#     10,9 / 11,9. Des le T2 le plafond de `MAX_BUNNIES` mord, et c'est
+		#     LUI qui decide du nombre a l'ecran, plus la duree de vie. Le semis
+		#     s'efface donc par la queue au lieu d'expirer — voulu, mais ca veut
+		#     dire qu'une touffe peut partir AVANT ses cinq secondes si le chat
+		#     court sans s'arreter.
 		"tiers": [
-			{"damage": 3, "interval": 0.55, "life": 3.5, "radius": 0.75},
-			{"damage": 4, "interval": 0.46, "life": 4.4, "radius": 0.85},
+			{"damage": 3, "interval": 0.55, "life": 5.0, "radius": 0.75},
+			{"damage": 4, "interval": 0.46, "life": 5.0, "radius": 0.85},
 			{"damage": 6, "interval": 0.42, "life": 5.0, "radius": 0.95},
 		],
 		"ultimates": [],
