@@ -27,7 +27,6 @@ const SPAWN_DISTANCE := Vector2(11.0, 17.0)
 
 var elapsed_time := 0.0
 var spawn_timer := 0.0
-var run_paused := false
 var game_over := false
 var current_upgrade_choices: Array[Dictionary] = []
 var arena_rect := Rect2(-ARENA_SIZE * 0.5, ARENA_SIZE)
@@ -102,7 +101,7 @@ func _apply_ui_preview() -> void:
 
 		match argument.trim_prefix("--ui-card="):
 			"level":
-				run_paused = true
+				get_tree().paused = true
 				# Le tirage passe par le joueur : il DEPEND du build (une
 				# competence a son palier max en sort, une neuve n'y entre pas si
 				# ses slots sont pleines). Un tirage tire du catalogue seul
@@ -113,7 +112,7 @@ func _apply_ui_preview() -> void:
 				hud.show_level_card(3, current_upgrade_choices)
 			"gameover":
 				game_over = true
-				run_paused = true
+				get_tree().paused = true
 				hud.show_game_over(96.0, 4)
 			"settings":
 				_open_settings()
@@ -168,15 +167,21 @@ func _apply_language_override() -> void:
 ## sur un voile a moitie transparent ne se lisent plus. Pendant le K.O. non plus
 ## — il n'offre qu'une action, et elle relance le jeu.
 ##
-## ⚠️ LA CONDITION PORTE SUR LES CARTONS AFFICHES, PAS SUR `run_paused`, et c'est
-## une correction : `run_paused` etait a la fois l'etat de pause et le droit
-## d'ouvrir les reglages. Le jour ou les deux ont divergé — un bouton qui fermait
-## la plaque sans relancer le jeu — Échap ne pouvait plus RIEN : rien d'ouvert a
-## fermer, et la pause interdisait d'ouvrir. Le jeu etait bloque sans issue.
+## ⚠️ LA CONDITION PORTE SUR LES CARTONS AFFICHES, PAS SUR L'ETAT DE PAUSE, et
+## c'est une correction : l'ancien `run_paused` etait a la fois l'etat de pause
+## et le droit d'ouvrir les reglages. Le jour ou les deux ont divergé — un bouton
+## qui fermait la plaque sans relancer le jeu — Échap ne pouvait plus RIEN : rien
+## d'ouvert a fermer, et la pause interdisait d'ouvrir. Le jeu etait bloque sans
+## issue.
 ##
 ## Ici la pause n'est qu'une CONSEQUENCE de ce qui est a l'ecran. Un
-## `run_paused` reste a true par erreur ne piege donc plus personne : Échap
-## ouvre les reglages, et les refermer relance le jeu.
+## `get_tree().paused` reste a true par erreur ne piege donc plus personne :
+## Échap ouvre les reglages, et les refermer relance le jeu.
+##
+## ⚠️ CETTE METHODE N'EST APPELEE PENDANT LA PAUSE QUE PARCE QUE `Main` EST EN
+## PROCESS_MODE_ALWAYS (voir main.tscn). Un node en pause ne recoit plus ni
+## `_input` ni `_unhandled_input` : sans ce mode, Échap n'aurait plus jamais
+## rouvert les reglages une fois le jeu en pause.
 func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_action_pressed("ui_cancel"):
 		return
@@ -192,13 +197,13 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _open_settings() -> void:
-	run_paused = true
+	get_tree().paused = true
 	hud.show_settings_card()
 
 
 func _close_settings() -> void:
 	hud.close_settings_card()
-	run_paused = false
+	get_tree().paused = false
 
 
 ## Le joueur a change de langue. Trois choses, dans cet ordre : on l'applique, on
@@ -230,12 +235,15 @@ func _refresh_text() -> void:
 	_update_time_label()
 
 
+## ⚠️ CE `_process` TOURNE AUSSI PENDANT LA PAUSE, et c'est a lui de s'arreter.
+##
+## `Main` est en PROCESS_MODE_ALWAYS pour qu'Échap et les cartons survivent a la
+## pause (voir `_unhandled_input`) ; le prix est que le moteur ne l'arrete plus.
+## C'est le SEUL node du jeu dans ce cas — tout le reste du monde est en
+## PROCESS_MODE_PAUSABLE et n'a plus une seule ligne de garde.
 func _process(delta: float) -> void:
-	if game_over:
-		return
-
-	if run_paused:
-		_update_time_label()
+	# `game_over` met aussi le jeu en pause : ce test les couvre tous les deux.
+	if get_tree().paused:
 		return
 
 	elapsed_time += delta
@@ -252,10 +260,6 @@ func _process(delta: float) -> void:
 	# signale. Le HUD, lui, la QUANTIFIE en crans — le decoupage en pas est une
 	# decision de dessin, pas de jeu.
 	hud.set_charges(player.skills.charge_report())
-
-
-func is_run_paused() -> bool:
-	return run_paused or game_over
 
 
 ## Rectangle de jeu dans le plan XZ : x -> x, y -> z.
@@ -380,7 +384,7 @@ func _on_player_stats_changed(stats_text: String) -> void:
 
 
 func _on_player_level_up_requested(choices: Array[Dictionary]) -> void:
-	run_paused = true
+	get_tree().paused = true
 	current_upgrade_choices = choices
 	hud.show_level_card(player.level, choices)
 
@@ -392,17 +396,24 @@ func _on_upgrade_button_pressed(index: int) -> void:
 	player.take_skill(current_upgrade_choices[index]["id"])
 	current_upgrade_choices.clear()
 	hud.hide_level_card()
-	run_paused = false
+	get_tree().paused = false
 	_update_objective_text()
 
 
 func _on_player_died() -> void:
 	game_over = true
-	run_paused = true
+	get_tree().paused = true
 	hud.show_game_over(elapsed_time, player.level)
 
 
+## ⚠️ LA PAUSE SURVIT AU RECHARGEMENT DE SCENE, ET IL FAUT LA LEVER ICI.
+##
+## `paused` appartient au SceneTree, pas a la scene : recharger depuis le carton
+## de K.O. — qui est justement l'ecran ou le jeu est en pause — ferait demarrer
+## la nouvelle run figee, sans un carton a l'ecran pour la relancer. Exactement
+## le blocage sans issue qu'avait deja produit le bouton REPRENDRE.
 func _on_restart_button_pressed() -> void:
+	get_tree().paused = false
 	get_tree().reload_current_scene()
 
 

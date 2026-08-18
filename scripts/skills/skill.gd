@@ -19,14 +19,15 @@ extends Node3D
 ## ─── L'HORLOGE VIENT DE DEHORS, ET C'EST LE POINT ───
 ##
 ## Aucune competence n'a de `_process`. C'est le `SkillSet` qui les avance depuis
-## `player._process`, lequel rend deja la main quand la run est en pause.
+## `player._process` — et le chat etant en PROCESS_MODE_PAUSABLE, c'est le MOTEUR
+## qui arrete les seize horloges d'un coup pendant un carton (voir main.tscn).
 ##
-## Sans ca, chaque competence reimplemente son propre test de pause — c'est ce
-## que faisait `breath_aura.gd`, avec son `_get_game()` et son `_is_run_paused()`
-## a lui. Multiplie par seize competences, c'est seize endroits ou oublier de
-## s'arreter pendant un carton de niveau, et le defaut serait invisible : une
-## aura qui continue de mordre derriere un panneau ne se voit pas, elle se
-## constate a la barre de vie d'un ennemi.
+## Sans ce point unique, chaque competence reimplemente son propre test de pause
+## — c'est ce que faisait `breath_aura.gd`, avec son `_get_game()` et son
+## `_is_run_paused()` a lui. Multiplie par seize competences, c'est seize
+## endroits ou oublier de s'arreter pendant un carton de niveau, et le defaut
+## serait invisible : une aura qui continue de mordre derriere un panneau ne se
+## voit pas, elle se constate a la barre de vie d'un ennemi.
 ##
 ## ─── Ce que le contrat NE DIT PAS, volontairement ───
 ##

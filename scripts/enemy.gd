@@ -69,11 +69,11 @@ func setup(new_target: Node3D, difficulty_scale: float) -> void:
 	contact_damage = max(1, int(round(contact_damage * (1.0 + (difficulty_scale - 1.0) * 0.2))))
 
 
+## Aucune garde de pause : les ennemis vivent sous le node `Enemies`, qui est en
+## PROCESS_MODE_PAUSABLE (main.tscn). Derriere un carton, Godot n'appelle plus
+## cette methode — et il coupe aussi les serveurs physiques, donc les
+## recouvrements d'Area3D cessent d'eux-memes.
 func _physics_process(delta: float) -> void:
-	if _is_run_paused():
-		velocity = Vector3.ZERO
-		return
-
 	if damage_cooldown > 0.0:
 		damage_cooldown -= delta
 
@@ -139,12 +139,3 @@ func take_damage(amount: int) -> void:
 	if current_health <= 0:
 		defeated.emit(global_position, xp_drop)
 		queue_free()
-
-
-func _get_game() -> GameRoot:
-	return get_tree().get_first_node_in_group("game_root") as GameRoot
-
-
-func _is_run_paused() -> bool:
-	var game := _get_game()
-	return game != null and game.is_run_paused()

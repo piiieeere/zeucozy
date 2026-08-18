@@ -89,8 +89,8 @@ signal restart_pressed
 signal language_selected(code: String)
 ## Le joueur demande a fermer les reglages. Le HUD ne se ferme PAS lui-meme, et
 ## ce n'est pas une precaution de style : fermer la plaque sans prevenir main.gd
-## laisse `run_paused` a true avec plus aucun carton a l'ecran, et le jeu est
-## bloque pour de bon — Échap ne peut plus rien, puisqu'il n'y a plus rien
+## laisse `get_tree().paused` a true avec plus aucun carton a l'ecran, et le jeu
+## est bloque pour de bon — Échap ne peut plus rien, puisqu'il n'y a plus rien
 ## d'ouvert a fermer. C'est arrive, exactement comme ca.
 signal settings_close_requested
 

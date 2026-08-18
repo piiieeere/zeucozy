@@ -35,9 +35,6 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if _is_run_paused():
-		return
-
 	_time += delta
 	body.position.y = hover_height + sin(_time * 3.0) * hover_amplitude
 	body.rotate_y(spin_speed * delta)
@@ -65,12 +62,3 @@ func _on_area_entered(area: Area3D) -> void:
 	if actor != null:
 		actor.collect_xp(xp_value)
 		queue_free()
-
-
-func _get_game() -> GameRoot:
-	return get_tree().get_first_node_in_group("game_root") as GameRoot
-
-
-func _is_run_paused() -> bool:
-	var game := _get_game()
-	return game != null and game.is_run_paused()

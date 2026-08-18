@@ -309,14 +309,14 @@ func _report_build() -> void:
 		print("    %s" % str(skills.roll(3)))
 
 
+## ⚠️ AUCUNE GARDE DE PAUSE ICI, ET C'EST LE MOTEUR QUI LA REMPLACE.
+##
+## Le chat est en PROCESS_MODE_PAUSABLE (main.tscn) : pendant un carton, Godot
+## n'appelle plus ni `_physics_process`, ni `_process`, ni `_unhandled_input`, et
+## il arrete aussi l'AnimationPlayer du modele. Le chat se fige sur sa pose,
+## comme tout le reste du monde — la ou l'ancien code le remettait en `idle`
+## derriere le panneau.
 func _physics_process(delta: float) -> void:
-	if _is_run_paused():
-		velocity = Vector3.ZERO
-		# Choix d'upgrade ou Game Over : le chat s'arrete de marcher, sinon il
-		# pietine sur place derriere le panneau.
-		_sync_animation(false)
-		return
-
 	# "up" pousse vers le fond de l'ecran : -Z, l'avant de Godot.
 	#
 	# ⚠️ `move_*` et non `ui_*` depuis le 2026-08-17 : le jeu est passe aux
@@ -386,27 +386,28 @@ func _input(event: InputEvent) -> void:
 ## ⚠️ Le HUD permanent, lui, ne consomme rien : sa racine et ses labels sont en
 ## MOUSE_FILTER_IGNORE. Un actif part donc meme quand le curseur survole l'ATH —
 ## c'est-a-dire precisement quand on regarde ses pastilles de cooldown.
+##
+## ⚠️ Plus de test de pause non plus : un node en pause ne recoit pas
+## `_unhandled_input`, donc le clic ne peut plus fuiter derriere un carton.
 func _unhandled_input(event: InputEvent) -> void:
-	if _is_run_paused():
-		return
-
 	if event.is_action_pressed("skill_slot_1"):
 		skills.trigger_slot(0)
 	elif event.is_action_pressed("skill_slot_2"):
 		skills.trigger_slot(1)
 
 
-## L'HORLOGE DE TOUTES LES COMPETENCES, et le seul endroit ou la pause se teste.
+## L'HORLOGE DE TOUTES LES COMPETENCES — une seule, pour toutes.
 ##
 ## Chaque competence avait la sienne : un compteur en dur ici pour la griffure,
 ## un `_process` prive avec son propre test de pause pour l'aura d'haleine. A
-## seize competences (§2.3), c'est seize endroits ou oublier de s'arreter
-## derriere un carton de niveau — un defaut qui ne se VOIT pas, il se constate a
-## la barre de vie d'un ennemi.
+## seize competences (§2.3), c'est seize horloges a arreter derriere un carton de
+## niveau — un defaut qui ne se VOIT pas, il se constate a la barre de vie d'un
+## ennemi.
+##
+## Depuis le 2026-08-18 la pause n'est meme plus testee : le chat est en
+## PROCESS_MODE_PAUSABLE, donc c'est le moteur qui ne rappelle pas ce `_process`,
+## et les seize horloges s'arretent toutes du meme geste.
 func _process(delta: float) -> void:
-	if _is_run_paused():
-		return
-
 	skills.tick(delta)
 
 	# Le declenchement des actifs, lui, est dans `_unhandled_input` — voir plus
@@ -719,8 +720,3 @@ func _emit_all_state() -> void:
 
 func _get_game() -> GameRoot:
 	return get_tree().get_first_node_in_group("game_root") as GameRoot
-
-
-func _is_run_paused() -> bool:
-	var game := _get_game()
-	return game != null and game.is_run_paused()

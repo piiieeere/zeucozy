@@ -40,9 +40,6 @@ func setup(new_direction: Vector3, new_damage: int, new_speed: float, new_max_di
 
 
 func _physics_process(delta: float) -> void:
-	if _is_run_paused():
-		return
-
 	var step := direction * speed * delta
 	global_position += step
 	travelled_distance += step.length()
@@ -57,12 +54,3 @@ func _on_area_entered(area: Area3D) -> void:
 	if enemy != null:
 		enemy.take_damage(damage)
 		queue_free()
-
-
-func _get_game() -> GameRoot:
-	return get_tree().get_first_node_in_group("game_root") as GameRoot
-
-
-func _is_run_paused() -> bool:
-	var game := _get_game()
-	return game != null and game.is_run_paused()

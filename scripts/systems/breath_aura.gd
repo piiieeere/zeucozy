@@ -119,6 +119,10 @@ func setup(new_radius: float, new_damage: int) -> void:
 ## le defaut serait INVISIBLE — une aura qui continue de mordre pendant qu'on
 ## choisit une upgrade ne se voit pas, elle se constate a la barre de vie d'un
 ## ennemi. L'horloge vient donc de dehors, une fois. Voir `skills/skill.gd`.
+##
+## Et depuis le 2026-08-18 plus personne ne teste la pause du tout : elle est
+## celle du moteur (`get_tree().paused`), et le chat est en
+## PROCESS_MODE_PAUSABLE — l'horloge s'arrete a sa source.
 func advance(delta: float) -> void:
 	_held += delta
 
