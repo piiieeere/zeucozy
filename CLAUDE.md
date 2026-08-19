@@ -322,10 +322,14 @@ powershell -ExecutionPolicy Bypass -File tools/fetch_fonts.ps1
 # Reconstruire puis exporter la BOULE DE POILS (le projectile) — meme moule
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --factory-startup   --python tools/build_hairball.py -- --save
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background   "C:/Users/tibo/Documents/zeucozy_3d/projectile_boule_poils_v1.blend"   --python tools/export_prop.py -- --mesh MSH_boule_poils --out projectile_boule_poils.glb
+# Reconstruire puis exporter la SOURIS (le 1er ennemi modelise) — meme moule
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --factory-startup   --python tools/build_mouse.py -- --save
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background   "C:/Users/tibo/Documents/zeucozy_3d/enemy_souris_v1.blend"   --python tools/export_prop.py -- --mesh MSH_souris --out enemy_souris.glb
 # Banc des modeles sans squelette — 8 directions + le chat a cote, au cadrage de jeu
 "C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64.exe" --path . res://scenes/tests/prop_test.tscn -- --capture
 #   --model=res://assets/models/xp_croquette.glb   n'importe quel .glb sans squelette
 #   --model=res://assets/models/projectile_boule_poils.glb
+#   --model=res://assets/models/enemy_souris.glb
 #   (par defaut le canape ; le cadrage se deduit de la boite englobante)
 # Banc de PAUSE — ce qui se fige, ce qui vit, ce qui repart (18 verdicts)
 "C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --headless --path . \
@@ -424,7 +428,7 @@ zeucozy/
 │   ├── projectile.tscn # 🌀 La boule de poils — porté par `hairball_skill`
 │   ├── xp_orb.tscn
 │   ├── enemies/
-│   │   ├── chaser.tscn   # Ennemi rapide (spawn dès le début) — capsule placeholder
+│   │   ├── chaser.tscn   # 🐭 Ennemi rapide (spawn dès le début) — LA SOURIS
 │   │   └── brute.tscn    # Ennemi costaud (spawn après 22s) — sphère placeholder
 │   └── tests/
 │       ├── cel_test.tscn  # Banc de test du cel-shading du chat, isolé du gameplay
@@ -501,12 +505,13 @@ zeucozy/
 │   ├── build_couch.py      # Canapé : géométrie ET Attr_Style, dans un .blend neuf
 │   ├── build_kibble.py     # Croquette : trèfle à 3 lobes, 300 tris, même moule
 │   ├── build_hairball.py   # Boule de poils : amas à 6 touffes + 3 mèches, 308 tris
+│   ├── build_mouse.py      # 🐭 Souris : goutte + 2 oreilles + queue, 1 252 tris
 │   ├── export_prop.py      # Export générique d'un .glb, même réinjection COLOR_0
 │   ├── fetch_fonts.ps1     # Récupère les polices d'UI en sous-ensembles (rejouable)
 │   └── dump_paws.gd        # Relève os porteurs + boîtes de repos — source des PAWS
 └── assets/
     ├── models/       # player_cat.glb, prop_canape.glb, xp_croquette.glb,
-    │                 # projectile_boule_poils.glb
+    │                 # projectile_boule_poils.glb, enemy_souris.glb
     └── fonts/        # Dela Gothic One + Zen Kaku Gothic New, sous-ensembles + OFL
 ```
 
@@ -1583,8 +1588,12 @@ des angles droits à repères. §9 de la DA a été réécrit **une deuxième fo
 dessinées** compris, et il se lit à taille de jeu — désormais en **tuxedo noir et blanc**,
 qui se détache mieux du
 parquet que l'ambre d'avant. Les **canapés sont modélisés** et posés dans l'arène en deux
-variantes (bleu ciel, vert sauge). Le reste est placeholder : ennemis en primitives 3D,
-tables / plantes / coussins en boîtes pastel. **Les croquettes d'XP sont modélisées** depuis le 2026-08-19 — trèfle à 3 lobes, 300 tris — et **la boule de poils** le même jour : amas à 6 touffes, 308 tris, dans la fourrure du chat, mèches claires comprises. **Plus aucun placeholder de primitive hors les ennemis et le petit mobilier.**
+variantes (bleu ciel, vert sauge). **Les croquettes d'XP sont modélisées** depuis le
+2026-08-19 — trèfle à 3 lobes, 300 tris — et **la boule de poils** le même jour : amas à
+6 touffes, 308 tris, dans la fourrure du chat, mèches claires comprises. **La souris** est
+arrivée le 2026-08-19 et remplace la capsule rose du `chaser` : 1 252 tris, taupe chaud,
+oreilles roses et queue. Reste placeholder : **la brute** (sphère lavande) et le petit
+mobilier — tables / plantes / coussins en boîtes pastel.
 
 **Passe rétro anime — faite le 2026-08-16.** `Attr_Style` peint et câblé, trait à
 épaisseur variable **des deux côtés du pont** (Godot par `cel_outline.gdshader`, Blender par
@@ -2361,6 +2370,174 @@ Deux choses ont bougé ensemble, et l'une ne valait rien sans l'autre :
 > pas la séparation d'avec le sol. Trois nombres identiques, c'est une entrée de
 > dictionnaire en moins à tenir synchronisée.
 
+### La souris — le 1ᵉʳ ennemi modélisé (2026-08-19)
+
+Le `chaser` — la **capsule rose `#FFADAD`**, l'ennemi rapide qu'on croise depuis la
+première seconde — est désormais `assets/models/enemy_souris.glb` : une **goutte taupe**
+à grandes oreilles roses, **1 252 tris**, 638 sommets, **3 matériaux**.
+`tools/build_mouse.py` (le `.blend` est **régénéré**, jamais édité à la main, comme le
+canapé, la croquette et la boule de poils) puis `tools/export_prop.py`, qui n'a **toujours**
+pas eu à bouger.
+
+> ⚠️ **Ce n'est pas un des trois ennemis du manifeste.** L'aspirateur, le chien et le
+> concombre restent à faire ; la souris s'ajoute, elle ne remplace aucun d'eux. Le Game
+> Manifest §3 et la DA §3 ont été mis à jour dans la foulée.
+
+| | Avant | Après |
+|---|---|---|
+| Modèle | capsule, r 0,55 · h 1,5 | **goutte à 3 coques**, 1 252 tris |
+| Couleur | `#FFADAD` rose | **`#A89684`** taupe chaud · `#E8B8A8` peau nue · `#3D2B1A` œil |
+| Orientation | *aucune* | face au chat, `turn_speed` 10,0 |
+| Formes de collision | — | **inchangées**, au millimètre |
+
+- **La FORME est un balayage, pas un empilement de primitives.** Une souris n'a pas de
+  cou : tête et corps sont une seule masse qui s'effile vers le museau. Le rayon et la
+  hauteur de la section suivent deux profils le long de l'axe nez/croupe — c'est
+  exactement ce que la boule de poils **ne pouvait pas** faire, sa modulation étant
+  *autour* de l'axe (§11 : invisible sur la silhouette de flanc). Ici elle est **le long**
+  de l'axe, donc elle **est** la silhouette.
+- **La tête est plus haute que la croupe, et ce n'est pas de l'anatomie.** Une vraie souris
+  porte la tête bas ; sous la plongée à 45°, c'est précisément ce qui faisait lire le chat
+  comme un **cadenas** à 60° — la croupe passe au-dessus de la tête et avale ce qui
+  dépasse. Le dos monte donc du bassin vers le crâne (+0,053 mesuré), et les oreilles
+  culminent au-dessus de tout. `build_mouse.py` **imprime cet écart à chaque construction**.
+- **Le taupe est borné des DEUX côtés, par la mesure.** Au-dessus de ~0,85 de valeur il
+  rejoint le parquet (0,91–0,96) et l'ennemi cesse de se détacher du sol — le mur que le
+  projectile jaune pâle a déjà payé. En dessous de ~0,40 il rejoint le pelage du chat
+  (0,29), et dans un survivor le joueur trie à la **valeur** avant de trier à la forme
+  (§15). Il est à **0,66**. Et il est **chaud** — §17 interdit explicitement le gris neutre.
+- **La queue est en pelage, pas en rose.** Une vraie queue de souris est rose nue ; à 0,91
+  de valeur sur un parquet à 0,93 elle **disparaîtrait**. Le rose ne tient que là où il est
+  cerné de pelage : l'intérieur d'une oreille et le bout du museau.
+
+> ⚠️ **`enemy.gd` NE TOURNAIT JAMAIS, et personne ne pouvait le voir.** Il n'y a jamais eu
+> le moindre `look_at` ni la moindre `rotation` : tant que les deux ennemis étaient une
+> **capsule** et une **sphère**, la silhouette était la même sous tous les caps. Une souris
+> qui glisse en crabe, elle, se voit à la première frame. C'est le pendant exact du canapé
+> qui a révélé que **rien ne collisionnait** — un modèle qui remplace un placeholder de
+> révolution exerce du code que la révolution rendait muet.
+>
+> - **Le modèle regarde LA CIBLE, jamais sa propre vitesse.** La nuance ne se voit que sous
+>   recul : un ennemi repoussé recule en **continuant** de faire face au chat. Orienté sur
+>   sa vitesse, il partirait en marche arrière puis ferait demi-tour — ce qui se lit comme
+>   une fuite, pas comme un coup encaissé.
+> - **C'est `$Body` qui tourne, jamais le `CharacterBody3D`** — même partage que le chat,
+>   dont seul `$Model` pivote. Les formes de collision sont un cylindre et deux sphères :
+>   les tourner ne changerait rien, mais ça ferait croire au lecteur suivant que
+>   l'orientation compte pour la physique.
+> - **Le cap est posé d'un coup à l'apparition** (`_face_target(INF)`), jamais interpolé
+>   depuis le cap par défaut : un ennemi qui naît dos au chat et pivote en 0,2 s se lit
+>   comme s'il avait hésité, alors qu'il vient d'arriver.
+
+> ⚠️ **C'EST LE MODÈLE QU'ON A MIS À L'ÉCHELLE, PAS LA HURTBOX.** `chaser.tscn` porte une
+> sphère de dégâts et une hurtbox de **0,75 m de rayon**, héritées de la capsule. À
+> l'échelle nominale le corps de la souris faisait 0,73 de large : le joueur l'aurait
+> touchée — et aurait été touché — à une bonne demi-longueur de ce qu'il voit, et le défaut
+> est **muet**, il ne se constate qu'à la manette. `SCALE = 1,20` remonte le modèle à
+> 1,56 × 0,99 × 1,16 m. Baisser la hurtbox aurait rendu le chaser plus dur à toucher, donc
+> **changé l'équilibrage sous couvert de remplacer un placeholder** : un remplacement
+> visuel ne doit rien déplacer d'autre.
+
+> ✅ **ELLE COÛTE MOINS CHER QUE LE PLACEHOLDER QU'ELLE REMPLACE, et c'est
+> contre-intuitif.** Mesuré par sonde : la capsule du chaser pesait **3 456 tris** et la
+> sphère de la brute en pèse **4 224** — les primitives de Godot sortent avec
+> `radial_segments = 64` par défaut, personne ne les avait jamais comptées. La souris en
+> fait **1 252**, soit **2,8 fois moins** que ce qu'elle remplace, coque inversée comprise
+> des deux côtés. Le budget serré de §11 (« ennemis : à réduire nettement ») est donc tenu
+> *deux fois* : par rapport au chat (9,6 %) et par rapport au placeholder.
+>
+> 🅿️ **Corollaire à ne pas perdre : la brute est aujourd'hui le modèle le plus lourd du
+> jeu après le chat**, pour une sphère lisse. Le jour où elle sera modélisée, elle
+> allégera la scène elle aussi.
+
+> ⚠️ **`CelProp.CREATURE` EST UN ALIAS DE `PICKUP`, pas une 4ᵉ famille.** Une créature
+> demande exactement les trois mêmes nombres qu'un ramassable : trait **0,036** (la borne
+> du **pixel**, pas un goût), trait **plein** puisqu'elle n'est pas du décor (§2ter.A), et
+> biais d'ombre **neutre** puisque ses normales balaient tout l'hémisphère. La boule de
+> poils avait déjà tranché ce point — *« trois nombres identiques, c'est une entrée de
+> dictionnaire en moins à tenir synchronisée »*. L'alias donne le nom juste au site
+> d'appel sans recopier les nombres ; le jour où une créature demandera vraiment autre
+> chose, cette ligne devient une entrée.
+
+> 🔍 **SIX DÉFAUTS, TOUS TROUVÉS EN CAPTURE, AUCUN EN LISANT LE CODE.** Les deux premiers
+> valent d'être gardés parce qu'ils sont **silencieux dans les fichiers** :
+> - **Les deux pôles de l'oreille étaient croisés.** L'éventail du pôle rose traversait
+>   l'oreille de part en part et elle sortait en **bague** — un anneau rose autour d'un
+>   disque de pelage. Le maillage restait **fermé**, le rapport `style_report` restait
+>   **propre**, et rien ne pouvait le signaler. (`rings[0]` est le plus **proche** du
+>   pôle +n, pas le plus loin.)
+> - **Le plancher du canal R écrasait silencieusement l'œil.** `max(0,68, r)` est juste
+>   partout ailleurs — sous ~0,68 le trait tombe sous 1 px et se lit comme de la saleté —
+>   mais il ramenait le 0,30 voulu sur l'œil à 0,68, et les statistiques affichaient un
+>   rassurant « R 0,68–1,00 ». Le plancher est désormais **par coque**.
+> - **Oreilles au diamètre du crâne** (0,300 pour un rayon de 0,300) : de profil elles
+>   avalaient la tête entière. Ramenées à 0,7 fois le diamètre.
+> - **Nuque pincée à 12 %** → la bête sortait en **manatee**. À 26 % la tête redevient une
+>   masse à part.
+> - **Croupe fermée par une seule clé** → un cône à 69°, donc une **facette plate** sur la
+>   silhouette de flanc, l'angle vif que §3 interdit.
+> - **L'accent de brillance sortait en TACHE**, deux tailles durant. Il est **coupé**
+>   (canal B à zéro) — voir plus bas.
+
+> ⛔ **DEUX QUEUES VERTICALES ONT ÉTÉ RENDUES ET JETÉES, et la leçon vaut pour tout
+> appendice allongé à venir (la trompe de l'aspirateur, la laisse du chien) :**
+> **une courbe qui monte ne se voit pas sous une caméra qui plonge.** À 45°, une arche
+> verticale se projette **dans** le corps qui la porte : les deux tiers de sa longueur se
+> superposent au dos, et il ne reste à l'écran qu'un moignon recourbé — une **poignée**
+> accrochée à la croupe. La seconde version était 40 % plus longue que la première et se
+> lisait exactement pareil : **ce n'était donc pas une question de longueur.**
+>
+> Ce que la caméra voit en vraie grandeur, c'est le **plan du sol**. La queue y court donc
+> en C, et c'est là que sa longueur devient lisible. ⚠️ Mais elle ne **touche** pas le sol
+> pour autant : à plat, sa coque inversée passe sous le maillage, le parquet se peint
+> par-dessus et il reste un liseré parchemin entre l'aplat et le trait (mesuré sur la
+> croquette posée au banc). Elle court à ~0,25 m — assez bas pour se lire à plat, assez
+> haut pour que l'encre passe au-dessus du parquet.
+
+> ⛔ **§2bis DIT « LES YEUX SONT PEINTS, JAMAIS MODÉLISÉS » — ENTORSE ASSUMÉE, ET LE
+> DIAGNOSTIC D'ORIGINE ÉTAIT À CÔTÉ.** L'œil est ici une **lentille** de 0,030 de
+> demi-épaisseur, enfoncée pour n'émerger que de 0,020. Au premier rendu, l'œil **éloigné
+> perçait la silhouette du crâne** de profil, exactement ce que la règle annonce — sauf que
+> **ce qui débordait n'était pas la lentille, c'était sa coque d'encre** : la lentille
+> dépasse de 0,004 à son bord, l'encre ajoute 0,036 **dans toutes les directions**.
+>
+> La sortie ne coûte rien : **un œil n'a pas besoin d'être cerné, il EST de l'encre**
+> (`#3D2B1A` est la couleur que §4 donne au contour principal). Son canal R descend donc à
+> 0,30 — le trait le plus **fin** du modèle, à l'exact opposé du premier jet qui l'avait
+> mis au plus **chargé** « parce qu'un œil est ce qu'un dessin cerne le plus ». Vérifié sur
+> les 8 directions : plus rien ne dépasse.
+>
+> La voie orthodoxe reste ouverte — un shader de visage, comme `cel_face.gdshader`. Elle
+> est écartée pour l'instant parce que le chat en a eu besoin d'un à cause du **skinning**
+> (`rest_undo`, piège n°5) : une souris n'a pas de squelette, donc rien ne glisse.
+
+> ⚠️ **PAS D'ACCENT DE BRILLANCE** (canal B à zéro partout), et c'est une décision prise en
+> capture. Deux tailles ont été rendues, les deux sortaient en **tache**, et la taille
+> n'était pas la cause : la grille du dos fait 22 méridiens sur 13 sections, donc **le plus
+> petit accent possible y est un quad** — un rectangle pâle posé sur un dos se lit comme
+> une salissure. Même mur que les mèches de la boule de poils : un bord de zone posé sur
+> une grille grossière ne peut pas être autre chose qu'un escalier. Et le pelage est à
+> 0,66 de valeur pour un `accent_strength` de 0,30 : le mélange vers le crème le porterait
+> à 0,75, soit un **3ᵉ ton de cluster** (§5.5), ce que le chat et la boule de poils ont
+> déjà payé chacun de leur côté.
+
+> 🅿️ **Ni pattes ni moustaches, et c'est mesuré ailleurs.** Les griffes du chat pèsent
+> **5 pixels** à taille de jeu et vivent au banc ; une patte de souris en pèserait moins.
+> Les moustaches demanderaient le shader de visage ci-dessus. §15 vaut dans ce sens-là
+> aussi : un détail invisible ne nuit pas, mais il ne compte pas non plus.
+
+**Juger la souris** — au banc pour la silhouette, en jeu pour la taille :
+
+```bash
+# Le tour 8 directions + le rapport de taille au chat (§16 etape 7)
+"C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64.exe" --path . \
+  res://scenes/tests/prop_test.tscn -- --capture --model=res://assets/models/enemy_souris.glb
+# En jeu, au milieu d'une meute — ⚠️ --walk, sinon le chat reste plante et les
+#    souris s'empilent sur lui au lieu de montrer leurs caps
+"C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --path . \
+  --write-movie <dossier>/g.png --fixed-fps 30 --quit-after 560 -- --aim=135 --walk
+```
+
 ### Le rai de soleil au sol — retiré le 2026-08-17
 
 Le parquet et les tapis portaient une **flaque de lumière peinte** : un champ anisotrope
@@ -2392,6 +2569,14 @@ couleur de palette.
   post-process ni aux lignes de vitesse du carton (qui sont enfants du carton et
   disparaissent avec lui). Une capture avec `pool_level` poussé hors de portée l'a fait
   disparaître d'un coup — c'est ce qui a tranché.
+
+**La souris est dans le jeu depuis le 2026-08-19** — voir « La souris » plus bas. C'est le
+**premier ennemi modélisé** : la capsule rose `#FFADAD` du `chaser` cède la place à une
+goutte taupe à grandes oreilles roses, 1 252 tris. Aucune forme de collision n'a bougé —
+c'est le modèle qui a été mis à l'échelle pour tenir dans la hurtbox qu'il hérite, pas
+l'inverse. La passe a sorti au passage que **`enemy.gd` ne tournait jamais** : deux
+primitives de révolution ont la même silhouette sous tous les caps, donc personne ne
+pouvait s'en apercevoir.
 
 **Prochaines priorités :**
 0. 🅿️ **Le squash du `hit`** — l'impact frame est débranchée, mais §7 demande aussi un

@@ -32,6 +32,22 @@ const CelStyle := preload("res://scripts/systems/cel_style.gd")
 const MEUBLE := "meuble"
 const PICKUP := "pickup"
 
+## ⚠️ LE MEME NOM DE FAMILLE QUE `PICKUP`, DELIBEREMENT — ce n'est pas un oubli,
+## et c'est pour ca que c'est un alias et non une 3e entree de `FAMILIES`.
+##
+## Une creature (la souris, et les ennemis modelises qui suivront) demande
+## exactement les trois memes nombres qu'un ramassable : un trait de 0,036 —
+## la borne du PIXEL, pas un gout —, un trait PLEIN puisqu'elle n'est pas du
+## decor (§2ter.A), et un biais d'ombre neutre puisque ses normales balaient tout
+## l'hemisphere comme celles de n'importe quel volume rond.
+##
+## La boule de poils a deja tranche ce point une fois : "trois nombres
+## identiques, c'est une entree de dictionnaire en moins a tenir synchronisee".
+## Un alias donne le nom juste au site d'appel — `CelProp.CREATURE` dans
+## `enemy.gd` — sans recopier les nombres. Le jour ou une creature demandera
+## vraiment autre chose, cette ligne devient une entree, et c'est tout.
+const CREATURE := PICKUP
+
 ## Epaisseur du trait du MOBILIER, en unites monde.
 ##
 ## Volontairement la MEME que celle du chat (0,041), et non un multiple de la
@@ -194,6 +210,30 @@ const PALETTES := {
 		# descendue d'un cran : pas une seconde teinte, la meme matiere a deux
 		# valeurs. §5 tient — le tuxedo du chat est deja fait de ca.
 		"poils_clairs": Color("#B3A895"),
+	},
+	# La SOURIS — le premier ennemi modelise. Trois matieres, dont deux sont des
+	# ZONES peintes sur la meme bete et non des objets a part : la peau nue
+	# (museau + interieur des oreilles) et l'oeil.
+	#
+	# Le taupe est borne des DEUX cotes, et aucune borne n'est un gout :
+	#
+	#   * au-dessus de ~0,85 de valeur il rejoint le parquet (#F5ECD8 a #E8D4A8,
+	#     0,91 a 0,96) et l'ennemi cesse de se detacher du sol — exactement le mur
+	#     que le projectile jaune pale a paye, moins de 0,10 d'ecart ;
+	#   * en dessous de ~0,40 il rejoint le pelage du chat (0,29). Dans un
+	#     survivor le joueur trie a la VALEUR avant de trier a la forme (§15), et
+	#     un ennemi de la meme valeur que le personnage se perd dans la melee.
+	#
+	# `#A89684` tombe a 0,66, et il est CHAUD — hue ~30°, saturation 21 %. §17
+	# interdit explicitement le gris neutre.
+	#
+	# La queue est en `pelage` et non en peau rose, alors qu'une vraie queue de
+	# souris est rose nue : a 0,91 de valeur sur un parquet a 0,93, elle
+	# disparaitrait. Le rose ne tient que la ou il est cerne de pelage.
+	"souris": {
+		"pelage": Color("#A89684"),
+		"peau": Color("#E8B8A8"),
+		"oeil": Color("#3D2B1A"),
 	},
 }
 

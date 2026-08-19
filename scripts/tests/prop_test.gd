@@ -32,6 +32,7 @@ const CelStyle := preload("res://scripts/systems/cel_style.gd")
 const COUCH := "res://assets/models/prop_canape.glb"
 const KIBBLE := "res://assets/models/xp_croquette.glb"
 const HAIRBALL := "res://assets/models/projectile_boule_poils.glb"
+const MOUSE := "res://assets/models/enemy_souris.glb"
 
 ## Ce que le banc ne peut PAS deduire d'une boite englobante. Une entree par
 ## modele, et rien de plus que ce qui lui est propre.
@@ -59,6 +60,12 @@ const MODELS := {
 	# le parquet que le jeu ne produit pas.
 	HAIRBALL: {"variant": "boule_poils", "family": CelProp.PICKUP, "seat": -1.0,
 			"hover": 0.70, "prefix": "hairball"},
+	# La souris. `hover` = 0 : elle POSE, comme le canape — le banc doit donc
+	# montrer son encre tranchee par le parquet, puisque le jeu la tranchera
+	# aussi. `CREATURE` est l'alias de `PICKUP` : voir cel_prop.gd, les trois
+	# nombres sont les memes et c'est voulu.
+	MOUSE: {"variant": "souris", "family": CelProp.CREATURE, "seat": -1.0,
+			"hover": 0.0, "prefix": "souris"},
 }
 
 const CAPTURE_DIR := "C:/Users/tibo/AppData/Local/Temp/claude/c--Users-tibo-Games-zeucozy/42e46b8e-306f-4ae8-91c9-344ef69f4749/scratchpad"

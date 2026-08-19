@@ -3,9 +3,13 @@ extends CharacterBody3D
 
 ## Ennemi de base — suit le joueur et lui fait mal au contact.
 ##
-## Le modele reste un placeholder : l'aspirateur, le chien et le concombre ne
-## sont pas modelises ("Pipeline 3D"). La forme est une primitive cel-shadee,
-## histoire que la scene se lise dans le meme registre que le chat.
+## DEUX APPARENCES POSSIBLES, et une seule ligne les separe :
+##
+##   * `model_path` vide  -> une PRIMITIVE cel-shadee (`body_color` +
+##     `outline_thickness`). C'est ce qui reste de la brute, en attendant que
+##     l'aspirateur, le chien et le concombre soient modelises ("Pipeline 3D") ;
+##   * `model_path` rempli -> un .glb habille par `CelProp`, comme le canape et
+##     les ramassables. C'est le cas du chaser depuis la souris.
 
 signal defeated(world_position: Vector3, xp_value: int)
 
@@ -17,9 +21,29 @@ signal defeated(world_position: Vector3, xp_value: int)
 @export var body_color: Color = Color("#FFADAD")
 ## Epaisseur du contour, en unites monde — proportionnelle a la taille de la
 ## forme, sinon le placeholder parait sur-cerne ("Visual Art Direction" §11).
+## Ne sert qu'aux ennemis restes en primitive : un .glb prend celle de sa famille.
 @export var outline_thickness: float = 0.03
 
+## Le modele, quand l'ennemi en a un. Vide = primitive — voir l'en-tete.
+@export var model_path: String = ""
+## La variante de palette dans `CelProp.PALETTES`. Vide n'a de sens que si
+## `model_path` l'est aussi.
+@export var model_variant: String = ""
+
+## Vitesse de rotation du modele vers le chat.
+##
+## ⚠️ ELLE N'EXISTE QUE DEPUIS QU'UN ENNEMI A UN AVANT. Tant que les deux
+## ennemis etaient une capsule et une sphere, rien ici ne tournait — et personne
+## ne pouvait s'en apercevoir, une primitive de revolution ayant la meme
+## silhouette sous tous les caps. Une souris qui glisse en crabe, elle, se voit
+## immediatement.
+##
+## Plus vive que celle du chat (12,0 pour ~7,5 m/s) rapportee a sa vitesse : une
+## souris pivote sec, c'est ce qui la separe d'un objet pousse.
+@export var turn_speed: float = 10.0
+
 const CelStyle := preload("res://scripts/systems/cel_style.gd")
+const CelProp := preload("res://scripts/systems/cel_prop.gd")
 
 @onready var damage_area: Area3D = $DamageArea
 @onready var body: MeshInstance3D = $Body
@@ -50,12 +74,26 @@ func _ready() -> void:
 	# competence ne cherche plus rien elle-meme, elle demande au jeu.
 	add_to_group("enemies")
 	current_health = max_health
-	CelStyle.apply_outlined(body, body_color, outline_thickness)
+
+	if model_path.is_empty():
+		CelStyle.apply_outlined(body, body_color, outline_thickness)
+	else:
+		# `dress` et non `spawn` : le noeud `Body` existe deja dans la scene, et
+		# une vague en pose jusqu'a cinq d'un coup. Instancier la PackedScene du
+		# .glb par ennemi ajouterait un Node3D chacun pour un maillage et des
+		# materiaux qui sont de toute facon partages (le cache de `CelProp`).
+		CelProp.dress(body, model_path, model_variant, CelProp.CREATURE)
+
 	CelStyle.apply_contact_shadow(shadow)
 
 
 func setup(new_target: Node3D, difficulty_scale: float) -> void:
 	target = new_target
+
+	# Le cap est POSE d'un coup a l'apparition, jamais interpole depuis le cap
+	# par defaut : un ennemi qui nait dos au chat et pivote en 0,2 s se lit comme
+	# s'il avait hesite, alors qu'il vient d'arriver.
+	_face_target(INF)
 	max_health = max(1, int(round(max_health * difficulty_scale)))
 	current_health = max_health
 	base_speed *= 1.0 + (difficulty_scale - 1.0) * 0.35
@@ -95,6 +133,7 @@ func _physics_process(delta: float) -> void:
 		velocity = Vector3.ZERO
 
 	move_and_slide()
+	_face_target(delta)
 
 	if damage_cooldown > 0.0:
 		return
@@ -116,6 +155,34 @@ func _physics_process(delta: float) -> void:
 			actor.take_damage(contact_damage, global_position)
 			damage_cooldown = 0.7
 			break
+
+
+## Le modele regarde LA CIBLE, jamais sa propre vitesse — et la nuance ne se voit
+## que quand le recul entre en jeu. Un ennemi repousse recule en CONTINUANT de
+## faire face au chat ; s'il s'orientait sur sa vitesse, il partirait en marche
+## arriere puis ferait demi-tour, ce qui se lit comme une fuite et non comme un
+## coup encaisse.
+##
+## C'est `$Body` qui tourne, jamais le CharacterBody3D — meme partage que le
+## chat, dont seul `$Model` pivote. Les formes de collision sont un cylindre et
+## deux spheres : les faire tourner ne changerait rien, mais ca ferait croire au
+## lecteur suivant que l'orientation compte pour la physique.
+##
+## Un objet Godot tourne de rotation.y regarde (-sin y, 0, -cos y) : d'ou l'atan2
+## sur les composantes negatives. Meme formule que `player._face_direction`.
+## `delta` infini pose le cap d'un coup (voir `setup`).
+func _face_target(delta: float) -> void:
+	if not is_instance_valid(target):
+		return
+
+	var to_target := target.global_position - global_position
+	to_target.y = 0.0
+
+	if to_target.length_squared() < 1.0e-6:
+		return
+
+	var wanted := atan2(-to_target.x, -to_target.z)
+	body.rotation.y = lerp_angle(body.rotation.y, wanted, 1.0 - exp(-turn_speed * delta))
 
 
 ## Repousse. `direction` est la direction DU CHAT VERS L'ENNEMI, deja normalisee
