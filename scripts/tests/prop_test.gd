@@ -33,6 +33,7 @@ const COUCH := "res://assets/models/prop_canape.glb"
 const KIBBLE := "res://assets/models/xp_croquette.glb"
 const HAIRBALL := "res://assets/models/projectile_boule_poils.glb"
 const MOUSE := "res://assets/models/enemy_souris.glb"
+const DOG := "res://assets/models/enemy_chien.glb"
 
 ## Ce que le banc ne peut PAS deduire d'une boite englobante. Une entree par
 ## modele, et rien de plus que ce qui lui est propre.
@@ -66,6 +67,13 @@ const MODELS := {
 	# nombres sont les memes et c'est voulu.
 	MOUSE: {"variant": "souris", "family": CelProp.CREATURE, "seat": -1.0,
 			"hover": 0.0, "prefix": "souris"},
+	# Le chien — la brute. Meme famille et meme `hover` que la souris : il POSE,
+	# et sur ses quatre pattes plutot que sur son ventre. Le banc doit donc
+	# montrer son encre tranchee par le parquet, puisque le jeu la tranchera
+	# aussi — sauf que ses pieds s'arretent a 0,045 exactement pour que la coque
+	# inversee reste au-dessus du sol (voir `LEG_FOOT_Z` dans build_dog.py).
+	DOG: {"variant": "chien", "family": CelProp.CREATURE, "seat": -1.0,
+			"hover": 0.0, "prefix": "chien"},
 }
 
 const CAPTURE_DIR := "C:/Users/tibo/AppData/Local/Temp/claude/c--Users-tibo-Games-zeucozy/42e46b8e-306f-4ae8-91c9-344ef69f4749/scratchpad"

@@ -76,6 +76,7 @@ func _ready() -> void:
 	# servait qu'au menu.
 	SettingsStore.load_settings()
 	_apply_language_override()
+	_apply_spawn_overrides()
 
 	player.health_changed.connect(_on_player_health_changed)
 	player.xp_changed.connect(_on_player_xp_changed)
@@ -173,6 +174,28 @@ func _apply_ui_preview() -> void:
 ##
 ## Une competence inconnue leve, comme partout ailleurs : une faute de frappe
 ## dans un id doit se voir tout de suite, pas se traduire par une carte manquante.
+## Delai d'apparition des brutes, en secondes. 22 s en jeu — c'est la courbe de
+## difficulte du Game Manifest §9, et elle ne bouge pas.
+##
+## ⚠️ `--brutes-now` LE MET A ZERO, ET CE N'EST PAS UN CONFORT. C'est le meme
+## besoin que `--autofire` et `--walk`, par le troisieme bout : dans un
+## `--write-movie`, la seule facon de voir une brute est d'ENREGISTRER 22 SECONDES
+## — 660 frames a 30 fps — avant que la premiere n'apparaisse. Juger le chien
+## coutait donc une capture de 1 000 frames dont les deux tiers ne le montrent
+## pas, ce qui revient en pratique a ne pas le juger.
+##
+## Il agit sur le DELAI, jamais sur le melange : passe zero, `_pick_enemy_scene`
+## rend toujours ses 35 % de brutes, et la courbe de difficulte est celle du jeu.
+## Un drapeau qui forcerait 100 % de brutes montrerait une vague qui n'existe pas.
+var brute_delay := 22.0
+
+
+## `--brutes-now` : les brutes des la premiere vague. Voir `brute_delay`.
+func _apply_spawn_overrides() -> void:
+	if "--brutes-now" in OS.get_cmdline_user_args():
+		brute_delay = 0.0
+
+
 func _forced_choices() -> Array[Dictionary]:
 	var choices: Array[Dictionary] = []
 
@@ -399,7 +422,7 @@ func _get_enemy_count_for_time() -> int:
 
 
 func _pick_enemy_scene() -> PackedScene:
-	if elapsed_time < 22.0:
+	if elapsed_time < brute_delay:
 		return CHASER_SCENE
 
 	if randf() < 0.65:
@@ -574,5 +597,5 @@ func _update_time_label() -> void:
 
 
 func _update_objective_text() -> void:
-	var key := "hud.objective_brutes" if elapsed_time >= 22.0 else "hud.objective_survive"
+	var key := "hud.objective_brutes" if elapsed_time >= brute_delay else "hud.objective_survive"
 	hud.set_objective(Locale.t(key), enemies_container.get_child_count())

@@ -27,10 +27,26 @@ nez/croupe. C'est ce qui le separe du moule de la boule de poils : la, la
 modulation etait AUTOUR de l'axe et ne se voyait pas de flanc (§11) ; ici elle
 est LE LONG de l'axe, donc elle EST la silhouette de flanc.
 
-Trois coques s'y ajoutent, et chacune est un morceau de silhouette, pas un
-detail : les deux OREILLES (des disques, la signature de la souris), la QUEUE
-(une arche qui allonge la lecture), et les deux YEUX (des lentilles a peine
-emergees). Tout est rond, aucun angle vif nulle part (§3).
+Deux coques s'y ajoutent, et chacune est un morceau de silhouette, pas un
+detail : les deux OREILLES (des disques, la signature de la souris) et la QUEUE
+(une arche qui allonge la lecture). Tout est rond, aucun angle vif nulle part
+(§3).
+
+⛔ LES YEUX NE SONT PLUS MODELISES (2026-08-19). Ils l'ont ete, en lentilles a
+peine emergees, avec une entorse a §2bis assumee en toutes lettres : une
+LENTILLE tangente, disait-on, ne deborde pas comme une sphere. C'etait vrai de
+la lentille et faux de ce qu'on peint autour — c'est SA COQUE D'ENCRE qui
+percait la silhouette du crane de profil, 0,036 dans toutes les directions
+contre 0,004 de debord reel.
+
+Ils sont donc DESSINES par `shaders/cel_creature_face.gdshader`, dans un espace
+facial projete, avec leurs reglages dans `FACES` de cel_prop.gd. La matiere
+`oeil` n'ayant plus aucune face, la souris tombe de 3 surfaces a 2 — et le
+contour etant un `next_pass` PAR SURFACE, de 6 draw calls a 4.
+
+⚠️ LE MUSEAU, LUI, NE BOUGE PAS. Son bout rose est une ZONE DE MATIERE sur le
+maillage du corps (le seuil `NOSE_T`), pas une coque : c'est deja de la
+peinture et non de la geometrie, et §2bis n'a rien a y reprendre.
 
 ⚠️ LA TETE EST PLUS HAUTE QUE LA CROUPE, ET CE N'EST PAS DE L'ANATOMIE.
 Une vraie souris porte la tete bas. Sous la plongee a 45°, c'est exactement ce
@@ -221,34 +237,6 @@ EAR_AXIS = (0.62, 0.34, 0.71)
 # l'oreille se lit comme un disque rose pose sur la tete, pas comme une oreille.
 EAR_PINK_COS = 0.55
 
-# ─── LES YEUX ─────────────────────────────────────────────────────────────────
-#
-# ⚠️ §2bis DIT "PEINTS, JAMAIS MODELISES", ET C'EST UNE ENTORSE ASSUMEE.
-# La regle vient d'une mesure : des yeux SPHERIQUES debordent de la silhouette
-# vue de cote et deviennent des taches qui enveloppent le crane. Ce que le chat
-# a paye, ce n'est pas la geometrie — c'est le VOLUME.
-#
-# Ici l'oeil est une LENTILLE : 0,030 de demi-epaisseur, enfoncee de facon a
-# n'emerger que de 0,020, soit un quinzieme du rayon du crane. Sa tangente
-# epouse la surface, donc de profil elle ne peut pas depasser. La verification
-# 8 directions de §16 etape 7 est faite pour trancher ca, et elle tranchera.
-#
-# La voie orthodoxe reste ouverte : un shader de visage, comme
-# `cel_face.gdshader`. Elle est ecartee pour l'instant parce que le chat en a eu
-# besoin d'un a cause du SKINNING (`rest_undo`, piege n°5) — une souris n'a pas
-# de squelette, donc rien ne glisse — mais ca reste un shader de plus a ecrire,
-# a regler et a tenir, pour deux points sombres de ~3 px a taille de jeu.
-EYE_R = 0.066
-EYE_H = 0.030
-EYE_OUT = 0.020
-EYE_T = 0.195
-# ⚠️ 66° ET NON 62° : l'angle se compte depuis le DOS, donc l'augmenter fait
-# descendre l'oeil sur le flanc — et c'est l'oeil ELOIGNE qui decide. Voir le
-# piege de la coque d'encre, juste sous `paint()`.
-EYE_SIDE_DEG = 66.0
-EYE_N_U = 10
-EYE_N_V = 3
-
 # ─── LA QUEUE ─────────────────────────────────────────────────────────────────
 #
 # ⛔ DEUX ARCHES VERTICALES ONT ETE RENDUES ET JETEES AVANT CELLE-CI, et la
@@ -307,7 +295,6 @@ TAIL_N_V = 11
 # ─── LES TROIS MATIERES ───────────────────────────────────────────────────────
 PELAGE = "#A89684"
 PEAU = "#E8B8A8"
-OEIL = "#3D2B1A"
 
 # Memes reglages que les uniforms de cel_toon.gdshader : le ton d'ombre de
 # Blender est celui de Godot, et non un second reglage a la main.
@@ -317,7 +304,7 @@ SHADOW_VALUE = 0.65
 
 RAMP_SPLIT = 0.52
 
-MAT_PELAGE, MAT_PEAU, MAT_OEIL = 0, 1, 2
+MAT_PELAGE, MAT_PEAU = 0, 1
 
 
 # ------------------------------------------------------------------- couleurs
@@ -565,50 +552,6 @@ def build_ear(b: Builder, side: float) -> None:
 			b.face((lower[i], lower[nxt], upper[nxt], upper[i]), mat(cos_mid))
 
 
-def build_eye(b: Builder, side: float) -> None:
-	"""Une lentille tangente au crane, emergee de EYE_OUT et pas d'un micron de plus."""
-	a = math.radians(EYE_SIDE_DEG) * side
-	surface = body_point(EYE_T, a)
-	normal = body_normal(EYE_T, a)
-	center = surface - normal * (EYE_H - EYE_OUT)
-
-	u, v, n = frame(normal)
-
-	def point(phi: float, th: float) -> Vector:
-		return (center
-				+ u * (EYE_R * math.sin(phi) * math.cos(th))
-				+ v * (EYE_R * math.sin(phi) * math.sin(th))
-				+ n * (EYE_H * math.cos(phi)))
-
-	back = b.vert(point(math.pi, 0.0), {"shell": "oeil", "cos": -1.0, "side": side})
-	rings = []
-
-	for j in range(1, EYE_N_V + 1):
-		phi = math.pi * j / float(EYE_N_V + 1)
-		ring = []
-
-		for i in range(EYE_N_U):
-			th = math.tau * i / float(EYE_N_U)
-			ring.append(b.vert(point(phi, th), {
-				"shell": "oeil", "cos": math.cos(phi), "side": side,
-			}))
-
-		rings.append(ring)
-
-	front = b.vert(point(0.0, 0.0), {"shell": "oeil", "cos": 1.0, "side": side})
-
-	# Meme raccordement que l'oreille — voir le piege des poles croises la-bas.
-	for i in range(EYE_N_U):
-		nxt = (i + 1) % EYE_N_U
-		b.face((front, rings[0][nxt], rings[0][i]), MAT_OEIL)
-		b.face((back, rings[-1][i], rings[-1][nxt]), MAT_OEIL)
-
-	for lower, upper in zip(rings, rings[1:]):
-		for i in range(EYE_N_U):
-			nxt = (i + 1) % EYE_N_U
-			b.face((lower[i], lower[nxt], upper[nxt], upper[i]), MAT_OEIL)
-
-
 def tail_point(s: float) -> Vector:
 	"""Catmull-Rom sur `TAIL_PATH`, parametre par s dans [0, 1]."""
 	n = len(TAIL_PATH) - 1.0
@@ -692,8 +635,6 @@ def build_mesh():
 	build_body(b)
 	build_ear(b, 1.0)
 	build_ear(b, -1.0)
-	build_eye(b, 1.0)
-	build_eye(b, -1.0)
 	build_tail(b)
 
 	bmesh.ops.recalc_face_normals(b.bm, faces=b.bm.faces)
@@ -788,27 +729,6 @@ def paint(mesh, info):
 			if cos > EAR_PINK_COS:
 				g -= 0.14
 
-		elif shell == "oeil":
-			# ⛔ LE TRAIT LE PLUS FIN DU MODELE, ET C'EST L'INVERSE DE CE QUE LE
-			# PREMIER JET FAISAIT. A R = 0,98 — le plus charge, "parce qu'un oeil
-			# est ce qu'un dessin cerne le plus" — l'oeil ELOIGNE PERCAIT LA
-			# SILHOUETTE DU CRANE de profil : une encoche sombre sur le dessus de
-			# la tete, sur les vues 90 et 270.
-			#
-			# Et ce qui debordait n'etait pas la lentille, c'etait SA COQUE
-			# INVERSEE. La lentille elle-meme depasse de 0,004 de la surface a son
-			# bord ; l'encre, elle, ajoute 0,036 dans TOUTES les directions. C'est
-			# donc §2bis qui avait raison sur le fond ("les yeux debordent de la
-			# silhouette vue de cote") et le diagnostic qui etait a cote : ce n'est
-			# pas le volume de l'oeil qui deborde, c'est ce qu'on peint autour.
-			#
-			# La sortie ne coute rien : UN OEIL N'A PAS BESOIN D'ETRE CERNE, il
-			# EST de l'encre. `#3D2B1A` est exactement la couleur que §4 donne au
-			# contour principal. On garde juste de quoi ne pas retomber sur une
-			# coque d'epaisseur nulle, qui z-fighte avec la surface qu'elle double.
-			r = 0.30
-			g = 0.32
-
 		elif shell == "queue":
 			# Une queue est fine : son trait porte a lui seul la lecture, et le
 			# canal R decide de son epaisseur en jeu. Il monte vers la pointe, la
@@ -816,15 +736,18 @@ def paint(mesh, info):
 			r = 0.88 + 0.10 * data["s"]
 			g = 0.48 - 0.10 * max(0.0, -n.z)
 
-		# Le PLANCHER du canal R est de 0,68 partout, sauf sur l'oeil. La regle
-		# generale vient du pixel : sous ~0,68 de canal, le trait tombe sous 1 px
-		# au cadrage de jeu et ne se lit plus comme un trait mais comme de la
-		# saleté (la lecon d'antialiasing du visage du chat). L'oeil est
-		# l'exception voulue — il n'a pas de trait a lire, il EST le trait — et
-		# sans cette ligne le plancher ecrasait silencieusement son 0,30, ce qui
-		# est exactement le genre de bug qu'un rapport de statistiques rassurant
-		# ("R 0,68-1,00") laisse passer.
-		r = min(1.0, max(0.28 if shell == "oeil" else 0.68, r))
+		# Le PLANCHER du canal R est de 0,68 PARTOUT, et il n'a plus d'exception
+		# depuis que les yeux sont peints. La regle vient du pixel : sous ~0,68 de
+		# canal, le trait tombe sous 1 px au cadrage de jeu et ne se lit plus
+		# comme un trait mais comme de la saleté (la lecon d'antialiasing du
+		# visage du chat).
+		#
+		# ⚠️ L'EXCEPTION QUI VIVAIT ICI A DISPARU AVEC LA COQUE DE L'OEIL, et
+		# c'est le meilleur signe que le passage en peinture etait le bon geste :
+		# elle n'existait que pour empecher une coque d'encre de percer la
+		# silhouette du crane. Une forme dessinee n'a pas de coque, donc rien a
+		# percer, donc rien a border.
+		r = min(1.0, max(0.68, r))
 		g = min(0.58, max(0.30, g))
 
 		attr.data[i].color = (r, g, b, 1.0)
@@ -961,7 +884,7 @@ def main():
 
 	mesh, info = build_mesh()
 
-	for name, code in (("pelage", PELAGE), ("peau", PEAU), ("oeil", OEIL)):
+	for name, code in (("pelage", PELAGE), ("peau", PEAU)):
 		mesh.materials.append(toon_material(name, code))
 
 	stats = paint(mesh, info)
@@ -992,10 +915,10 @@ def main():
 	print("  hauteur %.3f   longueur %.3f   largeur %.3f"
 			% (hi.z - lo.z, hi.y - lo.y, hi.x - lo.x))
 	print("  sommets par coque : %s" % shells)
-	print("  faces par matiere : pelage %d, peau %d, oeil %d"
-			% (counts.get(0, 0), counts.get(1, 0), counts.get(2, 0)))
-	print("  valeurs sRGB — pelage %.2f, peau %.2f, oeil %.2f  (parquet 0,91-0,96)"
-			% (hex_value(PELAGE), hex_value(PEAU), hex_value(OEIL)))
+	print("  faces par matiere : pelage %d, peau %d  (2 surfaces = 4 draw calls,"
+			" contour compris)" % (counts.get(0, 0), counts.get(1, 0)))
+	print("  valeurs sRGB — pelage %.2f, peau %.2f  (parquet 0,91-0,96)"
+			% (hex_value(PELAGE), hex_value(PEAU)))
 	print("  Attr_Style  R %.2f-%.2f   G %.2f-%.2f   B %.2f-%.2f  (%d sommets d'accent)"
 			% (stats["r"][0], stats["r"][1], stats["g"][0], stats["g"][1],
 			   stats["b"][0], stats["b"][1], stats["accent"]))

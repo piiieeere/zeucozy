@@ -6,10 +6,20 @@ extends CharacterBody3D
 ## DEUX APPARENCES POSSIBLES, et une seule ligne les separe :
 ##
 ##   * `model_path` vide  -> une PRIMITIVE cel-shadee (`body_color` +
-##     `outline_thickness`). C'est ce qui reste de la brute, en attendant que
-##     l'aspirateur, le chien et le concombre soient modelises ("Pipeline 3D") ;
+##     `outline_thickness`) ;
 ##   * `model_path` rempli -> un .glb habille par `CelProp`, comme le canape et
-##     les ramassables. C'est le cas du chaser depuis la souris.
+##     les ramassables.
+##
+## ⚠️ PLUS AUCUN ENNEMI N'EMPRUNTE LA PREMIERE BRANCHE depuis le 2026-08-19 : le
+## chaser est la souris, la brute est le chien. C'etait le dernier placeholder de
+## primitive du gameplay.
+##
+## Elle est gardee quand meme, et ce n'est pas de la sentimentalite : elle vaut
+## trois lignes, et il reste trois ennemis a modeliser (aspirateur, concombre, le
+## boss veterinaire). Un ennemi neuf doit pouvoir exister et s'equilibrer avant
+## d'exister en .blend — c'est exactement ce qu'ont fait le chaser et la brute
+## pendant tout le prototype. Ne PAS la supprimer pour "nettoyer" : ce qu'on
+## supprimerait, c'est la possibilite de commencer par le gameplay.
 
 signal defeated(world_position: Vector3, xp_value: int)
 

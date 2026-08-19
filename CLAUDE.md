@@ -322,6 +322,9 @@ powershell -ExecutionPolicy Bypass -File tools/fetch_fonts.ps1
 # Reconstruire puis exporter la BOULE DE POILS (le projectile) — meme moule
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --factory-startup   --python tools/build_hairball.py -- --save
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background   "C:/Users/tibo/Documents/zeucozy_3d/projectile_boule_poils_v1.blend"   --python tools/export_prop.py -- --mesh MSH_boule_poils --out projectile_boule_poils.glb
+# Reconstruire puis exporter le CHIEN (la BRUTE) — meme moule
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --factory-startup   --python tools/build_dog.py -- --save
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background   "C:/Users/tibo/Documents/zeucozy_3d/enemy_chien_v1.blend"   --python tools/export_prop.py -- --mesh MSH_chien --out enemy_chien.glb
 # Reconstruire puis exporter la SOURIS (le 1er ennemi modelise) — meme moule
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --factory-startup   --python tools/build_mouse.py -- --save
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background   "C:/Users/tibo/Documents/zeucozy_3d/enemy_souris_v1.blend"   --python tools/export_prop.py -- --mesh MSH_souris --out enemy_souris.glb
@@ -330,6 +333,7 @@ powershell -ExecutionPolicy Bypass -File tools/fetch_fonts.ps1
 #   --model=res://assets/models/xp_croquette.glb   n'importe quel .glb sans squelette
 #   --model=res://assets/models/projectile_boule_poils.glb
 #   --model=res://assets/models/enemy_souris.glb
+#   --model=res://assets/models/enemy_chien.glb
 #   (par defaut le canape ; le cadrage se deduit de la boite englobante)
 # Banc de PAUSE — ce qui se fige, ce qui vit, ce qui repart (18 verdicts)
 "C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --headless --path . \
@@ -429,7 +433,7 @@ zeucozy/
 │   ├── xp_orb.tscn
 │   ├── enemies/
 │   │   ├── chaser.tscn   # 🐭 Ennemi rapide (spawn dès le début) — LA SOURIS
-│   │   └── brute.tscn    # Ennemi costaud (spawn après 22s) — sphère placeholder
+│   │   └── brute.tscn    # Ennemi costaud (spawn après 22s) — LE CHIEN
 │   └── tests/
 │       ├── cel_test.tscn  # Banc de test du cel-shading du chat, isolé du gameplay
 │       ├── prop_test.tscn # Banc de test du mobilier
@@ -496,6 +500,7 @@ zeucozy/
                      # purr_halo (le ronron — 2 arches menthe, le seul FX SANS PORTÉE)
                      # dust_bunny (le mouton de poussière — touffe cernée posée au sol)
 │                     # cel_paws (bouts de pattes + les 3 griffes dessinées)
+│                     # cel_creature_face (yeux + truffe des ENNEMIS, peints)
 │                     # cel_ground (parquet peint), cel_rug (tapis)
 │                     # hit_burst (éclat de collision), impact_frame (flash, en sommeil)
 │                     # claw_slash (la griffure — 3 traits cernés, billboard dirigé)
@@ -510,13 +515,16 @@ zeucozy/
 │   ├── build_couch.py      # Canapé : géométrie ET Attr_Style, dans un .blend neuf
 │   ├── build_kibble.py     # Croquette : trèfle à 3 lobes, 300 tris, même moule
 │   ├── build_hairball.py   # Boule de poils : amas à 6 touffes + 3 mèches, 308 tris
-│   ├── build_mouse.py      # 🐭 Souris : goutte + 2 oreilles + queue, 1 252 tris
+│   ├── build_mouse.py      # 🐭 Souris : goutte + 2 oreilles + queue, 1 132 tris
+│   ├── build_dog.py        # 🐶 Chien (la brute) : goutte + museau + 2 oreilles
+│   │                       #    tombantes + 4 pattes + queue, 1 610 tris
 │   ├── export_prop.py      # Export générique d'un .glb, même réinjection COLOR_0
 │   ├── fetch_fonts.ps1     # Récupère les polices d'UI en sous-ensembles (rejouable)
 │   └── dump_paws.gd        # Relève os porteurs + boîtes de repos — source des PAWS
 └── assets/
     ├── models/       # player_cat.glb, prop_canape.glb, xp_croquette.glb,
-    │                 # projectile_boule_poils.glb, enemy_souris.glb
+    │                 # projectile_boule_poils.glb, enemy_souris.glb,
+    │                 # enemy_chien.glb
     └── fonts/        # Dela Gothic One + Zen Kaku Gothic New, sous-ensembles + OFL
 ```
 
@@ -1805,8 +1813,7 @@ ennemis, **attaque de griffure au corps à corps**, **aura d'haleine puante**, X
 arène large. Toute la logique de gameplay tourne — le passage en 3D ne l'a pas touchée.
 
 **La boule de poils est modélisée et ralentie depuis le 2026-08-19** — voir « La boule de
-poils modélisée » plus bas. Le dernier placeholder de primitive du gameplay disparaît : le
-projectile est un amas de fourrure à 6 touffes, dans la couleur du chat, qui **roule** sur
+poils modélisée » plus bas. Le projectile est un amas de fourrure à 6 touffes, dans la couleur du chat, qui **roule** sur
 son axe de vol à 7 m/s au lieu de 17,5. Le ralentissement n'est pas un effet de bord du
 modèle, c'est sa condition : à l'ancienne vitesse la boule sautait la moitié de sa propre
 longueur d'une frame à l'autre. Il ouvre au passage la place du passif **`projectile_speed`**,
@@ -1910,9 +1917,11 @@ parquet que l'ambre d'avant. Les **canapés sont modélisés** et posés dans l'
 variantes (bleu ciel, vert sauge). **Les croquettes d'XP sont modélisées** depuis le
 2026-08-19 — trèfle à 3 lobes, 300 tris — et **la boule de poils** le même jour : amas à
 6 touffes, 308 tris, dans la fourrure du chat, mèches claires comprises. **La souris** est
-arrivée le 2026-08-19 et remplace la capsule rose du `chaser` : 1 252 tris, taupe chaud,
-oreilles roses et queue. Reste placeholder : **la brute** (sphère lavande) et le petit
-mobilier — tables / plantes / coussins en boîtes pastel.
+arrivée le 2026-08-19 et remplace la capsule rose du `chaser` : 1 132 tris, taupe chaud,
+oreilles roses et queue. **Le chien** est arrivé le même jour et remplace la sphère lavande
+de la `brute` : 1 610 tris, châtaigne, oreilles tombantes et museau clair — c'était **le
+dernier placeholder de primitive du gameplay**. Reste placeholder : le petit mobilier —
+tables / plantes / coussins en boîtes pastel.
 
 **Passe rétro anime — faite le 2026-08-16.** `Attr_Style` peint et câblé, trait à
 épaisseur variable **des deux côtés du pont** (Godot par `cel_outline.gdshader`, Blender par
@@ -2693,7 +2702,7 @@ Deux choses ont bougé ensemble, et l'une ne valait rien sans l'autre :
 
 Le `chaser` — la **capsule rose `#FFADAD`**, l'ennemi rapide qu'on croise depuis la
 première seconde — est désormais `assets/models/enemy_souris.glb` : une **goutte taupe**
-à grandes oreilles roses, **1 252 tris**, 638 sommets, **3 matériaux**.
+à grandes oreilles roses, **1 132 tris**, 574 sommets, **2 matériaux**.
 `tools/build_mouse.py` (le `.blend` est **régénéré**, jamais édité à la main, comme le
 canapé, la croquette et la boule de poils) puis `tools/export_prop.py`, qui n'a **toujours**
 pas eu à bouger.
@@ -2704,7 +2713,8 @@ pas eu à bouger.
 
 | | Avant | Après |
 |---|---|---|
-| Modèle | capsule, r 0,55 · h 1,5 | **goutte à 3 coques**, 1 252 tris |
+| Modèle | capsule, r 0,55 · h 1,5 | **goutte à 2 coques**, 1 132 tris |
+| Yeux | *(inclus dans la capsule)* | **peints en shader** — voir « Le visage peint »|
 | Couleur | `#FFADAD` rose | **`#A89684`** taupe chaud · `#E8B8A8` peau nue · `#3D2B1A` œil |
 | Orientation | *aucune* | face au chat, `turn_speed` 10,0 |
 | Formes de collision | — | **inchangées**, au millimètre |
@@ -2813,6 +2823,12 @@ pas eu à bouger.
 > croquette posée au banc). Elle court à ~0,25 m — assez bas pour se lire à plat, assez
 > haut pour que l'encre passe au-dessus du parquet.
 
+> ⛔ **L'ENTORSE QUI SUIT A ÉTÉ ANNULÉE LE 2026-08-19** — les yeux de la souris sont
+> **peints en shader**, comme ceux du chat, et la coque de lentille a disparu du maillage.
+> Voir « Le visage peint des ennemis » plus bas. Le raisonnement ci-dessous est **gardé
+> entier** parce qu'il porte ce qui a fini par condamner l'entorse : ce qui débordait
+> n'était pas la lentille, c'était **son encre** — et une forme dessinée n'a pas d'encre.
+>
 > ⛔ **§2bis DIT « LES YEUX SONT PEINTS, JAMAIS MODÉLISÉS » — ENTORSE ASSUMÉE, ET LE
 > DIAGNOSTIC D'ORIGINE ÉTAIT À CÔTÉ.** L'œil est ici une **lentille** de 0,030 de
 > demi-épaisseur, enfoncée pour n'émerger que de 0,020. Au premier rendu, l'œil **éloigné
@@ -2857,6 +2873,202 @@ pas eu à bouger.
   --write-movie <dossier>/g.png --fixed-fps 30 --quit-after 560 -- --aim=135 --walk
 ```
 
+### Le chien — la brute cesse d'être une sphère (2026-08-19)
+
+La **brute** — la sphère lavande `#BDB2FF` de `brute.tscn`, l'ennemi costaud qui apparaît
+à 22 s — est désormais `assets/models/enemy_chien.glb` : un **chien trapu** brun châtaigne
+à oreilles tombantes, **1 610 tris**, 823 sommets, **2 matériaux**.
+`tools/build_dog.py` (le `.blend` est **régénéré**, jamais édité à la main, comme le
+canapé, la croquette, la boule de poils et la souris) puis `tools/export_prop.py`, qui n'a
+**toujours** pas eu à bouger. C'était le **dernier placeholder de primitive du gameplay**.
+
+> ⚠️ **DEUX ENTRÉES DE ROADMAP EN UNE, ET C'EST UNE DÉCISION.** La Todo listait séparément
+> « Chien » (ennemi thématique du pitch, Game Manifest §2) et « la brute (sphère lavande) ».
+> Les fusionner évite un ennemi de plus à équilibrer : la brute a déjà ses chiffres — 30 de
+> dégât au contact, 7 PV, 2,6 m/s — et un chien lent et costaud est exactement ce qu'ils
+> racontent. **Le chien n'est donc pas un ennemi de plus**, c'est la brute qui cesse d'être
+> une sphère. Restent l'aspirateur et le concombre.
+
+| | Avant | Après |
+|---|---|---|
+| Modèle | sphère `radial_segments = 64` | **4 coques + balayage**, 1 610 tris |
+| Coût | **4 224 tris** | **1 610** — soit **2,6× moins** |
+| Couleur | `#BDB2FF` lavande | **`#8A5A38`** châtaigne · `#C9A87C` marques |
+| Ombre de contact | r 1,05 (taille de la sphère) | **r 0,60** |
+| Formes de collision | — | **inchangées**, au millimètre |
+
+- ✅ **IL COÛTE 2,6× MOINS CHER QUE LE PLACEHOLDER QU'IL REMPLACE**, et c'est le même
+  constat contre-intuitif que la souris : les primitives de Godot sortent à
+  `radial_segments = 64`, et personne ne les avait jamais comptées. La sphère de la brute
+  était **le 2ᵉ modèle le plus lourd du jeu après le chat**. Le budget serré de §11
+  (« ennemis : à réduire nettement ») est donc tenu deux fois — 12 % du chat, et 38 % de
+  ce qu'il remplace.
+- **Le corps est un balayage, comme la souris — mais le PROFIL est l'inverse.** Elle est
+  une goutte lourde derrière ; il est lourd **devant** (poitrail à 0,392 contre une hanche
+  à 0,345), pincé à la taille, avec un creux de nuque à **31 %**. Ce n'est pas de
+  l'anatomie décorative : c'est ce qui sépare deux bêtes brunes de la même famille de forme
+  à 40 px de tête.
+- **Le museau est une coque à part, pas un effilement du corps.** Un chien a un **stop** —
+  le décrochement entre le front et le chanfrein — qu'un balayage continu ne sait pas
+  produire : il rendrait un cône, donc un museau de rongeur. Le trait parasite à
+  l'intersection des deux coques (piège n°2) est ici **voulu** : c'est la ligne qu'un
+  dessin met à cet endroit.
+- ⚠️ **LES OREILLES TOMBENT, ET LEUR PLAN TOURNE LE LONG DE LEUR LONGUEUR.** C'est la
+  contrainte des oreilles de la souris prise par l'autre bout : *un volet vertical se voit
+  par la tranche sous une caméra qui plonge*. La parade n'est pas de l'incliner en bloc —
+  il cesserait de tomber — mais de faire **tourner son plan** : à la racine la face regarde
+  le **ciel** (l'oreille est repliée à plat sur le crâne, ce que fait une vraie oreille
+  tombante), au bout elle regarde **dehors**.
+- ⚠️ **QUATRE PATTES, PARCE QUE LE VENTRE EST HAUT.** La souris s'en passe, son ventre
+  frôle le sol ; celui du chien est à **0,52 m**. Les pieds s'arrêtent à **0,045 m** et pas
+  à zéro : posés à plat, ils se feraient **trancher leur encre** par le plan du parquet —
+  la coque inversée descend sous le maillage, le sol se peint par-dessus, et il reste un
+  liseré parchemin (mesuré sur la croquette posée au banc).
+- ⚠️ **C'EST LE MODÈLE QU'ON A PLIÉ À LA HURTBOX, PAS L'INVERSE** — la règle héritée de la
+  souris. `brute.tscn` porte un cylindre r 0,90 / h 1,60 et deux sphères de rayon 1,00 :
+  le museau→croupe est calé à **2,00 m**, soit exactement le diamètre de la hurtbox.
+  Baisser la hurtbox aurait rendu la brute plus dure à toucher, donc **changé l'équilibrage
+  sous couvert de remplacer un placeholder**.
+
+> ⚠️ **LE CHÂTAIGNE EST BORNÉ DES TROIS CÔTÉS, ET LA TROISIÈME BORNE EST NEUVE.** Les deux
+> premières sont celles de la souris — le parquet par le haut (sous 0,10 d'écart un objet
+> ne se détache pas du sol), le chat par le bas (§15 : le joueur trie à la valeur avant la
+> forme). La troisième est **la souris elle-même** : les deux ennemis sont à l'écran en
+> même temps et **l'un tape le double de l'autre**, donc ils doivent se distinguer *avant*
+> d'être identifiés. `#8A5A38` tombe à 0,54 contre 0,66 — 0,12 d'écart seulement, mais
+> **59 % de saturation contre 21 %** (un brun franc contre un taupe délavé) et le double du
+> gabarit. ✅ Vérifié en jeu : trois chiens et trois souris dans le même cadre se trient
+> instantanément.
+
+> ⚠️ **LE TRAIT RESTE `CelStyle.INK`, ET C'EST VÉRIFIÉ PLUTÔT QUE SUPPOSÉ.** L'ombre du
+> châtaigne tombe à 0,35, l'encre est à 0,24 : elle reste dessous, donc **pas de `INKS`**
+> pour cette variante. La marge (0,11) est **la plus mince du projet** — le canapé a 0,30,
+> la souris 0,19 — et c'est exactement là que le chat avait basculé du mauvais côté (pelage
+> 0,29, ombre 0,19, *sous* l'encre) et avait dû passer à `INK_SOMBRE`. `build_dog.py`
+> imprime les trois valeurs à chaque construction pour qu'une retouche de couleur ne
+> franchisse pas la borne en silence.
+
+> 🔍 **TROIS DÉFAUTS, TOUS TROUVÉS EN CAPTURE, AUCUN EN LISANT LE CODE :**
+> - **La bête sortait en PAIN.** Le ventre tombait à 0,40 m : les quatre membres
+>   existaient, mais il n'en émergeait que **0,12** sous la masse du corps, et de profil ça
+>   se lisait comme un pain posé au sol. ⚠️ **Allonger les pattes n'y pouvait rien — c'est
+>   le VENTRE qui les mangeait.** Remonté de 0,10, il en émerge 0,48, soit un tiers de la
+>   hauteur.
+> - **La queue faisait une CINQUIÈME PATTE.** À 0,77 m de haut elle finissait dans la même
+>   bande d'altitude que les membres, à la même distance de l'axe, avec un **bout clair**
+>   au bout : la signature exacte d'une patte et de son pied. De dos, la bête en avait cinq.
+>   Deux corrections ensemble, **aucune ne suffisait seule** — 0,15 plus haut, et écartée
+>   plus tôt sur le côté.
+> - **Le museau sortait en BOUCHON DE LIÈGE.** Il ne perdait que 17 % de rayon sur sa
+>   partie émergée : un tube, bord droit et bout plat. Il en perd désormais **44 %** sur la
+>   même longueur, et sa calotte se ferme dès 0,80 au lieu de 0,86.
+
+> ⚠️ **L'OMBRE DE CONTACT ÉTAIT RESTÉE DIMENSIONNÉE POUR LA SPHÈRE** (r 1,05 pour un corps
+> de 0,84 de large) : elle débordait de **0,63 m de chaque côté** et se lisait comme un halo
+> autour de la bête, pas comme un contact. Passée à **0,60**, ce qui reprend le rapport
+> ombre/largeur de la souris (1,41) — le seul réglage de référence disponible.
+> 🅿️ Elle reste **ronde** alors que le chien est deux fois plus long que large : `Shadow`
+> est enfant du `CharacterBody3D`, **qui ne tourne pas** (seul `$Body` pivote), donc une
+> ellipse resterait alignée au monde pendant que la bête tourne. La déplacer sous `$Body`
+> la ferait tourner — à faire le jour où une créature vraiment allongée arrivera.
+
+**Juger le chien** — au banc pour la silhouette, en jeu pour la taille :
+
+```bash
+# Le tour 8 directions + le rapport de taille au chat (§16 etape 7)
+"C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64.exe" --path . \
+  res://scenes/tests/prop_test.tscn -- --capture --model=res://assets/models/enemy_chien.glb
+# En jeu, au milieu d'une meute — ⚠️ --brutes-now, sinon il faut ENREGISTRER 22 s
+#    (660 frames) avant que la premiere brute n'apparaisse
+"C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --path . \
+  --write-movie <dossier>/g.png --fixed-fps 30 --quit-after 400 -- --aim=135 --walk \
+  --brutes-now
+```
+
+> ⚠️ **`--brutes-now` N'EST PAS UN CONFORT**, c'est le pendant de `--autofire` et de
+> `--walk` par le troisième bout. Dans un `--write-movie`, la seule façon de voir une brute
+> était d'enregistrer **22 secondes** — 660 frames à 30 fps — avant la première apparition :
+> juger le chien coûtait une capture de 1 000 frames dont les deux tiers ne le montrent pas,
+> ce qui revient en pratique à ne pas le juger.
+>
+> Il agit sur le **délai**, jamais sur le mélange : passé à zéro, `_pick_enemy_scene` rend
+> toujours ses 35 % de brutes et la courbe de difficulté reste celle du jeu. Un drapeau qui
+> forcerait 100 % de brutes montrerait une vague qui n'existe pas.
+
+### Le visage peint des ennemis — l'entorse à §2bis annulée (2026-08-19)
+
+Les yeux du chien **et de la souris** étaient des **lentilles modélisées**, chacune assumée
+en toutes lettres comme une entorse à §2bis (*« les yeux sont peints, jamais modélisés »*).
+Ils sont désormais **dessinés** par `shaders/cel_creature_face.gdshader`, dans un espace
+facial projeté — le mécanisme du chat, repris à l'identique. La truffe du chien a suivi.
+
+> ⛔ **DEUX ENTORSES DE SUITE, CE N'EST PLUS UNE EXCEPTION, C'EST UNE DÉRIVE.** Et la
+> justification était fausse des deux fois : *une lentille tangente, disait-on, ne déborde
+> pas comme une sphère*. C'est vrai de la lentille (0,004 de débord réel) et faux de ce
+> qu'on peint autour — **c'est SA COQUE D'ENCRE qui perçait la silhouette du crâne**,
+> 0,036 dans toutes les directions. §2bis avait raison sur le fond ; c'est le diagnostic
+> qui était à côté.
+
+| | Chien | Souris |
+|---|---|---|
+| Triangles | 1 826 → **1 610** | 1 252 → **1 132** |
+| Surfaces | 3 → **2** | 3 → **2** |
+| Draw calls *(contour compris)* | 6 → **4** | 6 → **4** |
+| Matière disparue | `truffe` | `oeil` |
+
+- ⚠️ **LE GAIN DE PERF N'EST PAS CELUI QU'ON CROIT.** Les triangles ne pèsent que 12 % et
+  9 %, et un shader de visage en reprend une part côté fragment. Le vrai gain est que la
+  matière sombre ne servait **qu'**à ces coques : la retirer fait tomber le modèle d'une
+  surface — et comme le contour est un `next_pass` **par surface**, c'est **6 draw calls
+  par bête qui deviennent 4**. Sur un ennemi qui arrive par vagues de cinq, ça pèse plus
+  que 216 triangles. **Ne pas vendre le compte de sommets en premier.**
+- ⚠️ **C'EST BEAUCOUP PLUS SIMPLE SUR UN ENNEMI QUE SUR LE CHAT.** `cel_face.gdshader` est
+  lourd surtout à cause de `rest_undo` — Godot applique le skinning **avant** `vertex()`
+  (piège n°5), donc tout masque peint glisse dès qu'un os bouge. **Une créature n'a pas de
+  squelette** : `VERTEX` en espace objet *est* la position de repos, et toute la partie qui
+  a coûté le plus cher à déboguer sur le chat ne s'applique tout simplement pas.
+- ⛔ **AUCUNE EXPRESSION, ET C'EST UNE DÉCISION DE PORTÉE.** Pas d'iris, pas de pupille,
+  pas de reflet, pas de bouche : un œil est **une ellipse d'encre**, exactement ce que la
+  lentille rendait. Le visage qui **joue** (§6.3, §17 — clignements, expressions) reste
+  réservé **au chat**, et aux boss le jour où il y en aura. Un ennemi qu'on croise par cinq
+  et dont l'œil pèse ~4 px n'a rien à exprimer.
+- ⚠️ **L'AVANT EST −Z, CONTRAIREMENT AU CHAT.** `cel_face` note que *« l'avant du chat est
+  +Z après conversion Y-up du glTF »*, d'où le `yaw_offset_deg = 180` de `cel_model`. Les
+  créatures sont construites museau vers **+Y** dans Blender, et la conversion envoie
+  Blender +Y sur glTF **−Z** : leur avant est **déjà** celui de Godot, aucun offset de
+  lacet nulle part.
+- **Les réglages vivent dans `CelProp.FACES`**, une entrée par variante — l'ellipsoïde de
+  projection, le cône du visage, la bascule, et la position des formes. Le shader remplace
+  celui de la surface (`mat.shader = FACE_SHADER`) au lieu de s'y ajouter, exactement comme
+  `cel_model` le fait pour `visage` et `pattes`. ⚠️ **`base_color` doit être reposé après
+  la bascule** : un changement de shader ne reporte pas les valeurs déjà saisies.
+
+> ⚠️ **CE QUE ÇA COÛTE, ET IL FAUT LE SAVOIR : le liseré d'œil de profil du chat.** Une
+> lentille modélisée est correcte sous tous les azimuts **par construction** ; un œil peint
+> dans un espace **projeté** se déforme au bord du cône facial — c'est le défaut n°4 des
+> priorités, toujours ouvert sur le chat. On échange donc un problème *résolu* contre un
+> problème *connu et non résolu*. ✅ **Le pari a tenu sur les deux ennemis** : tour
+> 8 directions refait, aucun liseré, rien qui perce la silhouette. Sur le chien, les
+> oreilles tombantes couvrent la joue exactement là où le liseré sort chez le chat.
+
+> ⚠️ **LE NEZ DU CHAT NE SE PORTE PAS SUR UN CHIEN.** Le premier jet reprenait `sd_nose()`
+> de `cel_core` — un **triangle isocèle pointe en bas**, juste sur un petit museau de chat
+> et illisible sur un gros chanfrein : la pointe se lisait comme une **entaille**, et de
+> face comme une gueule ouverte. Une truffe de chien est un **bouton large et rond**, ce
+> qu'était d'ailleurs la coque qu'on remplace. **Le dessin doit rendre ce que la géométrie
+> rendait, pas autre chose.**
+
+> ⚠️ **LE MUSEAU DE LA SOURIS N'A PAS BOUGÉ, ET CE N'EST PAS UN OUBLI.** Son bout rose est
+> une **zone de matière** sur le maillage du corps (le seuil `NOSE_T`), pas une coque :
+> c'est déjà de la peinture et non de la géométrie, et §2bis n'a rien à y reprendre. La
+> règle porte sur ce qui est **modélisé**, pas sur ce qui est sombre.
+
+> 🅿️ **Le plancher du canal R n'a plus d'exception, dans les deux fichiers de construction.**
+> Il valait 0,28 sur les coques d'œil et de truffe, contre 0,68 partout ailleurs — une
+> exception qui existait **uniquement** pour empêcher une coque d'encre de percer la
+> silhouette du crâne. Une forme dessinée n'a pas de coque, donc rien à percer, donc rien à
+> border. C'est le meilleur signe que le passage en peinture était le bon geste.
+
 ### Le rai de soleil au sol — retiré le 2026-08-17
 
 Le parquet et les tapis portaient une **flaque de lumière peinte** : un champ anisotrope
@@ -2897,6 +3109,19 @@ l'inverse. La passe a sorti au passage que **`enemy.gd` ne tournait jamais** : d
 primitives de révolution ont la même silhouette sous tous les caps, donc personne ne
 pouvait s'en apercevoir.
 
+**Le chien est dans le jeu depuis le 2026-08-19** — voir « Le chien » plus bas. La sphère
+lavande de la `brute` cède la place à un chien trapu à oreilles tombantes, 1 610 tris.
+C'était le **dernier placeholder de primitive du gameplay**, et il **coûte 2,6× moins cher
+que la sphère qu'il remplace** — les primitives de Godot sortent à `radial_segments = 64`.
+Il ferme **deux entrées de roadmap d'un coup** : « Chien » (l'ennemi thématique) et « la
+brute ». Aucune forme de collision n'a bougé, comme pour la souris.
+
+**Et les yeux des deux ennemis sont peints depuis le même jour** — voir « Le visage peint
+des ennemis ». La souris puis le chien avaient chacun pris la même entorse à §2bis avec la
+même justification, et elle était fausse les deux fois : ce qui débordait de la silhouette
+n'était pas la lentille, **c'était son encre**. Les deux modèles perdent leur matière
+sombre, donc une surface, donc **2 draw calls sur 6**.
+
 **Prochaines priorités :**
 0. 🅿️ **Le squash du `hit`** — l'impact frame est débranchée, mais §7 demande aussi un
    squash/stretch franc sur le squelette quand le chat encaisse. C'est du travail
@@ -2909,8 +3134,15 @@ pouvait s'en apercevoir.
    blocage franc. Les deux touchent le déplacement du joueur, celui des ennemis et la
    caméra (un chat sur un meuble est plus haut que tout le reste) : à spécifier dans le
    Game Manifest avant d'être codés.
-2. Modéliser l'aspirateur, le chien et le concombre — budget géométrie **serré** (§11) :
-   ils se multiplient à l'écran et la coque inversée double le compte.
+2. Modéliser **l'aspirateur** et **le concombre** — budget géométrie **serré** (§11) :
+   ils se multiplient à l'écran et la coque inversée double le compte. ✅ Le chien est
+   fait (2026-08-19), et il **allège** la scène au lieu de la charger : 1 610 tris contre
+   4 224 pour la sphère qu'il remplace. ⚠️ Ils s'ajouteront aux deux ennemis existants au
+   lieu d'en remplacer un — il n'y a plus de placeholder à reprendre, donc il faudra leur
+   **écrire des chiffres**, ce que le chien s'est épargné en héritant de ceux de la brute.
+   ⚠️ Et la 4ᵉ valeur de pelage sera **la plus dure à placer** : le parquet est à 0,93,
+   la souris à 0,66, le chien à 0,54, le chat à 0,29 — les intervalles libres se
+   referment.
 3. Les meubles restants — table basse, plante, coussin — encore en boîtes pastel.
    `tools/build_couch.py` et `tools/export_prop.py` donnent le moule.
 4. 🅿️ **Liseré d'œil de profil — reporté**, yeux et cadrage conviennent en l'état. C'est

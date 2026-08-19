@@ -24,6 +24,11 @@ extends RefCounted
 
 const CelStyle := preload("res://scripts/systems/cel_style.gd")
 
+## Le visage peint des creatures — voir `FACES` plus bas. Pendant exact de
+## `cel_model.FACE_SHADER` pour le chat, en moins de la moitie du fichier : une
+## creature n'a pas de squelette, donc pas de `rest_undo`, et pas d'expression.
+const FACE_SHADER := preload("res://shaders/cel_creature_face.gdshader")
+
 ## Les deux FAMILLES de .glb sans squelette. Le partage n'est pas un gout :
 ## "Visual Art Direction" §2ter.A ne range pas un ramassable avec le mobilier.
 ## Un objet qu'on RAMASSE est manipulable — il garde son trait plein, comme les
@@ -235,6 +240,42 @@ const PALETTES := {
 		"peau": Color("#E8B8A8"),
 		"oeil": Color("#3D2B1A"),
 	},
+	# Le CHIEN — la brute, le dernier placeholder de primitive du gameplay. Trois
+	# matieres, dont deux sont des ZONES peintes sur la meme bete : les marques
+	# claires (museau, bouts de pattes, bout de queue) et le sombre (truffe +
+	# yeux).
+	#
+	# Le chataigne est borne des TROIS cotes, et aucune borne n'est un gout :
+	#
+	#   * au-dessus de ~0,85 il rejoint le parquet (0,91 a 0,96) et l'ennemi
+	#     cesse de se detacher du sol — le mur du projectile jaune pale ;
+	#   * en dessous de ~0,40 il rejoint le pelage du chat (0,29), et dans un
+	#     survivor le joueur trie a la VALEUR avant de trier a la forme (§15) ;
+	#   * ⚠️ ET AU MILIEU, LA SOURIS (0,66) — la borne neuve, qui n'existait pas
+	#     quand elle etait seule. Les deux ennemis sont a l'ecran en meme temps et
+	#     l'un tape le double de l'autre. `#8A5A38` tombe a 0,54 : 0,12 d'ecart de
+	#     valeur, mais surtout 59 % de saturation contre 21 % (un brun franc
+	#     contre un taupe delave) et le double du gabarit.
+	#
+	# Les MARQUES sont le "beige" de "brun/beige naturel" (§3). A 0,79 elles
+	# passent 0,13 sous le parquet — donc elles restent lisibles LA OU ELLES
+	# TOUCHENT LA SILHOUETTE, ce que le rose de la souris ne pouvait pas (0,91
+	# contre 0,93, la queue disparaissait). Et 0,25 au-dessus du pelage : franches
+	# sans couper l'objet en deux, la boule de poils ayant mesure qu'a 0,68
+	# d'ecart interne la trace devient le sujet.
+	#
+	# ⚠️ LE TRAIT RESTE `CelStyle.INK`, ET C'EST VERIFIE, PAS SUPPOSE. L'ombre du
+	# chataigne tombe a 0,35, l'encre est a 0,24 : elle reste dessous, donc pas
+	# de `INKS` pour cette variante. La marge (0,11) est la plus mince du projet —
+	# c'est exactement la ou le chat avait bascule du mauvais cote et avait du
+	# passer a `INK_SOMBRE`. `tools/build_dog.py` imprime les trois valeurs a
+	# chaque construction, pour qu'une retouche de couleur ne le fasse pas
+	# silencieusement.
+	"chien": {
+		"pelage": Color("#8A5A38"),
+		"marques": Color("#C9A87C"),
+		"truffe": Color("#3D2B1A"),
+	},
 }
 
 const FALLBACK_COLOR := Color("#A0C8D8")
@@ -252,6 +293,87 @@ const FALLBACK_COLOR := Color("#A0C8D8")
 const INK_SOMBRE := Color("#1A120C")
 const INKS := {
 	"boule_poils": INK_SOMBRE,
+}
+
+## ⭐ LE VISAGE PEINT DES CREATURES — yeux et truffe, dessines par
+## `cel_creature_face.gdshader` au lieu d'etre modelises (2026-08-19).
+##
+## §2bis dit "les yeux sont PEINTS, jamais modelises". La souris puis le chien
+## l'ont enfreint chacun leur tour, chaque fois en assumant l'entorse : une
+## LENTILLE tangente, disait-on, ne deborde pas comme une sphere. C'etait vrai
+## de la lentille et faux de ce qu'on peint autour — sur la souris, c'est SA
+## COQUE D'ENCRE qui percait la silhouette du crane, 0,036 dans toutes les
+## directions contre 0,004 de debord reel. Deux entorses de suite, ce n'est plus
+## une exception, c'est une derive.
+##
+## CE QUE LE PASSAGE RAPPORTE, mesure et non suppose :
+##
+##   * la matiere sombre (`truffe` / `oeil`) ne sert QU'a ces coques. Les
+##     retirer fait tomber le chien de 3 surfaces a 2 et la souris de 3 a 2 —
+##     et comme le contour est un `next_pass` PAR SURFACE, c'est 6 draw calls
+##     par bete qui deviennent 4. Sur un ennemi qui arrive par vagues de cinq,
+##     ca pese plus que les triangles ;
+##   * 216 tris sur 1 826 pour le chien (12 %), 120 sur 1 252 pour la souris.
+##     Reel, mais c'est le plus petit des trois gains — et un shader de visage
+##     en reprend une part cote fragment. Ne pas vendre celui-la en premier.
+##
+## ⚠️ ET CE QUE CA COUTE : le liseré d'oeil de profil du chat. Une lentille
+## modelisee est correcte sous tous les azimuts par construction ; un oeil peint
+## dans un espace PROJETE se deforme au bord du cone facial, et c'est le defaut
+## n°4 des priorites, toujours ouvert sur le chat. Le pari tenu ici est que les
+## oreilles TOMBANTES du chien couvrent la joue exactement la ou le liseré sort
+## — a verifier en capture, jamais a supposer.
+##
+## Les valeurs sont en ESPACE OBJET du .glb, donc apres la conversion Y-up et
+## apres le `SCALE` de la souris. `surfaces` liste les materiaux qui recoivent
+## le shader : le visage traverse plusieurs coques, exactement comme celui du
+## chat qui sert `visage` ET `museau_peint`.
+const FACES := {
+	# Le chien. Les yeux vivent sur le crane (`pelage`), la truffe sur la coque
+	# du museau (`marques`) — d'ou les deux surfaces.
+	#
+	# ⚠️ SON MUSEAU DEPASSE BIEN PLUS QUE CELUI DU CHAT, et c'est le seul endroit
+	# ou ce portage pouvait casser : une coque qui sort de 0,36 m se projette
+	# loin dans l'espace facial. Verifie en capture — le dessus du chanfrein
+	# tombe vers uv.y −0,43 et les flancs vers −0,58, quand l'oeil vit a +0,20.
+	# Les deux formes ne se croisent pas.
+	"chien": {
+		"surfaces": ["pelage", "marques"],
+		"center": Vector3(0.0, 1.00, -0.45),
+		"radius": Vector3(0.42, 0.40, 0.42),
+		# Bas, parce que le museau doit rester DANS le cone : c'est lui le point
+		# le plus excentre du visage, pas l'oeil.
+		"front_min": 0.15,
+		"pitch_deg": 26.0,
+		"eye_pos": Vector2(0.40, 0.20),
+		"eye_size": Vector2(0.135, 0.155),
+		# Plus haut sur le chanfrein que le bout du museau : c'est la que vivait
+		# la coque, et c'est le seul endroit ou une plongee a 45° la voit.
+		"nose_pos": Vector2(0.0, -0.345),
+		# Plus large que haute — une truffe de chien, pas un nez de chat.
+		"nose_size": Vector2(0.115, 0.082),
+	},
+	# La souris. UN SEUL materiau touche, et PAS de truffe.
+	#
+	# ⚠️ Son bout de museau est deja une ZONE DE MATIERE rose sur le maillage du
+	# corps (le seuil `NOSE_T` de build_mouse.py), pas une coque : c'est donc
+	# deja de la peinture et non de la geometrie, et §2bis n'a rien a y reprendre.
+	# `nose_size` reste a 0 — le shader ne dessine alors aucune truffe.
+	"souris": {
+		"surfaces": ["pelage"],
+		"center": Vector3(0.0, 0.446, -0.250),
+		"radius": Vector3(0.378, 0.360, 0.380),
+		"front_min": 0.10,
+		"pitch_deg": 26.0,
+		# Bien plus lateral que le chien : une souris est une PROIE, elle a les
+		# yeux sur les cotes. C'etait deja l'ecart entre leurs deux lentilles
+		# (66° contre 55° depuis le dos), et il survit au passage en peinture —
+		# a ceci pres qu'il devient un reglage, plus une contrainte de surface.
+		"eye_pos": Vector2(0.60, -0.02),
+		"eye_size": Vector2(0.105, 0.120),
+		"nose_pos": Vector2(0.0, -0.40),
+		"nose_size": Vector2(0.0, 0.0),
+	},
 }
 
 # (chemin du modele + variante + famille + epaisseur) -> Array[ShaderMaterial],
@@ -395,6 +517,15 @@ static func _materials(
 			style["thickness"] * outline_scale,
 			INKS.get(variant, CelStyle.INK),
 		)
+		# Le visage peint remplace le shader de base, il ne s'y ajoute pas —
+		# meme geste que `cel_model` sur les surfaces `visage` et `pattes` du
+		# chat, et pour la meme raison : cel_creature_face EST cel_toon plus les
+		# formes, donc tous les uniforms poses avant et apres restent valides.
+		var face: Dictionary = FACES.get(variant, {})
+
+		if not face.is_empty() and mat_name in face["surfaces"]:
+			_apply_face(mat, color, face)
+
 		mat.set_shader_parameter("use_vertex_style", true)
 		mat.set_shader_parameter("edge_noise", EDGE_NOISE)
 		mat.set_shader_parameter("accent_strength", ACCENT_STRENGTH)
@@ -410,6 +541,30 @@ static func _materials(
 
 	_materials_cache[key] = materials
 	return materials
+
+
+## Bascule un materiau de surface sur le shader de visage peint.
+##
+## `base_color` doit etre REPOSE : `make_outlined` l'a ecrit sur cel_toon, et un
+## changement de shader ne reporte pas les valeurs deja saisies. C'est le piege
+## que `cel_model` evite en reposant lui aussi la couleur juste apres chaque
+## `toon_mat.shader = ...` — sans quoi la surface repart sur le defaut du
+## shader, qui est une couleur arbitraire ecrite dans le fichier.
+static func _apply_face(mat: ShaderMaterial, color: Color, face: Dictionary) -> void:
+	mat.shader = FACE_SHADER
+	mat.set_shader_parameter("base_color", color)
+	mat.set_shader_parameter("face_center", face["center"])
+	mat.set_shader_parameter("face_radius", face["radius"])
+	mat.set_shader_parameter("face_front_min", face["front_min"])
+	mat.set_shader_parameter("face_pitch_deg", face["pitch_deg"])
+	mat.set_shader_parameter("eye_pos", face["eye_pos"])
+	mat.set_shader_parameter("eye_size", face["eye_size"])
+	mat.set_shader_parameter("nose_pos", face["nose_pos"])
+	mat.set_shader_parameter("nose_size", face["nose_size"])
+	# L'encre du visage n'est PAS celle du contour : `INKS` assombrit le trait
+	# sur les pelages tres sombres pour qu'il reste sous son propre ton d'ombre,
+	# alors qu'un oeil doit rester le brun de §4 quelle que soit la bete.
+	mat.set_shader_parameter("ink_color", CelStyle.INK)
 
 
 ## Etat de `Attr_Style` tel que Godot le voit, par surface.
