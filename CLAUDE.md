@@ -528,7 +528,8 @@ Le réglage à bouger en premier si le chat paraît trop petit est `distance` da
 
 ### Joueur — stats de base
 
-**Le corps** (`player.gd`) : Speed 7,5 m/s | **Vie 100 points** | Pickup radius 2,5 m
+**Le corps** (`player.gd`) : Speed 7,5 m/s | **Vie 100 points** | **Aimant 1,8 m**
+*(2,5 avant le 2026-08-19 — et il en valait 5,0 en vrai, voir « L'aimant » plus bas)*
 
 **Les armes** (`skill_definitions.gd`, jamais sur le chat) — valeurs par palier :
 
@@ -1237,6 +1238,47 @@ morsure. `scripts/systems/shout_fx.gd` + la clé `skill.<id>.shout` dans `locale
 > (dash + traînée de lignes de vitesse), puis **retiré le 2026-08-17** : il sera un
 > **déplacement vertical**, pas une attaque. `shaders/pounce_trail.gdshader` et son script
 > ont été supprimés — ne pas les reprendre pour une arme.
+
+### L'aimant à croquettes — un chiffre qui ne servait à rien (2026-08-19)
+
+`pickup_radius` valait 2,5 m, l'ATH affichait « AIMANT 2,5 m », et le passif du même nom
+promettait 3,35 / 4,20 / 5,05. **Rien de tout ça n'avait le moindre effet.** La croquette
+portait son *propre* rayon d'aimantation — `magnet_radius`, constante à **5,0 m** dans
+`xp_orb.gd` — au-dessus des trois paliers. La distance de ramasse réelle valait donc **5 m
+du début à la fin d'une run** : le chat aspirait tout ce qui passait sans avoir à s'en
+approcher, et prendre le passif ne changeait strictement rien avant son T3.
+
+> ⚠️ **Un chiffre de gameplay porté à DEUX endroits, c'est le plus fort qui gagne — et ce
+> n'est jamais celui qu'on règle.** Le défaut est muet des deux côtés : chaque fichier a
+> l'air juste tout seul, l'ATH affiche un nombre honnête, et le passif s'applique
+> correctement. C'est la même famille que le trait d'antialiasing réglé au banc, et que le
+> `.blend` réenregistré sur un état antérieur : deux sources pour une seule vérité.
+
+**Ce qui a changé** — `pickup_radius` est désormais la **seule** source, relue par
+`xp_orb` à chaque frame :
+
+| | Avant | Après |
+|---|---|---|
+| Aimant au départ | **5,0 m** (la constante de l'orbe) | **1,8 m** |
+| Aimant au T3 du passif | 5,05 m — soit rien de gagné | 5,05 m — l'aspirateur d'avant, **en récompense** |
+| Sphère de `PickupArea` | suivait le stat (2,5 m) | **figée à 0,7 m** — le corps du chat |
+| Sphère de la croquette | 0,45 m pour un modèle de 0,25 | **0,30 m** — sa taille réelle |
+
+- **La zone de CONTACT ne suit plus le stat.** C'est le corps du chat, la zone qu'il balaie
+  en marchant dessus, et un corps ne grossit pas quand l'aimant porte plus loin. Tant que
+  les deux grandissaient ensemble, la plus grande gagnait toujours et l'autre ne servait à
+  rien — c'est ce qui rendait l'aimant invisible. `_sync_pickup_radius()` disparaît avec
+  elle, et **P8** de la revue de code avec (la `SphereShape3D` de la scène n'est plus mutée
+  sans duplication).
+- **Le rayon est relu à chaque frame, pas capturé au `setup()`** : une croquette déjà au sol
+  quand le joueur prend l'aimant doit se mettre à venir, sinon la moitié de l'écran garde
+  l'ancienne portée.
+- **Les paliers n'ont pas bougé** (3,35 / 4,20 / 5,05). Ils sont passés d'un no-op à un vrai
+  levier, et le T3 redonne exactement l'aspirateur d'avant — cette fois comme une décision
+  de build, pas comme réglage par défaut.
+- ✅ **Mesuré sur les frames, pas supposé** : sur deux runs `--walk --autofire` de 400
+  frames, le nombre de croquettes vivantes à l'écran passe de **0,2 en moyenne à 0,8**.
+  Avant, elles n'existaient jamais assez longtemps pour être vues.
 
 ### XP (xp_orb.gd)
 - Magnétisme déclenché à < 5 m du joueur

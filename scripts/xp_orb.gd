@@ -11,7 +11,7 @@ extends Area3D
 const CelProp := preload("res://scripts/systems/cel_prop.gd")
 
 ## Le trefle a 3 lobes, modelise le 2026-08-19 (`tools/build_kibble.py`).
-## 240 tris, 122 sommets — §11 : "Pickups, projectiles | minimal". Avant, c'etait
+## 300 tris, 152 sommets — §11 : "Pickups, projectiles | minimal". Avant, c'etait
 ## un cube de 12 tris ; le budget geometrie n'est donc pas ce qui a change, c'est
 ## qu'une croquette se lit desormais comme une croquette.
 const MODEL := "res://assets/models/xp_croquette.glb"
@@ -19,7 +19,6 @@ const VARIANT := "croquette"
 
 @export var xp_value: int = 1
 @export var attraction_speed: float = 7.0
-@export var magnet_radius: float = 5.0
 
 @export var hover_height: float = 0.35
 @export var hover_amplitude: float = 0.08
@@ -76,8 +75,23 @@ func _physics_process(delta: float) -> void:
 	to_player.y = 0.0
 	var distance := to_player.length()
 
-	if distance <= magnet_radius:
-		var pull_speed := attraction_speed * (1.0 + (magnet_radius - distance) / 3.0)
+	# ⚠️ LE RAYON VIENT DU CHAT, pas d'ici — corrige le 2026-08-19.
+	#
+	# La croquette portait un `magnet_radius` a elle, constante a 5,0 m. Il
+	# etait AU-DESSUS des trois paliers du passif `pickup_radius`
+	# (3,35 / 4,20 / 5,05) : la distance de ramasse reelle valait donc 5 m du
+	# debut a la fin d'une run, le chat aspirait tout ce qui passait sans avoir
+	# a s'en approcher, et prendre le passif ne changeait rien avant son T3.
+	# Un chiffre de gameplay porte a deux endroits, c'est le plus fort qui
+	# gagne — et ce n'est jamais celui qu'on regle.
+	#
+	# Relu a chaque frame et non capture au `setup()` : une croquette deja au
+	# sol quand le joueur prend l'aimant doit se mettre a venir, sinon la moitie
+	# de l'ecran garde l'ancienne portee.
+	var magnet := player.pickup_radius
+
+	if distance <= magnet:
+		var pull_speed := attraction_speed * (1.0 + (magnet - distance) / 3.0)
 		global_position = global_position.move_toward(
 			global_position + to_player, pull_speed * delta
 		)

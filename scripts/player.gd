@@ -106,7 +106,30 @@ const IMMORTAL := true
 @export var projectile_speed: float = 17.5
 @export var projectile_range: float = 10.0
 
-@export var pickup_radius: float = 2.5
+## L'AIMANT : de quelle distance une croquette vient d'elle-meme vers le chat.
+## C'est ce que l'ATH appelle deja "AIMANT", et ce que le passif du meme nom
+## fait monter (3,35 / 4,20 / 5,05 m).
+##
+## ⚠️ CE CHIFFRE NE VOULAIT RIEN DIRE AVANT LE 2026-08-19, et rien ne le
+## signalait. La croquette portait son PROPRE rayon d'aimantation, une constante
+## a 5,0 m — au-dessus des trois paliers du passif. La distance de ramasse reelle
+## etait donc 5 m du debut a la fin d'une run : le chat aspirait tout ce qui
+## passait sans avoir a s'en approcher, et prendre le passif ne changeait
+## strictement rien avant son T3. Le stat est desormais la SEULE source, lue par
+## `xp_orb` a chaque frame.
+##
+## 1,8 m au depart (2026-08-19, demande directe : *la croquette doit se meriter*).
+## Le chat mesure ~1 m de large : il doit franchir a peu prou une longueur de
+## chat vers la croquette pour la declencher. Les paliers, eux, n'ont pas bouge —
+## et le T3 (5,05) redonne exactement l'aspirateur d'avant, cette fois comme une
+## RECOMPENSE et non comme reglage par defaut.
+##
+## ⚠️ La sphere de `PickupArea` ne SUIT PLUS ce chiffre : elle est figee a 0,7 m
+## dans `player.tscn`. C'est le CORPS du chat — la zone qu'il balaie en marchant
+## dessus — et un corps ne grossit pas quand l'aimant porte plus loin. Tant que
+## les deux grandissaient ensemble, la plus grande des deux gagnait toujours et
+## l'autre ne servait a rien ; c'est ce qui rendait l'aimant invisible.
+@export var pickup_radius: float = 1.8
 
 ## Vitesse de rotation du modele vers la direction VISEE. Le chat ne claque
 ## pas d'un cap a l'autre, il tourne — d'autant plus necessaire depuis que la
@@ -122,7 +145,6 @@ const IMMORTAL := true
 @export var hit_offset: float = 0.55
 
 @onready var model: CelModel = $Model
-@onready var pickup_collision: CollisionShape3D = $PickupArea/CollisionShape3D
 
 var health: int
 var level := 1
@@ -254,7 +276,6 @@ func _ready() -> void:
 			skills.take(definition["id"])
 
 	CelStyle.apply_contact_shadow($Shadow)
-	_sync_pickup_radius()
 	_apply_aim_lock()
 	_apply_skill_preview()
 	_emit_all_state()
@@ -597,7 +618,6 @@ func _apply_passives() -> void:
 	damage_reduction = clampf(float(values.get("damage_reduction", 0.0)), 0.0, 0.9)
 
 	health = mini(health, max_health)
-	_sync_pickup_radius()
 
 
 func build_stats_text() -> String:
@@ -749,13 +769,6 @@ func _fire_at_nearest_enemy() -> void:
 			direction = to_enemy / distance
 
 	game.spawn_projectile(origin, direction, projectile_damage, projectile_speed, projectile_range)
-
-
-func _sync_pickup_radius() -> void:
-	var sphere := pickup_collision.shape as SphereShape3D
-
-	if sphere != null:
-		sphere.radius = pickup_radius
 
 
 func _emit_all_state() -> void:
