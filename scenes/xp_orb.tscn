@@ -1,12 +1,9 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=3 format=3]
 
 [ext_resource type="Script" path="res://scripts/xp_orb.gd" id="1_f3w1s"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_1"]
 radius = 0.45
-
-[sub_resource type="BoxMesh" id="BoxMesh_body"]
-size = Vector3(0.42, 0.42, 0.42)
 
 [node name="XpOrb" type="Area3D"]
 collision_layer = 128
@@ -20,5 +17,4 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, 0)
 shape = SubResource("SphereShape3D_1")
 
 [node name="Body" type="MeshInstance3D" parent="."]
-transform = Transform3D(0.9272, 0.352, 0.1281, -0.3746, 0.8713, 0.3171, 0, -0.342, 0.9397, 0, 0.35, 0)
-mesh = SubResource("BoxMesh_body")
+transform = Transform3D(1, 0, 0, 0, 0.92718, 0.374607, 0, -0.374607, 0.92718, 0, 0.35, 0)

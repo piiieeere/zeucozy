@@ -8,13 +8,18 @@ extends Area3D
 ## purement decoratif et vit sur le node enfant, pour ne pas se battre avec
 ## l'aimantation qui pilote la position du parent.
 
-const CelStyle := preload("res://scripts/systems/cel_style.gd")
+const CelProp := preload("res://scripts/systems/cel_prop.gd")
+
+## Le trefle a 3 lobes, modelise le 2026-08-19 (`tools/build_kibble.py`).
+## 240 tris, 122 sommets — §11 : "Pickups, projectiles | minimal". Avant, c'etait
+## un cube de 12 tris ; le budget geometrie n'est donc pas ce qui a change, c'est
+## qu'une croquette se lit desormais comme une croquette.
+const MODEL := "res://assets/models/xp_croquette.glb"
+const VARIANT := "croquette"
 
 @export var xp_value: int = 1
 @export var attraction_speed: float = 7.0
 @export var magnet_radius: float = 5.0
-@export var body_color: Color = Color("#FFD166")
-@export var outline_thickness: float = 0.02
 
 @export var hover_height: float = 0.35
 @export var hover_amplitude: float = 0.08
@@ -41,14 +46,27 @@ func setup(new_player: Player, new_xp_value: int) -> void:
 
 func _ready() -> void:
 	area_entered.connect(_on_area_entered)
-	CelStyle.apply_outlined(body, body_color, outline_thickness)
+
+	# Maillage ET materiaux viennent du cache de `cel_prop` : une vague morte
+	# seme des dizaines de croquettes, et chacune fabriquant les siens on aurait
+	# des dizaines de ShaderMaterial pour une seule apparence. C'est le P6 de la
+	# revue de code, regle ici par le passage au modele.
+	CelProp.dress(body, MODEL, VARIANT, CelProp.PICKUP)
+
 	# Desynchronise le flottement d'une croquette a l'autre.
 	_time = randf() * TAU
+	# Et son cap. Le cube etait a peu pres le meme sous tous les angles ; un
+	# trefle ne l'est pas, et vingt croquettes posees au meme cap se liraient
+	# comme une formation, pas comme des miettes tombees par terre.
+	body.rotate_y(randf() * TAU)
 
 
 func _physics_process(delta: float) -> void:
 	_time += delta
 	body.position.y = hover_height + sin(_time * 3.0) * hover_amplitude
+	# Autour du Y du PARENT, pas de l'axe du palet : le modele est couche a plat
+	# puis penche dans la scene, et tourner autour du monde le fait vaciller
+	# comme une piece lancee — la silhouette change au lieu de defiler.
 	body.rotate_y(spin_speed * delta)
 
 	if not is_instance_valid(player):

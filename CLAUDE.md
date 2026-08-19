@@ -316,8 +316,13 @@ powershell -ExecutionPolicy Bypass -File tools/fetch_fonts.ps1
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background \
   "C:/Users/tibo/Documents/zeucozy_3d/prop_canape_v1.blend" \
   --python tools/export_prop.py -- --mesh MSH_canape --out prop_canape.glb
-# Banc des meubles — 8 directions + le chat a cote et sur l'assise, au cadrage de jeu
+# Reconstruire puis exporter la CROQUETTE (meme moule : .blend REGENERE)
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --factory-startup   --python tools/build_kibble.py -- --save
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background   "C:/Users/tibo/Documents/zeucozy_3d/xp_croquette_v1.blend"   --python tools/export_prop.py -- --mesh MSH_croquette --out xp_croquette.glb
+# Banc des modeles sans squelette — 8 directions + le chat a cote, au cadrage de jeu
 "C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64.exe" --path . res://scenes/tests/prop_test.tscn -- --capture
+#   --model=res://assets/models/xp_croquette.glb   n'importe quel .glb sans squelette
+#   (par defaut le canape ; le cadrage se deduit de la boite englobante)
 # Banc de PAUSE — ce qui se fige, ce qui vit, ce qui repart (18 verdicts)
 "C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --headless --path . \
   res://scenes/tests/pause_probe.tscn
@@ -445,7 +450,8 @@ zeucozy/
 │   │   ├── skill_set.gd            # ⭐ Ce que le chat PORTE — build + horloge des compétences
 │   │   ├── cel_style.gd            # Matériaux cel des primitives, du sol + ombre de contact
 │   │   ├── cel_model.gd            # ⭐ Le style du chat — partagé jeu ↔ banc de test
-│   │   ├── cel_prop.gd             # ⭐ Le style des meubles — .glb sans squelette
+│   │   ├── cel_prop.gd             # ⭐ Le style des .glb sans squelette — 2 familles :
+│   │   │                           #    meuble (trait a 50 %) · pickup (trait plein)
 │   │   ├── fx_cadence.gd           # ⭐ Les 3 durées de pose des FX (§7) — source unique
 │   │   ├── render_quality.gd       # 🪞 L'AA de la 3D — MSAA 4×, + `--msaa=` / `--ssaa=`
 │   │   ├── driven_fx.gd            # ⭐ `class_name DrivenFx` — les FX dont l'horloge vient
@@ -466,7 +472,7 @@ zeucozy/
 │   │   └── hud.gd       # 🖥️ Le HUD + les cartons, construits EN CODE depuis ui_style
 │   └── tests/
 │       ├── cel_test.gd  # Cadrage, bascules et captures du banc du chat
-│       ├── prop_test.gd # Banc des meubles : 8 directions + rapport de taille au chat
+│       ├── prop_test.gd # Banc des .glb sans squelette : 8 directions + taille au chat
 │       ├── motion_probe.gd # ⏱️ Fluidité : temps de frame + battement sur 3 frames
 │       └── pause_probe.gd  # ⏸️ Pause : 18 verdicts sur `get_tree().paused` + process_mode
 ├── shaders/          # cel_toon, cel_outline, cel_face, cel_paws, retro_post
@@ -489,11 +495,12 @@ zeucozy/
 │   ├── paint_tuxedo.py     # Pelage noir/blanc : matériau des extrémités + couleurs
 │   ├── build_outline.py    # Contour Blender : épaisseur × Attr_Style.R, 1 encre / surface
 │   ├── build_couch.py      # Canapé : géométrie ET Attr_Style, dans un .blend neuf
-│   ├── export_prop.py      # Export générique d'un meuble, même réinjection COLOR_0
+│   ├── build_kibble.py     # Croquette : trèfle à 3 lobes, 300 tris, même moule
+│   ├── export_prop.py      # Export générique d'un .glb, même réinjection COLOR_0
 │   ├── fetch_fonts.ps1     # Récupère les polices d'UI en sous-ensembles (rejouable)
 │   └── dump_paws.gd        # Relève os porteurs + boîtes de repos — source des PAWS
 └── assets/
-    ├── models/       # player_cat.glb, prop_canape.glb
+    ├── models/       # player_cat.glb, prop_canape.glb, xp_croquette.glb
     └── fonts/        # Dela Gothic One + Zen Kaku Gothic New, sous-ensembles + OFL
 ```
 
@@ -1494,7 +1501,7 @@ dessinées** compris, et il se lit à taille de jeu — désormais en **tuxedo n
 qui se détache mieux du
 parquet que l'ambre d'avant. Les **canapés sont modélisés** et posés dans l'arène en deux
 variantes (bleu ciel, vert sauge). Le reste est placeholder : ennemis en primitives 3D,
-tables / plantes / coussins en boîtes pastel, croquettes en cubes.
+tables / plantes / coussins en boîtes pastel. **Les croquettes d'XP sont modélisées** depuis le 2026-08-19 — trèfle à 3 lobes, 300 tris ; il ne reste que le projectile en cube.
 
 **Passe rétro anime — faite le 2026-08-16.** `Attr_Style` peint et câblé, trait à
 épaisseur variable **des deux côtés du pont** (Godot par `cel_outline.gdshader`, Blender par
@@ -2057,6 +2064,76 @@ silhouette lâche.
 > d'épaisseur nulle tombe exactement sur la surface qu'elle double et se dispute le
 > z-buffer avec elle, ce qui marbre l'aplat. `cel_style.make_outlined()` retire donc le
 > `next_pass` sous 0 — et `cel_prop` ne suppose plus qu'il existe.
+
+### La croquette modélisée — le 1ᵉʳ ramassable (2026-08-19)
+
+L'XP était un **cube de 12 tris** depuis le pivot 3D. C'est désormais
+`assets/models/xp_croquette.glb` : un **trèfle à 3 lobes**, palet couché, **300 tris**,
+152 sommets, un seul matériau en or chaud `#E8C040` (§4 : *« Croquettes / XP »*).
+`tools/build_kibble.py` — même moule que le canapé, le `.blend` est **régénéré**, jamais
+édité à la main — puis `tools/export_prop.py`, qui n'a pas eu à bouger.
+
+- **Trois lobes, pas quatre.** À taille de jeu la croquette pèse **22 × 22 px**, mesuré sur
+  une frame du jeu et non au banc. À rayon égal, un trèfle creuse des encoches deux fois
+  plus profondes qu'un quatre-feuilles : c'est la seule dimension qui survit à la réduction.
+- **Le palet est COUCHÉ** (axe Z Blender → Y Godot). Les lobes vivent dans le plan du sol,
+  la caméra à 45° les voit écrasés à 71 %, et la rotation du ramassable tourne le dessin
+  **dans son propre plan** au lieu de le mettre de chant.
+- **300 tris**, 30 méridiens × 6 parallèles — §11 dit « minimal » pour les pickups, et la
+  coque inversée double le compte : **600 tris dessinés** par croquette contre 26 056 pour
+  le chat. ⚠️ Ce sont les **encoches** qui fixent la densité, pas les lobes.
+- **LODs, tangentes et shadow meshes coupés** dans le `.import`. Le manuel prévient qu'un
+  shadow mesh **soude des sommets** — soit exactement ce qui détruirait un `Attr_Style`
+  peint par sommet — et rien ici ne projette d'ombre ni ne lit de normal map.
+
+> ⚠️ **`cel_prop.gd` porte désormais deux FAMILLES**, `meuble` et `pickup`, séparées par
+> **trois nombres** : épaisseur de trait, facteur de trait, force du biais d'ombre. §2ter.A
+> ne range pas un ramassable avec le mobilier — un objet qu'on **ramasse** est manipulable,
+> il garde son **trait plein** (facteur 1,0, pas 0,5). Et un petit ellipsoïde n'a pas besoin
+> du `shadow_bias` poussé du canapé : ses normales balaient tout l'hémisphère, le cluster se
+> coupe tout seul, exactement comme sur les sphères du chat.
+
+> ⚠️ **`cel_prop.dress()` habille un `MeshInstance3D` DÉJÀ en place**, maillage compris, au
+> lieu d'instancier la scène du `.glb`. Une vague morte sème des dizaines de croquettes :
+> une `PackedScene.instantiate()` chacune ajouterait un `Node3D` par ramassable pour un
+> maillage qui est de toute façon le même. Ça règle au passage le **P6** de la revue de code
+> pour la croquette — plus un `ShaderMaterial` neuf par exemplaire.
+
+> 🔍 **Trois défauts, tous trouvés en CAPTURE, aucun en lisant le code :**
+> - **Elle sortait en POMME DE TERRE.** `LOBE_DEPTH` à 0,20 ne creuse que 18 % du diamètre :
+>   un triangle arrondi, pas un trèfle. Passé à **0,30**. La borne haute n'est pas
+>   esthétique — au-delà de ~0,34 le rayon de courbure du creux (0,042 m) passe **sous**
+>   l'épaisseur de la coque inversée, et l'encre se referme jusqu'à remplir l'encoche.
+> - **L'accent de brillance sortait en SALISSURE.** Trois accents, un par lobe, couvraient
+>   ~15 % du ramassable à 22 px. Réduit à **un seul point** (~3 px) sur l'épaule du lobe le
+>   plus dodu. C'est le pendant exact de la leçon des griffes, par l'autre bout : là un
+>   détail était invisible, ici il était visible **et nuisible**.
+> - **Le trait DISPARAISSAIT sur le bord exposé au ciel.** Le canal R l'allégeait à 0,60,
+>   soit **0,68 px** au cadrage de jeu ; il ne restait que le saut de valeur or/parquet,
+>   **0,085**, sous le seuil de lecture de 0,10 relevé sur le canapé. L'épaisseur se prend
+>   donc **par le bas** : 0,036, pour que ce bord-là tienne 0,98 px et le creux 1,44.
+
+> 🔩 **Le canal R doit partir SOUS 1,0**, ici 0,84. L'encoche doit être l'endroit le plus
+> chargé du modèle, or le canal est **borné à 1** : partir de 1 revient à peindre un trait
+> uniforme sur toute la moitié basse, le surplus étant mangé par la borne. Défaut
+> **silencieux** — le fichier a l'air juste, les statistiques affichent bien « 1,00 ».
+
+> ⚠️ **Le maillage est RECENTRÉ en X/Y après construction.** `WOBBLE` — la modulation basse
+> fréquence qui rend un lobe plus dodu, sans quoi trois lobes identiques se lisent comme un
+> rouage — décale le centre de l'emprise de ~0,04 m, et la croquette **tourne sur son axe**
+> en jeu. Un maillage excentré ne tournerait pas sur lui-même, il **décrirait un cercle**.
+
+**Le banc n'est plus câblé sur le canapé.** `--model=` le fait changer d'asset ; le cadrage
+et la distance se déduisent de la boîte englobante, et `MODELS` porte ce qu'aucune boîte ne
+dit (variante, famille, hauteur d'assise, hauteur de vol). §16 étape 7 n'est pas
+optionnelle : un tour 8 directions câblé sur un seul modèle revient à ne pas l'avoir pour
+les suivants.
+
+> ⚠️ **Un ramassable posé À PLAT sur le sol du banc se fait TRANCHER SON ENCRE** — la coque
+> inversée descend sous le maillage, le parquet se peint par-dessus, et il reste un liseré
+> parchemin entre l'aplat et le trait sur les 8 vues. **Artefact de banc, pas du modèle** :
+> la croquette flotte à 0,35 m en jeu. Le canapé, lui, garde `hover = 0`, parce qu'il pose
+> vraiment et que son encre est tranchée **en jeu aussi**.
 
 ### Le rai de soleil au sol — retiré le 2026-08-17
 
