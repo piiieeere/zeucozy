@@ -645,7 +645,7 @@ func _make_skill_card(card_size: Vector2, with_desc: bool) -> Dictionary:
 	# fait ; et deux dessins pour un meme objet obligeraient a l'apprendre deux
 	# fois. Ce qui dit qu'on abandonne, c'est le TITRE DU CARTON, pas la carte.
 	var plate := UiStyle.make_plate(
-		UiStyle.PLATE_RAISED, UiStyle.RULE, UiStyle.TICK, 1.0, true
+		UiStyle.PLATE_RAISED, UiStyle.RULE_RAISED, UiStyle.TICK, 1.0, true
 	)
 	plate.set_anchors_preset(Control.PRESET_FULL_RECT)
 	slot.add_child(plate)
@@ -747,15 +747,45 @@ func _make_skill_card(card_size: Vector2, with_desc: bool) -> Dictionary:
 	# c'est la seule chose de la carte qui les separe.
 	#
 	# Au corps de LEGENDE (10 px) contre 17 px pour le titre : c'est le contraste
-	# d'echelle de §9.3 regle 5, pas une nuance de gris de plus. Et il reste en
-	# creme assourdi meme au survol — l'ambre est l'unique accent sature de
-	# l'ecran, et son role est de designer la carte survolee, pas de decorer un
-	# marqueur qui, lui, ne designe rien (§9.3 regle 4).
+	# d'echelle de §9.3 regle 5, pas une nuance de gris de plus. Et il ne prend
+	# pas l'ambre au survol — l'ambre est l'unique accent sature de l'ecran, et
+	# son role est de designer la carte survolee, pas de decorer un marqueur qui,
+	# lui, ne designe rien (§9.3 regle 4).
+	#
+	# ⚠️ IL EST EN CREME PLEIN depuis le 2026-08-19, et ce n'est pas un choix de
+	# gout : sur la carte eclaircie (`PLATE_RAISED` a 0,42), le creme assourdi
+	# tombait a 2,14:1 — sous tout plancher de lisibilite, a 10 px. La hierarchie
+	# ne perd rien puisque §9.3 regle 5 la met DANS L'ECHELLE et non dans le
+	# gris : 10 px contre 17, le rapport est intact.
+	#
+	# ── Les losanges, a sa gauche ────────────────────────────────────────────
+	#
+	# `maquettes/panelwithcards2.png` porte trois losanges sous la vignette. Ils
+	# disent ce que le mot ne dit pas — la POSITION sur l'echelle, "PALIER 2" ne
+	# disant pas s'il en reste un ou trois. Voir `tier_pips.gd`, notamment
+	# pourquoi ils sont dessines et non ecrits (aucune de nos deux polices n'a le
+	# glyphe ◆ : elles sont sous-ensemblees en latin).
+	#
+	# ⚠️ SUR LA MEME RANGEE, pas l'un sous l'autre. Empiles, ils ajoutaient une
+	# ligne a une carte dont le commentaire de `CHOICE_SIZE` rappelle qu'elle
+	# deborde EN SILENCE — un VBox a court de place ecrase ses enfants sous leur
+	# `custom_minimum_size` sans rien signaler. A 9 px de haut ils tiennent dans
+	# la ligne de legende, et la carte ne change pas de taille.
+	var tier_row := HBoxContainer.new()
+	tier_row.add_theme_constant_override("separation", 8)
+	tier_row.alignment = BoxContainer.ALIGNMENT_BEGIN
+	column.add_child(tier_row)
+
+	var pips := TierPips.new()
+	pips.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	tier_row.add_child(pips)
+
 	var tier_label := UiStyle.make_label(
 		"", UiStyle.body_font(), UiStyle.SIZE_CARD_SUB,
-		UiStyle.CREAM_DIM, UiStyle.TRACKING_LABEL, 0, false
+		UiStyle.CREAM, UiStyle.TRACKING_LABEL, 0, false
 	)
-	column.add_child(tier_label)
+	tier_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	tier_row.add_child(tier_label)
 
 	var title := UiStyle.make_label(
 		"", UiStyle.bold_font(), UiStyle.SIZE_CHOICE_TITLE,
@@ -765,15 +795,19 @@ func _make_skill_card(card_size: Vector2, with_desc: bool) -> Dictionary:
 	column.add_child(title)
 
 	var entry := {
-		"slot": slot, "plate": plate, "tier": tier_label, "title": title,
-		"band": band, "band_label": band_label, "window": window, "thumb": thumb,
-		"desc": null,
+		"slot": slot, "plate": plate, "tier": tier_label, "pips": pips,
+		"title": title, "band": band, "band_label": band_label,
+		"window": window, "thumb": thumb, "desc": null,
 	}
 
 	if with_desc:
+		# ⚠️ EN CREME PLEIN, pour la raison exacte du marqueur ci-dessus : sur la
+		# carte eclaircie, `CREAM_DIM` tombait a 2,14:1. C'est le texte que le
+		# joueur LIT pour choisir — c'est la derniere chose qu'on peut laisser
+		# s'affaiblir en echange du contraste de la carte.
 		var desc := UiStyle.make_label(
 			"", UiStyle.body_font(), UiStyle.SIZE_CHOICE_DESC,
-			UiStyle.CREAM_DIM, 0, 0, false
+			UiStyle.CREAM, 0, 0, false
 		)
 		desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		column.add_child(desc)
@@ -801,7 +835,15 @@ func _make_skill_card(card_size: Vector2, with_desc: bool) -> Dictionary:
 func _fill_skill_card(entry: Dictionary, id: String, tier: int, marker: String) -> void:
 	entry["tier"].text = marker
 	entry["title"].text = Locale.skill_title(id).to_upper()
-	_set_slot_kind(entry, SkillDefinitions.kind_of(id))
+
+	var kind := SkillDefinitions.kind_of(id)
+	_set_slot_kind(entry, kind)
+
+	# Le nombre de losanges se LIT DU CATALOGUE, il n'est pas fige a trois. Les
+	# 13 entrees en ont trois aujourd'hui ; une competence a deux paliers sortira
+	# juste le jour ou elle existera, sans qu'on ait a repasser ici.
+	var pips: TierPips = entry["pips"]
+	pips.set_tiers(tier, SkillDefinitions.find(id)["tiers"].size(), _kind_color(kind))
 
 	if entry["desc"] != null:
 		entry["desc"].text = Locale.skill_description(id, tier)
@@ -836,7 +878,7 @@ func _make_choice_slot(index: int) -> Control:
 ## deplacer. C'est le meme dispositif que la pastille de langue active (§9.7).
 func _set_slot_hover(entry: Dictionary, hovered: bool) -> void:
 	var mat: ShaderMaterial = entry["plate"].material
-	mat.set_shader_parameter("ink_color", UiStyle.AMBER if hovered else UiStyle.RULE)
+	mat.set_shader_parameter("ink_color", UiStyle.AMBER if hovered else UiStyle.RULE_RAISED)
 	entry["title"].add_theme_color_override(
 		"font_color", UiStyle.AMBER if hovered else UiStyle.CREAM
 	)
@@ -1115,7 +1157,7 @@ func _make_language_slot(code: String) -> Control:
 	# En relief comme les cartes de choix : c'est le meme geste — un aplat sur
 	# lequel on clique. Les jauges du HUD restent plates, elles ne se cliquent pas.
 	var plate := UiStyle.make_plate(
-		UiStyle.PLATE_RAISED, UiStyle.RULE, UiStyle.TICK, 1.0, true
+		UiStyle.PLATE_RAISED, UiStyle.RULE_RAISED, UiStyle.TICK, 1.0, true
 	)
 	plate.set_anchors_preset(Control.PRESET_FULL_RECT)
 	slot.add_child(plate)
@@ -1156,7 +1198,7 @@ func _sync_language_slots() -> void:
 	for entry in _language_slots:
 		var active: bool = entry["code"] == Locale.language()
 		var mat: ShaderMaterial = entry["plate"].material
-		mat.set_shader_parameter("ink_color", UiStyle.AMBER if active else UiStyle.RULE)
+		mat.set_shader_parameter("ink_color", UiStyle.AMBER if active else UiStyle.RULE_RAISED)
 		entry["label"].add_theme_color_override(
 			"font_color", UiStyle.AMBER if active else UiStyle.CREAM
 		)
@@ -1264,18 +1306,31 @@ func show_level_card(level: int, choices: Array) -> void:
 ## pour qui distingue mal le vert du rouge — les deux teintes retenues n'etant,
 ## de surcroit, ni l'une ni l'autre saturees.
 func _set_slot_kind(entry: Dictionary, kind: SkillDefinitions.Kind) -> void:
-	var band: ColorRect = entry["band"]
+	entry["band"].color = _kind_color(kind)
 
 	match kind:
 		SkillDefinitions.Kind.AUTO:
-			band.color = UiStyle.KIND_AUTO
 			entry["band_label"].text = Locale.t("skill.kind.auto")
 		SkillDefinitions.Kind.ACTIVE:
-			band.color = UiStyle.KIND_ACTIVE
 			entry["band_label"].text = Locale.t("skill.kind.active")
 		_:
-			band.color = UiStyle.KIND_PASSIVE
 			entry["band_label"].text = Locale.t("skill.kind.passive")
+
+
+## La teinte d'une famille, en UN endroit.
+##
+## ⚠️ Elle a DEUX consommateurs depuis le 2026-08-19 — le bandeau de type et les
+## losanges de palier — et c'est exactement le moment ou une correspondance
+## recopiee commence a diverger. C'est le defaut que ce projet a paye sur le
+## rayon d'aimant, porte a deux endroits pendant des mois.
+func _kind_color(kind: SkillDefinitions.Kind) -> Color:
+	match kind:
+		SkillDefinitions.Kind.AUTO:
+			return UiStyle.KIND_AUTO
+		SkillDefinitions.Kind.ACTIVE:
+			return UiStyle.KIND_ACTIVE
+		_:
+			return UiStyle.KIND_PASSIVE
 
 
 ## Ce que la carte annonce en legende : un DEBLOCAGE, un renfort, ou le moment

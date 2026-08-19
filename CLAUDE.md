@@ -209,10 +209,11 @@ Lire ces fichiers avant toute tâche concernant le domaine correspondant :
 | `02 - Direction Artistique/Convention Blender.md` | Les gestes dans Blender — nœuds toon, couleurs de sommet, cadences, réglages d'export |
 | `02 - Direction Artistique/Pipeline 3D.md` | Pipeline Blender → glTF → Godot, + la liste de ce qui reste à écrire en shader |
 | `04 - Roadmap/Critères MVP.md` | Critères de succès du prototype |
+| `02 - Direction Artistique/Prompts de Génération.md` | Les prompts de **maquette** — sol, meubles, UI, boss vétérinaire, coffres. Réécrit le 2026-08-19 : la partie sprites 2D a été supprimée |
 | `04 - Roadmap/Todo.md` | Suivi des features en cours |
 
 > 📦 **Archivés** (pipeline 2D abandonné, conservés pour référence historique) :
-> `Pipeline Sprites.md`, `Convention de Nommage Sprites.md`, `Prompts de Génération.md`,
+> `Pipeline Sprites.md`, `Convention de Nommage Sprites.md`,
 > `Template Intégration Assets.md`.
 
 ### Le journal technique — `06 - Journal technique/` (sorti de CLAUDE.md le 2026-08-19)
@@ -349,8 +350,10 @@ zeucozy/
 │   │   ├── impact_frame.gd         # 💤 Flash ambré plein cadre — DÉBRANCHÉ, gardé entier
 │   │   └── hit_burst.gd            # 💥 Éclat de collision — étoile de manga, 6 poses
 │   ├── ui/
-│   │   └── hud.gd       # 🖥️ Le HUD + les 4 cartons (niveau · REMPLACER · K.O. ·
-│   │                    #    réglages), construits EN CODE depuis ui_style
+│   │   ├── hud.gd       # 🖥️ Le HUD + les 4 cartons (niveau · REMPLACER · K.O. ·
+│   │   │                #    réglages), construits EN CODE depuis ui_style
+│   │   └── tier_pips.gd # 🔶 Le palier en LOSANGES, sur la carte de compétence.
+│   │                    #    ⚠️ DESSINÉ : nos polices sous-ensemblées n'ont pas ◆
 │   └── tests/
 │       ├── cel_test.gd  # Cadrage, bascules et captures du banc du chat
 │       ├── prop_test.gd # Banc des .glb sans squelette : 8 directions + taille au chat
@@ -386,11 +389,15 @@ zeucozy/
 │   ├── export_prop.py      # Export générique d'un .glb, même réinjection COLOR_0
 │   ├── fetch_fonts.ps1     # Récupère les polices d'UI en sous-ensembles (rejouable)
 │   └── dump_paws.gd        # Relève os porteurs + boîtes de repos — source des PAWS
-└── assets/
-    ├── models/       # player_cat.glb, prop_canape.glb, xp_croquette.glb,
-    │                 # projectile_boule_poils.glb, enemy_souris.glb,
-    │                 # enemy_chien.glb
-    └── fonts/        # Dela Gothic One + Zen Kaku Gothic New, sous-ensembles + OFL
+├── assets/
+│   ├── models/       # player_cat.glb, prop_canape.glb, xp_croquette.glb,
+│   │                 # projectile_boule_poils.glb, enemy_souris.glb,
+│   │                 # enemy_chien.glb
+│   └── fonts/        # Dela Gothic One + Zen Kaku Gothic New, sous-ensembles + OFL
+└── maquettes/        # 🖼️ Images de RÉFÉRENCE — jamais des assets, jamais chargées
+                      # par le jeu. Prompts dans `Prompts de Génération.md` (vault).
+                      # ⚠️ `.gdignore` VIDE obligatoire : sans lui Godot importe
+                      #    chaque PNG dans le dock et dans `.godot/imported/`
 ```
 
 > **`cel_model.gd` est le point d'entrée du style.** Palette par matériau, visage peint,
@@ -638,6 +645,16 @@ Les kana décoratifs, eux, ont été retirés le 2026-08-17.
 **couleur**, sa **matière** et sa **composition**. Rien n'est plus translucide, les
 plaques sont en gris neutre hors palette du monde, et les coins coupés cèdent la place à
 des angles droits à repères. §9 de la DA a été réécrit **une deuxième fois**.
+
+**Et une 3ᵉ passe le 2026-08-19, sur le CONTRASTE cette fois** — d'après
+`maquettes/panelwithcards2.png`, une planche qui compare quatre couples carton × carte
+(variante 3 retenue). Le carton et ses cartes se tenaient à **1,39:1** : une seule masse
+grise. Le carton descend à `#2E2E2C`, la carte monte à `#6E6C66` — **2,59:1**. ⚠️ **Les
+deux valeurs bougent ENSEMBLE, et une carte plus claire efface tout ce qu'on pose dessus** :
+les trois bandeaux de type sont devenus des pastilles **sombres** à lettrage crème (l'ACTIF
+tombait à 1,22:1), le texte de carte est passé en crème plein, et les plaques en relief ont
+leur filet à elles, `RULE_RAISED`, **sombre**. Le palier passe en **losanges dessinés**
+(`tier_pips.gd`). Détail et mesures dans [[L'interface — les deux refontes]].
 
 **Visuels :** le **chat est dans le jeu**, cel-shadé, contour, visage peint et **griffes
 dessinées** compris, et il se lit à taille de jeu — désormais en **tuxedo noir et blanc**,

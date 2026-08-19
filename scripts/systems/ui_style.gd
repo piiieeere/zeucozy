@@ -77,10 +77,22 @@ const INK := Color("#3D2B1A")
 ## personne ne l'avait posee. Le gris n'est pas une entorse a §4, c'est la
 ## reconnaissance que l'UI n'est pas dans son domaine.
 ##
-## 0,23 de luma contre 0,84 pour le parquet : 0,61 d'ecart. C'est ce chiffre qui
+## 0,18 de luma contre 0,84 pour le parquet : 0,66 d'ecart. C'est ce chiffre qui
 ## rend la plaque VOYANTE sans lui donner de contour epais — une plaque se lit a
 ## la valeur, le filet ne fait que la finir.
-const PLATE := Color("#3A3A38")
+##
+## ⚠️ ELLE S'EST ASSOMBRIE LE 2026-08-19 (0,23 → 0,18), et ce n'est PAS pour
+## elle-meme : c'est pour la carte qu'elle porte. Le carton et ses cartes se
+## tenaient a 1,39:1 de contraste — a l'image, une seule masse grise ou il
+## fallait chercher les bords des trois cartes. Les deux valeurs ont donc bouge
+## EN SENS INVERSE, le carton vers le bas et la carte vers le haut : 2,59:1
+## a l'arrivee. Bouger une seule des deux ne donnait que 1,66 (carton seul) ou
+## 2,17 (carte seule) — c'est mesure, pas estime.
+##
+## Variante 3 de `maquettes/panelwithcards2.png`, la planche qui compare quatre
+## couples (carton x carte). Elle donne les hex ; le reste de ce fichier dit ce
+## qu'ils coutent, ce qu'une image generee ne peut pas dire.
+const PLATE := Color("#2E2E2C")
 
 ## Le second gris, plus sombre : piste de jauge, pastille de cooldown. Tout ce
 ## qui est CREUSE dans un carton.
@@ -99,19 +111,56 @@ const PLATE_LOW := Color("#2A2A28")
 ## plus sombre. Le partage n'est plus "contenant / contenu" mais "en relief /
 ## en creux", et il se lit sans avoir a le savoir.
 ##
-## ⚠️ 0,30 de luma, et le premier essai a 0,27 NE SUFFISAIT PAS : la facette lui
-## reprend `facet_drop` sur toute sa face avant, ce qui la ramenait a 0,24 —
-## soit la valeur du carton a 0,23, au point pres. La carte redevenait invisible
-## sauf par son filet. Une plaque en relief se dimensionne APRES sa facette, pas
-## avant : c'est la face sombre qui doit rester au-dessus du fond, pas la claire.
-const PLATE_RAISED := Color("#504F4B")
+## ⚠️ 0,42 de luma depuis le 2026-08-19, et les essais precedents disent
+## pourquoi il a fallu monter deux fois. 0,27 : la facette reprend `facet_drop`
+## sur toute la face avant, ce qui ramenait la carte a 0,24 — soit la valeur du
+## carton a 0,23, au point pres, donc invisible sauf par son filet. 0,30 :
+## corrige ce point-la, mais 1,39:1 contre le carton, ce qui a l'image reste une
+## masse grise unique. Une plaque en relief se dimensionne APRES sa facette, et
+## elle se JUGE contre son fond, pas dans l'absolu.
+##
+## ⚠️ ET UNE CARTE PLUS CLAIRE FAIT DISPARAITRE CE QU'ON POSE DESSUS. C'est le
+## prix du contraste, il se paie ailleurs, et il se paie tout de suite :
+##   • le bandeau ACTIF tombait a 1,22:1 sur elle — une pastille sans forme ;
+##   • la description en `CREAM_DIM` tombait a 2,14:1, illisible a 12 px.
+## D'ou les deux corrections qui accompagnent CETTE ligne et n'ont pas de sens
+## sans elle : les teintes de type sont passees en pastilles SOMBRES a lettrage
+## creme (voir « Le code de type »), et le texte de carte est passe en `CREAM`
+## plein (voir `_make_skill_card`). Remonter la carte sans elles rend le bandeau
+## a son etat de 1,22.
+const PLATE_RAISED := Color("#6E6C66")
 
-## Le filet et les reperes d'angle des cartons. Assez clair pour se lire sur la
+## Le filet et les reperes d'angle des CARTONS. Assez clair pour se lire sur la
 ## plaque, assez sombre pour ne pas concurrencer le texte.
 ##
-## ⚠️ C'est lui qui remplace INK comme cerne DES CARTONS. Sur une plaque a 0,23,
+## ⚠️ C'est lui qui remplace INK comme cerne des cartons. Sur une plaque a 0,18,
 ## une encre a 0,19 ne serait pas un cadre — ce serait la couleur de son fond.
+##
+## ⚠️ IL NE VA PLUS AUX PLAQUES EN RELIEF depuis le 2026-08-19 : elles ont leur
+## filet a elles, `RULE_RAISED`, parce qu'un filet se dose sur ce qu'il cerne et
+## qu'elles sont desormais CLAIRES. Un filet clair sur une carte claire ne borde
+## rien. Voir juste dessous.
 const RULE := Color("#8E8E88")
+
+## Le filet des plaques EN RELIEF — cartes de choix, pastilles de langue.
+##
+## ⚠️ IL EST SOMBRE, a l'inverse de `RULE`, et c'est la carte eclaircie du
+## 2026-08-19 qui l'impose. Un filet se dose sur CE QU'IL CERNE : le gris de
+## regle (0,56) sur un carton a 0,18 est un bord clair qui finit la plaque ; le
+## meme gris sur une carte a 0,42 tombe a 1,59:1, et les reperes d'angle
+## disparaissent avec lui — verifie en capture, ils n'etaient plus visibles.
+##
+## C'est la valeur du CARTON, et pas une teinte de plus : la carte se lit alors
+## comme DECOUPEE DANS la plaque qui la porte. C'est aussi le dessin de
+## `maquettes/panelwithcards2.png`, ou les cartes ont un bord sombre et ou seule
+## la carte designee passe a l'orange.
+##
+## ⚠️ ET LE SURVOL Y GAGNE. Il reste l'ambre (§9.3 regle 4), mais il ne va plus
+## d'un gris clair a un ambre clair — 2,49:1 puis 3,74:1, deux bords clairs, un
+## changement de teinte seule. Il va d'un bord SOMBRE a un bord CLAIR : le sens
+## du contraste s'inverse, ce qui se voit du coin de l'oeil, la ou une teinte se
+## compare.
+const RULE_RAISED := PLATE
 
 ## Le voile derriere un carton. La SEULE translucidite de toute l'interface, et
 ## la seule qui soit legitime : elle assombrit l'image au lieu de la teinter.
@@ -154,27 +203,61 @@ const HIT_ROSE := Color("#D45870")   # alerte, vie basse
 # condition qui rend le code couleur compatible avec §9.1 regle 4 ("un seul
 # accent sature, et il DESIGNE"). L'ambre garde le survol : il doit rester le
 # plus sature de l'ecran, sinon le joueur ne voit plus quelle carte il pointe.
-#   sauge   #7E9A80 — 18 % de saturation
-#   brique  #A86A56 — 49 %, mais a 0,42 de valeur : sombre, il ne claque pas
-#   ambre   #D4A860 — 55 % a 0,83 de valeur, le seul qui saute aux yeux
+#
+# ─── 2026-08-19 : LES BANDEAUX SONT DEVENUS SOMBRES ───
+#
+# Ils etaient CLAIRS sur une carte sombre (sauge 0,60 et brique 0,66 de valeur,
+# lettrage d'encre par-dessus). La carte est passee a 0,42 pour se detacher du
+# carton, et ce seul mouvement les a effaces — un aplat ne se lit que par son
+# ECART A SON FOND, jamais par sa valeur propre :
+#   sauge  #7E9A80 sur la carte neuve → 1,71:1
+#   brique #A86A56 sur la carte neuve → 1,22:1, soit une pastille SANS FORME
+#
+# Ils sont donc passes de l'autre cote de la carte, en gardant leur teinte : la
+# meme sauge et la meme brique, descendues en valeur, et le lettrage bascule en
+# creme. C'est le dessin de `maquettes/panelwithcards2.png`, ou les pastilles
+# sont des chips sombres a texte clair.
+#   sauge   #2C3D2D — 2,21:1 sur la carte, creme a 10,1:1 dessus
+#   brique  #4C3027 — 2,27:1 sur la carte, creme a 10,5:1 dessus
+#   neutre  #33332F — 2,42:1 sur la carte, creme a 11,1:1 dessus
+#   ambre   #D4A860 — inchange, et TOUJOURS le seul sature de l'ecran
+#
+# ⚠️ CE BLOC SE RELIT DES QUE `PLATE_RAISED` BOUGE, et l'inverse est vrai. Les
+# deux ne sont pas independants : ce sont deux couches du meme empilement, et
+# c'est leur ECART qui est regle ici, pas leurs valeurs.
 #
 # ⚠️ AUCUNE des deux ne tire au FROID (§5), sauge comprise : son vert est tire
 # vers le jaune, pas vers le bleu. C'est la meme contrainte qui avait fait passer
-# le corps de la griffure de #383E42 a #37393B.
+# le corps de la griffure de #383E42 a #37393B. Descendre en valeur ne l'a pas
+# touchee — la teinte est conservee au degre pres, seule la valeur a bouge.
 #
 # ⚠️ LE PASSIF N'A PAS DE TEINTE, et ce n'est pas une economie. Un passif n'est
 # JAMAIS dessine dans le jeu (`skill_definitions.gd`) — c'est ce qui justifie
 # qu'il ne coute ni slot ni pixel. Lui donner une couleur d'arme dirait le
 # contraire, et l'absence de couleur est ici l'information exacte : deux teintes
 # neuves seulement, au lieu de trois.
-const KIND_AUTO := Color("#7E9A80")
-const KIND_ACTIVE := Color("#A86A56")
-const KIND_PASSIVE := RULE
+const KIND_AUTO := Color("#2C3D2D")
+const KIND_ACTIVE := Color("#4C3027")
 
-## Le lettrage POSE SUR un bandeau de type. Le registre bas, pas l'encre : le
-## cerne brun est le trait du MONDE, et §9.8 l'a retire de l'interieur des
-## cartons. Ici il n'y a rien a detacher, juste des lettres sombres sur un aplat.
-const KIND_LABEL := PLATE_LOW
+## ⚠️ LE PASSIF N'A TOUJOURS PAS DE TEINTE — il ne vaut simplement plus `RULE`.
+## Le gris de filet est CLAIR (0,56) : sur la carte neuve il tombait a 1,59:1,
+## et c'est le meme effacement que les deux autres. Ce neutre-ci est le meme
+## gris quasi neutre que les plaques, pose a la valeur des deux pastilles
+## teintees. Aucune couleur nouvelle n'entre : c'est bien l'ABSENCE de teinte
+## qui reste l'information (voir le paragraphe ci-dessus).
+const KIND_PASSIVE := Color("#33332F")
+
+## Le lettrage POSE SUR un bandeau de type.
+##
+## ⚠️ IL EST PASSE EN CREME le 2026-08-19, avec le retournement des pastilles.
+## Il valait `PLATE_LOW` — des lettres sombres sur un aplat clair. Les pastilles
+## etant devenues sombres, le meme lettrage y serait sombre sur sombre. Ce qui
+## est conserve, c'est le RAPPORT, pas la couleur : le mot tranche sur sa
+## pastille, et il le fait desormais a 10:1 au lieu de 4,7:1.
+##
+## Il reste sans cerne : le cerne brun est le trait du MONDE, et §9.8 l'a retire
+## de l'interieur des cartons. Sur un aplat opaque il n'y a rien a detacher.
+const KIND_LABEL := CREAM
 
 const BAND_HEIGHT := 18.0
 
