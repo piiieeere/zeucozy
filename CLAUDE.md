@@ -319,9 +319,13 @@ powershell -ExecutionPolicy Bypass -File tools/fetch_fonts.ps1
 # Reconstruire puis exporter la CROQUETTE (meme moule : .blend REGENERE)
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --factory-startup   --python tools/build_kibble.py -- --save
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background   "C:/Users/tibo/Documents/zeucozy_3d/xp_croquette_v1.blend"   --python tools/export_prop.py -- --mesh MSH_croquette --out xp_croquette.glb
+# Reconstruire puis exporter la BOULE DE POILS (le projectile) — meme moule
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --factory-startup   --python tools/build_hairball.py -- --save
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background   "C:/Users/tibo/Documents/zeucozy_3d/projectile_boule_poils_v1.blend"   --python tools/export_prop.py -- --mesh MSH_boule_poils --out projectile_boule_poils.glb
 # Banc des modeles sans squelette — 8 directions + le chat a cote, au cadrage de jeu
 "C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64.exe" --path . res://scenes/tests/prop_test.tscn -- --capture
 #   --model=res://assets/models/xp_croquette.glb   n'importe quel .glb sans squelette
+#   --model=res://assets/models/projectile_boule_poils.glb
 #   (par defaut le canape ; le cadrage se deduit de la boite englobante)
 # Banc de PAUSE — ce qui se fige, ce qui vit, ce qui repart (18 verdicts)
 "C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --headless --path . \
@@ -417,7 +421,7 @@ zeucozy/
 │   ├── main.tscn     # Scène principale (environnement, arène, caméra, UI, game manager)
 │   ├── player.tscn   # CharacterBody3D + CelModel (le chat) + ombre de contact
 │   ├── claw_slash.tscn # ⚔️ La griffure — l'attaque auto (Area3D + décalque dessiné)
-│   ├── projectile.tscn # 💤 En sommeil — gardé entier pour un usage futur
+│   ├── projectile.tscn # 🌀 La boule de poils — porté par `hairball_skill`
 │   ├── xp_orb.tscn
 │   ├── enemies/
 │   │   ├── chaser.tscn   # Ennemi rapide (spawn dès le début) — capsule placeholder
@@ -432,7 +436,7 @@ zeucozy/
 │   ├── player.gd     # Le CORPS du chat : mouvement, visée, vie, XP — plus aucune arme
 │   ├── enemy.gd      # Comportement ennemi de base (follow, dégâts)
 │   ├── claw_slash.gd # ⚔️ Griffure : 6 poses + dégâts sur les 3 premières
-│   ├── projectile.gd # 💤 Projectile (direction, portée, collision) — débranché
+│   ├── projectile.gd # 🌀 La boule de poils en vol : direction, roulis, portée
 │   ├── xp_orb.gd     # Croquette d'XP (magnétisme, collecte)
 │   ├── arena.gd      # Décor : sol, tapis, mobilier, mur de bordure
 │   ├── camera_rig.gd # Vue plongeante 45°, suit le joueur, bornée à l'arène
@@ -496,11 +500,13 @@ zeucozy/
 │   ├── build_outline.py    # Contour Blender : épaisseur × Attr_Style.R, 1 encre / surface
 │   ├── build_couch.py      # Canapé : géométrie ET Attr_Style, dans un .blend neuf
 │   ├── build_kibble.py     # Croquette : trèfle à 3 lobes, 300 tris, même moule
+│   ├── build_hairball.py   # Boule de poils : amas à 6 touffes, 308 tris, même moule
 │   ├── export_prop.py      # Export générique d'un .glb, même réinjection COLOR_0
 │   ├── fetch_fonts.ps1     # Récupère les polices d'UI en sous-ensembles (rejouable)
 │   └── dump_paws.gd        # Relève os porteurs + boîtes de repos — source des PAWS
 └── assets/
-    ├── models/       # player_cat.glb, prop_canape.glb, xp_croquette.glb
+    ├── models/       # player_cat.glb, prop_canape.glb, xp_croquette.glb,
+    │                 # projectile_boule_poils.glb
     └── fonts/        # Dela Gothic One + Zen Kaku Gothic New, sous-ensembles + OFL
 ```
 
@@ -536,7 +542,7 @@ Le réglage à bouger en premier si le chat paraît trop petit est `distance` da
 | | T1 | T2 | T3 |
 |---|---|---|---|
 | **Griffure** *(dégât / cadence / portée)* | 3 · 1,10 s · 5,2 m | 4 · 0,94 s · 5,65 m | 5 · 0,80 s · 6,1 m |
-| **Boule de poils** *(dégât / cadence / portée)* | 2 · 1,60 s · 11 m | 3 · 1,35 s · 13 m | 4 · 1,10 s · 15 m |
+| **Boule de poils** *(dégât / cadence / portée / vitesse)* | 2 · 1,60 s · 11 m · 10 m/s | 3 · 1,35 s · 13 m · 12 m/s | 4 · 1,10 s · 15 m · 14 m/s |
 | **Morsure** *(dégât / portée / recharge)* | 7 · 3,6 m · 6,0 s | 10 · 4,0 m · 5,0 s | 14 · 4,4 m · 4,2 s |
 | **Haleine** *(rayon / dégât par morsure)* | 2,8 m · 1 | 3,35 m · 2 | 3,9 m · 3 |
 | **Moutons** *(dégât / cadence / vie / rayon)* | 3 · 0,55 s · 3,5 s · 0,75 m | 4 · 0,46 s · 4,4 s · 0,85 m | 6 · 0,42 s · 5,0 s · 0,95 m |
@@ -545,13 +551,27 @@ Le réglage à bouger en premier si le chat paraît trop petit est `distance` da
 Arc frontal de griffure **120°, à tous les paliers** — l'ancienne description promettait un
 balayage « plus large », le code ne l'a jamais fait.
 
-Projectile *(en sommeil, plus branché à aucune upgrade)* : damage 1 | Speed 17,5 m/s | Range 10 m
+> ⚠️ **La boule de poils a été RALENTIE le 2026-08-19** (17,5 / 19 / 21 → 10 / 12 / 14 m/s),
+> et le passif **`projectile_speed`** multiplie cette base (×1,30 / 1,60 / 2,00). Voir
+> « La boule de poils modélisée » plus bas — la vitesse et la portée montent **ensemble**,
+> donc le temps de vol reste constant (1,10 / 1,08 / 1,07 s) aux trois paliers.
+>
+> ⚠️ **Les trois `@export` du projectile en sommeil ont disparu de `player.gd`** le même
+> jour, avec `_fire_at_nearest_enemy`. Ils promettaient « le jour où il revient, il revient
+> en compétence » — c'est fait depuis le 2026-08-17, et `hairball_skill.gd` faisait déjà
+> exactement ce que faisait cette méthode. La scène, `projectile.gd` et
+> `main.spawn_projectile`, eux, **servent**.
 
 ### L'attaque — la griffure (2026-08-16)
-L'auto-attaque est passée du **projectile** au **corps à corps**. Le projectile n'est pas
-supprimé : scène, script, `spawn_projectile` et `_fire_at_nearest_enemy` sont intacts. Il
-est **débranché**, rien de plus — et depuis le 2026-08-17 il ne suit plus aucune upgrade,
-le jour où il revient il revient en **compétence**.
+L'auto-attaque est passée du **projectile** au **corps à corps**. Le projectile n'a pas été
+supprimé : scène, script et `spawn_projectile` sont restés intacts, précisément pour le
+jour où il reviendrait en **compétence**.
+
+> ✅ **Ce jour est venu le 2026-08-17** avec la boule de poils, et le sommeil s'est terminé
+> pour de bon le 2026-08-19 : `_fire_at_nearest_enemy` et les trois `@export`
+> `projectile_*` ont quitté `player.gd`, `hairball_skill.gd` faisant exactement le même
+> travail avec ses propres paliers. Deux tireurs dont un seul est branché, c'est le défaut
+> précis que l'aimant à croquettes a fait payer.
 
 > ⚠️ **Le code de la griffure a quitté `player.gd` le 2026-08-17** pour
 > `skills/claw_skill.gd` — voir « Les compétences ». Son comportement n'a pas bougé d'une
@@ -818,10 +838,10 @@ remplacement (chantier 2) ne sont **pas** écrits.
   Le carton « quoi remplacer ? » n'existe pas — proposer une 7ᵉ arme serait proposer
   quelque chose que le jeu ne sait pas faire.
 - **Tirage pondéré** AUTO ×3 · ACTIF ×2 · PASSIF ×1, sans doublon dans le tirage.
-- **Le catalogue actuel — 11 entrées** : `claw` (AUTO dirigé, de départ) · `hairball`
+- **Le catalogue actuel — 12 entrées** : `claw` (AUTO dirigé, de départ) · `hairball`
   (AUTO auto-visé) · `breath` (AUTO de zone) · `dust` (AUTO semé) · `bite` (ACTIF) ·
   `hiss` (ACTIF de recul) · `move_speed` · `max_health` · `pickup_radius` · `xp_gain` ·
-  `toughness`. Voir « Quatre compétences de plus » plus bas.
+  `projectile_speed` · `toughness`. Voir « Quatre compétences de plus » plus bas.
 - **La carte de choix porte un marqueur de palier** — `NOUVEAU` / `PALIER 2` / `ULTIME`, en
   légende de 10 px au-dessus d'un titre de 17 (le contraste d'échelle de DA §9.3 règle 5,
   pas une nuance de gris de plus). Il reste en crème assourdi **même au survol** : l'ambre
@@ -839,9 +859,17 @@ remplacement (chantier 2) ne sont **pas** écrits.
 > ⚠️ **`damage`, `attack_speed` et `claw_range` ont été SUPPRIMÉS** (décision du
 > 2026-08-17). La griffure ayant ses propres paliers, les laisser coexister ferait
 > **compter deux fois la même montée** (§2.9). Leur effet est replié dans les T2/T3 de
-> `claw` — transcription de l'équilibrage d'avant, pas rééquilibrage. Il ne reste donc que
-> **trois passifs**, et ils ont un point commun : ils règlent le **corps** du chat
-> (`move_speed`, `max_health`, `pickup_radius`), jamais une arme. C'est la ligne de partage.
+> `claw` — transcription de l'équilibrage d'avant, pas rééquilibrage. Les passifs
+> survivants règlent le **corps** du chat (`move_speed`, `max_health`, `pickup_radius`),
+> jamais une arme. C'est la ligne de partage.
+>
+> ⚠️ **Et `projectile_speed` en est la première exception, le 2026-08-19.** Ce qui n'est
+> pas négociable est le **dégât**, pas le mot « arme » : la règle existe pour empêcher le
+> double comptage de §2.9. Ce passif ne touche aucun dégât, il **multiplie** une base
+> absolue au lieu de s'y ajouter (comme `toughness` × `max_health`), et il vaut pour
+> **tout** projectile plutôt que pour la boule de poils. Il avait d'ailleurs déjà existé,
+> et il avait été sorti du pool le 2026-08-16 pour une raison qui n'est plus vraie — le
+> projectile venait d'être débranché, donc l'upgrade n'améliorait plus rien de visible.
 
 > ⚠️ **AUCUNE COMPÉTENCE N'A DE `_process`.** L'horloge vient de `player._process` →
 > `skills.tick(delta)` — et le chat étant en `PROCESS_MODE_PAUSABLE`, c'est **le moteur**
@@ -1460,6 +1488,14 @@ ennemis, **attaque de griffure au corps à corps**, **aura d'haleine puante**, X
 **système de compétences à paliers**, scaling difficulté, HUD complet, Game Over/restart,
 arène large. Toute la logique de gameplay tourne — le passage en 3D ne l'a pas touchée.
 
+**La boule de poils est modélisée et ralentie depuis le 2026-08-19** — voir « La boule de
+poils modélisée » plus bas. Le dernier placeholder de primitive du gameplay disparaît : le
+projectile est un amas de fourrure à 6 touffes, dans la couleur du chat, qui **roule** sur
+son axe de vol à 10 m/s au lieu de 17,5. Le ralentissement n'est pas un effet de bord du
+modèle, c'est sa condition : à l'ancienne vitesse la boule sautait la moitié de sa propre
+longueur d'une frame à l'autre. Il ouvre au passage la place du passif **`projectile_speed`**,
+qui avait été sorti du pool le 2026-08-16 faute d'améliorer quoi que ce soit de visible.
+
 **La silhouette est antialiasée depuis le 2026-08-19** — MSAA 4× dans `project.godot`,
 voir « L'antialiasing de la SILHOUETTE ». Le trait est une coque inversée, donc un bord de
 géométrie : c'était la dernière famille de bords à n'être traitée par rien. L'erreur au
@@ -1543,7 +1579,7 @@ dessinées** compris, et il se lit à taille de jeu — désormais en **tuxedo n
 qui se détache mieux du
 parquet que l'ambre d'avant. Les **canapés sont modélisés** et posés dans l'arène en deux
 variantes (bleu ciel, vert sauge). Le reste est placeholder : ennemis en primitives 3D,
-tables / plantes / coussins en boîtes pastel. **Les croquettes d'XP sont modélisées** depuis le 2026-08-19 — trèfle à 3 lobes, 300 tris ; il ne reste que le projectile en cube.
+tables / plantes / coussins en boîtes pastel. **Les croquettes d'XP sont modélisées** depuis le 2026-08-19 — trèfle à 3 lobes, 300 tris — et **la boule de poils** le même jour : amas à 6 touffes, 308 tris, dans la fourrure du chat. **Plus aucun placeholder de primitive hors les ennemis et le petit mobilier.**
 
 **Passe rétro anime — faite le 2026-08-16.** `Attr_Style` peint et câblé, trait à
 épaisseur variable **des deux côtés du pont** (Godot par `cel_outline.gdshader`, Blender par
@@ -2176,6 +2212,109 @@ les suivants.
 > parchemin entre l'aplat et le trait sur les 8 vues. **Artefact de banc, pas du modèle** :
 > la croquette flotte à 0,35 m en jeu. Le canapé, lui, garde `hover = 0`, parce qu'il pose
 > vraiment et que son encre est tranchée **en jeu aussi**.
+
+### La boule de poils modélisée — et ralentie (2026-08-19)
+
+Le projectile était une **capsule primitive** `#FDD166`. C'est désormais
+`assets/models/projectile_boule_poils.glb` : un **amas allongé hérissé de 6 touffes**,
+**308 tris**, 156 sommets, un seul matériau — **la fourrure du chat**, `#4A4038`.
+`tools/build_hairball.py` (le `.blend` est **régénéré**, jamais édité à la main, comme le
+canapé et la croquette) puis `tools/export_prop.py`, qui n'a **toujours** pas eu à bouger.
+
+Deux choses ont bougé ensemble, et l'une ne valait rien sans l'autre :
+
+| | Avant | Après |
+|---|---|---|
+| Modèle | capsule, 12 seg. | **amas à 6 touffes**, 308 tris |
+| Couleur | `#FDD166` jaune pâle | **`#4A4038`**, le pelage tuxedo |
+| Vitesse T1→T3 | 17,5 / 19 / 21 m/s | **10 / 12 / 14 m/s** |
+| Sphère de collision | 0,30 pour un corps de 0,13 | **0,26**, sa taille réelle |
+| Passif de vitesse | — | **`projectile_speed`** ×1,30 / 1,60 / 2,00 |
+
+- ⚠️ **LE PLACEHOLDER NE SE DÉTACHAIT PAS DU SOL, et ce n'était pas un problème de forme.**
+  `#FDD166` sur un parquet `#F5ECD8`–`#E8D4A8`, c'est moins de **0,10** d'écart de valeur —
+  soit **sous** le seuil de lecture relevé sur la silhouette du canapé. Le brun du pelage
+  est à 0,29 contre 0,96 : **0,67** d'écart, ce qu'il y a de plus lisible dans le jeu.
+  Et c'est la couleur juste au sens propre : une boule de poils est faite **des poils du
+  chat**. Lui donner une teinte à elle en aurait fait un objet du décor.
+- ⚠️ **RALENTIE POUR ÊTRE VUE.** À 17,5 m/s la boule parcourait **0,29 m par frame** à
+  60 fps pour 0,77 m de long : elle sautait la moitié de sa propre longueur d'une frame à
+  l'autre, et à 30 fps de capture elle n'apparaissait que deux ou trois fois sur tout son
+  trajet. Modéliser un objet qu'on ne voit pas passer n'aurait rien montré. À 10 m/s elle
+  se **recouvre elle-même** d'une frame à la suivante.
+- **Vitesse et portée montent ENSEMBLE** : le temps de vol reste à 1,10 / 1,08 / 1,07 s
+  aux trois paliers. Un palier qui n'aurait allongé que la portée aurait rendu l'arme
+  *plus lente* à atteindre sa cible à mesure qu'on la renforce.
+- **La contrepartie assumée** : la boule ne se vise pas, elle part vers la position de
+  l'ennemi au moment du tir. Plus lente, elle peut être manquée par un ennemi qui coupe la
+  trajectoire. **C'est ce qui donne quelque chose à acheter au passif.**
+- **Elle ROULE sur son axe de vol** (`spin_speed` 2,2 tr/s), et ce réglage n'existe que
+  parce qu'elle a ralenti : à l'ancienne vitesse, faire tourner un objet qu'on ne voit pas
+  se poser n'aurait rien montré.
+- **Le maillage est DÉJÀ orienté** — axe long sur Z en Godot (Y dans Blender). La matrice
+  de rotation que `projectile.tscn` posait sur la capsule a disparu avec elle : un jour ou
+  l'autre, quelqu'un aurait réglé l'une sans l'autre.
+- ✅ **La duplication notée dans `skill_thumb.gd` a disparu.** La vignette de carte
+  recopiait rayon, hauteur, couleur et trait de la capsule ; elle habille désormais le vrai
+  modèle par `CelProp.dress()`, **dans le même cache** que le projectile en vol.
+
+> ⛔ **DEUX FORMES ONT ÉTÉ RENDUES ET JETÉES AVANT CELLE-CI, pour la même raison — et
+> elle vaut pour tout modèle allongé à venir (l'aspirateur, le concombre) :**
+> **des bourrelets circulaires ne se voient pas sur la silhouette d'un corps allongé.**
+> Un rayon modulé seulement autour de l'axe reste un corps de révolution déformé : vu de
+> flanc, sa silhouette est le rayon **maximum**, et ce maximum est le même à chaque
+> hauteur. On obtient un ovale lisse, quelle que soit la profondeur des sillons.
+>
+> ⚠️ **Et le vrillage AGGRAVE le défaut au lieu de le corriger.** L'hélice a l'air d'être
+> la parade — « aucun bourrelet ne reste parallèle à la silhouette » — mais elle fait
+> l'inverse : en faisant tourner les crêtes, elle garantit qu'une crête passe par la
+> silhouette à **chaque** hauteur. Elle lisse l'enveloppe au lieu de la creuser.
+>
+> La sortie n'est pas un réglage, c'est un changement de forme : des **touffes discrètes**,
+> posées à des endroits précis (spirale de Fibonacci). Le corps cesse d'être un corps de
+> révolution, donc sa silhouette change avec l'azimut et n'est plus convexe.
+
+> ⚠️ **LE NOMBRE DE CREUX EST BORNÉ PAR L'ÉPAISSEUR DE L'ENCRE, et la borne est brutale.**
+> Pour `r(u) = R(1 + d·cos(n·u))`, le rayon de courbure au fond du creux vaut
+> `R(1−d)² / |(1−d) − d·n²|` : le **n²** écrase tout. Sous l'épaisseur de la coque
+> inversée (0,036 m), l'encre se referme et remplit le sillon.
+>
+> | | rayon de courbure | verdict |
+> |---|---|---|
+> | n = 5, d = 0,32 | 0,012 m | l'encre remplit le creux |
+> | n = 4, d = 0,22 | 0,039 m | à peine au-dessus, **et invisible** |
+> | n = 3, d = 0,31 | 0,054 m | 1,5 × l'encre, le creux se voit |
+>
+> C'est **la même contrainte** qui avait donné 3 lobes à la croquette (0,056 m), sans qu'on
+> sache alors que c'en était une. Sur un petit objet : **peu de creux, et profonds.**
+> Entre deux touffes *discrètes*, le « creux » est simplement la surface de base — convexe,
+> cinq fois l'encre — donc on peut les faire hautes.
+
+> 🔍 **Deux défauts de plus, tous deux trouvés en CAPTURE, aucun en lisant le code :**
+> - **Une touffe exprimée en FRACTION DU RAYON sort en galet.** Le rayon local d'un
+>   ellipsoïde s'effondre vers les pôles, et la spirale de Fibonacci en pose justement deux
+>   près des bouts. Mesuré : l'emprise transverse sortait à 0,370 m pour un diamètre de base
+>   de 0,350 — **0,02 m de relief en tout**. Une touffe est une masse de poils : elle a la
+>   même taille où qu'elle soit sur le corps, donc **en mètres**.
+> - **Une bosse en `x²` se termine en POINTE.** Sa dérivée vaut 2 au sommet ; l'amas est
+>   sorti **en coin**, avec des arêtes franches — l'angle vif que §3 interdit, sur l'objet
+>   dont toute la DA dit qu'il doit être rond. `smoothstep` a une dérivée nulle aux **deux**
+>   bouts : pied fondu, sommet arrondi.
+
+> ⚠️ **PAS D'ACCENT DE BRILLANCE** (canal B à zéro partout), et c'est une décision. Sur un
+> aplat à 0,29 de valeur, le mélange vers le crème fabrique un **3ᵉ ton de cluster** — le
+> chat l'a déjà payé en descendant `accent_strength` de 0,35 à 0,12 sur son pelage noir.
+> Le trait, lui, passe à `INK_SOMBRE` `#1A120C` : `cel_prop` porte désormais un `INKS` par
+> variante, exactement comme `cel_model`, parce que `#3D2B1A` repasse au-dessus du ton
+> d'ombre du brun sombre et se lirait comme une lumière.
+
+> 🅿️ **Elle partage la famille `PICKUP`, et il a fallu résister à lui en écrire une
+> troisième.** La Todo annonçait « il n'a pas besoin de la même épaisseur de trait, il
+> file, on ne le lit pas à l'arrêt ». C'est vrai de son **rôle** et faux de son épaisseur :
+> la borne basse n'est pas un goût, c'est **le pixel** (0,036 m ≈ 1 px, en dessous le trait
+> se lit comme de la saleté), et sur un objet aussi sombre le trait ne porte de toute façon
+> pas la séparation d'avec le sol. Trois nombres identiques, c'est une entrée de
+> dictionnaire en moins à tenir synchronisée.
 
 ### Le rai de soleil au sol — retiré le 2026-08-17
 

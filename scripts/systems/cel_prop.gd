@@ -121,6 +121,24 @@ const FAMILIES := {
 		# PLEIN, et c'est le point de la famille : un ramassable n'est pas du
 		# decor. C'est meme l'objet que le joueur doit reperer en premier.
 		"outline_scale": 1.0,
+		# ⚠️ LA BOULE DE POILS PARTAGE CETTE FAMILLE, et il a fallu resister a
+		# lui en ecrire une troisieme. La Todo l'annoncait : "il n'a pas besoin
+		# de la meme epaisseur de trait, il file, on ne le lit pas a l'arret".
+		# C'est vrai de son ROLE et faux de son epaisseur, pour deux raisons
+		# mesurees ailleurs :
+		#
+		#   * la borne basse n'est pas un gout, c'est LE PIXEL. La croquette a
+		#     du remonter a 0,036 parce qu'a 0,032 son bord tombait a 0,7 px et
+		#     que le trait y disparaissait. Un trait sous le pixel ne se lit pas
+		#     comme un trait fin, il se lit comme de la salissure (la lecon
+		#     d'antialiasing du visage). Il n'y a donc rien a gagner en dessous ;
+		#   * sur la boule, le trait ne PORTE de toute facon pas la separation
+		#     d'avec le sol — le pelage est a 0,29 de valeur contre 0,96 pour le
+		#     parquet, la ou l'or de la croquette n'avait que 0,085 d'ecart sur
+		#     son bord expose au ciel. Le laisser plein ne charge rien.
+		#
+		# Trois nombres identiques, c'est une entree de dictionnaire en moins a
+		# tenir synchronisee.
 		"shadow_bias_strength": 1.0,
 	},
 }
@@ -153,9 +171,37 @@ const PALETTES := {
 	"croquette": {
 		"croquette": Color("#E8C040"),
 	},
+	# La boule de poils — LE PELAGE DU CHAT, pas une couleur de plus. C'est
+	# exactement `cel_model.NOIR` : une boule de poils est faite des poils du
+	# chat, et lui donner une teinte a elle en ferait un objet du decor plutot
+	# que quelque chose qu'il a crache.
+	#
+	# Ce que le placeholder coutait, et qui n'etait pas qu'un probleme de forme :
+	# la capsule etait `#FDD166`, un jaune pale, sur un parquet `#F5ECD8` a
+	# `#E8D4A8`. Moins de 0,10 d'ecart de valeur, soit SOUS le seuil de lecture
+	# releve sur la silhouette du canape — le projectile ne se detachait pas du
+	# sol. Le brun est a 0,29 contre 0,96 : 0,67 d'ecart.
+	"boule_poils": {
+		"poils": Color("#4A4038"),
+	},
 }
 
 const FALLBACK_COLOR := Color("#A0C8D8")
+
+## Trait par VARIANTE, quand `CelStyle.INK` (#3D2B1A, §4) ne convient pas.
+##
+## Meme regle et meme raison que `cel_model.INKS` : un trait doit rester plus
+## sombre que l'aplat qu'il cerne ET que son ton d'ombre, sinon il se lit comme
+## une lumiere et non comme de l'encre. Sur le brun tres sombre du pelage,
+## l'ombre descend a ~#302B23 — soit SOUS `INK`. On passe donc au meme brun
+## profond que le chat, qui n'est toujours pas un noir pur (§2bis).
+##
+## Par variante et non par materiau : une variante decrit un objet entier, et
+## aucun des deux modeles concernes n'a de surface claire a cerner autrement.
+const INK_SOMBRE := Color("#1A120C")
+const INKS := {
+	"boule_poils": INK_SOMBRE,
+}
 
 # (chemin du modele + variante + famille + epaisseur) -> Array[ShaderMaterial],
 # indexe par surface.
@@ -293,7 +339,11 @@ static func _materials(
 		var mat_name := source.resource_name if source else ""
 		var color: Color = palette.get(mat_name, FALLBACK_COLOR)
 
-		var mat := CelStyle.make_outlined(color, style["thickness"] * outline_scale)
+		var mat := CelStyle.make_outlined(
+			color,
+			style["thickness"] * outline_scale,
+			INKS.get(variant, CelStyle.INK),
+		)
 		mat.set_shader_parameter("use_vertex_style", true)
 		mat.set_shader_parameter("edge_noise", EDGE_NOISE)
 		mat.set_shader_parameter("accent_strength", ACCENT_STRENGTH)

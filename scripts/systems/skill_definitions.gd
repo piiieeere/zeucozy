@@ -125,10 +125,33 @@ const DEFINITIONS: Array[Dictionary] = [
 		"script": "res://scripts/skills/hairball_skill.gd",
 		# Peu de degats sur UNE cible, mais a 11 m — le double de la griffure.
 		# Elle porte loin, elle ne nettoie pas.
+		#
+		# ⚠️ RALENTIE LE 2026-08-19 (17,5 / 19 / 21 -> 10 / 12 / 14 m/s), en meme
+		# temps que le passage de la capsule au modele. A 17,5 m/s la boule
+		# parcourait 0,29 m par frame a 60 fps pour 0,60 m de long : elle sautait
+		# la moitie de sa propre longueur d'une frame a l'autre, et a 30 fps de
+		# capture elle n'apparaissait que deux ou trois fois sur tout son trajet.
+		# Modeliser un objet qu'on ne voit pas passer n'aurait rien montre.
+		#
+		# A 10 m/s elle avance de 0,17 m par frame, soit un tiers de sa longueur :
+		# elle se recouvre elle-meme d'une frame a la suivante, ce qui est le
+		# seuil a partir duquel l'oeil suit une trajectoire au lieu de constater
+		# une trainee de fantomes.
+		#
+		# ⚠️ VITESSE ET PORTEE MONTENT ENSEMBLE, et c'est ce qui garde le temps de
+		# vol constant : 1,10 / 1,08 / 1,07 s aux trois paliers. Un palier qui
+		# n'aurait allonge que la portee aurait rendu l'arme PLUS LENTE a
+		# atteindre sa cible a mesure qu'on la renforce.
+		#
+		# Ce que le ralentissement coute, et c'est assume : la boule ne se vise
+		# pas, elle part vers la position de l'ennemi au moment du tir. Un ennemi
+		# qui coupe la trajectoire peut donc etre manque — la ou l'ancienne
+		# vitesse touchait presque a coup sur. C'est precisement ce qui donne
+		# quelque chose a acheter au passif `projectile_speed`.
 		"tiers": [
-			{"damage": 2, "interval": 1.60, "speed": 17.5, "range": 11.0},
-			{"damage": 3, "interval": 1.35, "speed": 19.0, "range": 13.0},
-			{"damage": 4, "interval": 1.10, "speed": 21.0, "range": 15.0},
+			{"damage": 2, "interval": 1.60, "speed": 10.0, "range": 11.0},
+			{"damage": 3, "interval": 1.35, "speed": 12.0, "range": 13.0},
+			{"damage": 4, "interval": 1.10, "speed": 14.0, "range": 15.0},
 		],
 		"ultimates": [],
 	},
@@ -245,11 +268,16 @@ const DEFINITIONS: Array[Dictionary] = [
 
 	# ── PASSIF ────────────────────────────────────────────────────────────────
 	#
-	# Ils ont tous un point commun : ils reglent le CORPS du chat, jamais une
-	# arme. C'est ce qui les rend compatibles avec des armes qui portent
-	# desormais leurs propres paliers — aucune montee n'est comptee deux fois.
-	# La ligne de partage n'est pas negociable : un passif qui reglerait un degat
-	# recreerait le double comptage que §2.9 a fait supprimer.
+	# Ils reglent presque tous le CORPS du chat, jamais une arme. C'est ce qui
+	# les rend compatibles avec des armes qui portent desormais leurs propres
+	# paliers — aucune montee n'est comptee deux fois.
+	#
+	# ⚠️ CE QUI N'EST PAS NEGOCIABLE, C'EST LE DEGAT, pas le mot « arme ». La
+	# regle existe pour empecher le double comptage de §2.9 : un passif qui
+	# reglerait un degat le recreerait aussitot. `projectile_speed` (2026-08-19)
+	# est la premiere exception, et elle est argumentee sur sa propre entree —
+	# elle ne touche aucun degat, elle multiplie une base absolue au lieu de s'y
+	# ajouter, et elle vaut pour tout projectile plutot que pour une arme.
 	{
 		"id": "move_speed",
 		"kind": Kind.PASSIVE,
@@ -301,6 +329,47 @@ const DEFINITIONS: Array[Dictionary] = [
 			{"xp_gain": 1.30},
 			{"xp_gain": 1.60},
 			{"xp_gain": 2.00},
+		],
+	},
+	{
+		"id": "projectile_speed",
+		"kind": Kind.PASSIVE,
+		# ⚠️ LE SEUL PASSIF QUI TOUCHE UNE ARME, ET IL FAUT DIRE POURQUOI.
+		#
+		# La ligne de partage posee plus haut (« un passif regle le CORPS du
+		# chat, jamais une arme ») n'est pas une regle de vocabulaire : elle
+		# existe pour empecher le DOUBLE COMPTAGE de §2.9, ou une meme montee
+		# etait payee deux fois — par le palier de l'arme et par une carte a
+		# part. Trois choses la tiennent ici :
+		#
+		#   * ce n'est pas un degat. La feuille de degats de la boule de poils
+		#     ne bouge pas d'un point ; ce qui change est la PROBABILITE qu'elle
+		#     atteigne une cible qui se deplace, donc la sensation de visee ;
+		#   * c'est un MULTIPLICATEUR pose sur une base absolue, pas une seconde
+		#     source de la meme valeur. Il compose avec le palier comme
+		#     `toughness` compose avec `max_health` — la premiere synergie du
+		#     jeu — au lieu de s'y additionner ;
+		#   * il vaut pour TOUT projectile, pas pour la boule de poils. C'est
+		#     une propriete du crachat du chat, et la prochaine arme a
+		#     projectile en heritera sans qu'on ecrive une ligne.
+		#
+		# ⚠️ Il avait deja existe, et il a ete SORTI DU POOL le 2026-08-16 avec
+		# une raison qui n'est plus vraie : le projectile venait d'etre debranche
+		# au profit de la griffure, donc l'upgrade n'ameliorait plus rien de
+		# visible — « un mensonge a l'ecran ». La boule de poils l'a rallume, et
+		# le ralentissement du 2026-08-19 rend l'amelioration franchement
+		# lisible : a 10 m/s on VOIT la boule mettre du temps a arriver.
+		#
+		# La courbe est celle de `xp_gain`, volontairement : deux multiplicateurs
+		# a la source, deux fois la meme forme a retenir. Au T3 sur une boule T3,
+		# 14 x 2,0 = 28 m/s — plus vif que les 21 m/s d'avant le ralentissement,
+		# donc le build « chat sniper » recupere l'instantaneite d'antan comme
+		# une RECOMPENSE et non comme reglage par defaut. C'est exactement ce que
+		# l'aimant a croquettes a fait de ses 5 m.
+		"tiers": [
+			{"projectile_speed": 1.30},
+			{"projectile_speed": 1.60},
+			{"projectile_speed": 2.00},
 		],
 	},
 	{

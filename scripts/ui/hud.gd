@@ -263,7 +263,9 @@ func _build_status_block() -> void:
 ##
 ## Une pastille par slot active, et AUCUNE tant que le chat n'a pas de
 ## competence active : une pastille eteinte annoncerait une touche qui ne fait
-## rien, ce qui est le meme mensonge a l'ecran que `projectile_speed`.
+## rien, ce qui est le meme mensonge a l'ecran que `projectile_speed` du temps ou
+## il reglait un projectile debranche (il est revenu le 2026-08-19, et cette
+## fois il agit — voir `skill_definitions.gd`).
 ##
 ## En BAS A DROITE, et c'est le seul coin qui restait : le haut gauche porte la
 ## survie, le haut droit la vague, le bas gauche le releve de build. C'est aussi

@@ -72,7 +72,16 @@ func _spit() -> void:
 		origin,
 		direction,
 		int(values["damage"]),
-		float(values["speed"]),
+		# ⚠️ LE PALIER DONNE LA BASE, LE PASSIF MULTIPLIE — et la portee ne suit
+		# PAS. `projectile_speed` fait arriver la boule plus tot au meme endroit,
+		# il ne la fait pas porter plus loin : la portee est ce que la carte
+		# promet et ce que l'ATH affiche, et un passif qui l'allongerait en
+		# silence serait le mensonge a l'ecran que §2.10 interdit.
+		#
+		# Multiplie ICI, a la ponte, et pas sur le projectile en vol : une boule
+		# qui accelererait en cours de route perdrait la trajectoire lisible que
+		# le ralentissement du 2026-08-19 lui a donnee.
+		float(values["speed"]) * player.projectile_speed,
 		float(values["range"])
 	)
 

@@ -31,6 +31,7 @@ const CelStyle := preload("res://scripts/systems/cel_style.gd")
 
 const COUCH := "res://assets/models/prop_canape.glb"
 const KIBBLE := "res://assets/models/xp_croquette.glb"
+const HAIRBALL := "res://assets/models/projectile_boule_poils.glb"
 
 ## Ce que le banc ne peut PAS deduire d'une boite englobante. Une entree par
 ## modele, et rien de plus que ce qui lui est propre.
@@ -52,6 +53,12 @@ const MODELS := {
 			"prefix": "prop"},
 	KIBBLE: {"variant": "croquette", "family": CelProp.PICKUP, "seat": -1.0,
 			"hover": 0.35, "prefix": "kibble"},
+	# La boule de poils. `hover` = `player.muzzle_height` : elle ne se pose
+	# jamais, elle vole a hauteur de museau du depart a l'impact. Le banc doit
+	# donc la montrer en l'air, faute de quoi il jugerait une encre tranchee par
+	# le parquet que le jeu ne produit pas.
+	HAIRBALL: {"variant": "boule_poils", "family": CelProp.PICKUP, "seat": -1.0,
+			"hover": 0.70, "prefix": "hairball"},
 }
 
 const CAPTURE_DIR := "C:/Users/tibo/AppData/Local/Temp/claude/c--Users-tibo-Games-zeucozy/42e46b8e-306f-4ae8-91c9-344ef69f4749/scratchpad"

@@ -62,7 +62,10 @@ const STRINGS := {
 		"en": "CLAW %d · RATE %.2f s · RANGE %.1f m · SPEED %.1f m/s · MAGNET %.1f m",
 	},
 	"stats.breath": {"fr": " · HALEINE %.1f/s SUR %.1f m", "en": " · BREATH %.1f/s OVER %.1f m"},
-	"stats.hairball": {"fr": " · BOULE %d À %.0f m", "en": " · HAIRBALL %d AT %.0f m"},
+	"stats.hairball": {
+		"fr": " · BOULE %d À %.0f m · %.0f m/s",
+		"en": " · HAIRBALL %d AT %.0f m · %.0f m/s",
+	},
 	"stats.bite": {"fr": " · MORSURE %d / %.1f s", "en": " · BITE %d / %.1f s"},
 
 	# ── Cartons de moment ────────────────────────────────────────────────────
@@ -243,6 +246,16 @@ const STRINGS := {
 	"skill.xp_gain.desc": {
 		"fr": "Chaque croquette compte davantage.",
 		"en": "Every kibble counts for more.",
+	},
+
+	# Le nom dit le GESTE, pas le chiffre. « Crachat sec » se comprend sans avoir
+	# lu la fiche : un crachat sec part plus vite qu'un crachat mou. En anglais,
+	# *dry hack* est le terme courant pour la toux du chat qui rend une boule de
+	# poils — c'est la traduction juste, pas la traduction litterale.
+	"skill.projectile_speed.title": {"fr": "Crachat sec", "en": "Dry hack"},
+	"skill.projectile_speed.desc": {
+		"fr": "Les boules de poils partent bien plus vite.",
+		"en": "Hairballs fly much faster.",
 	},
 
 	"skill.toughness.title": {"fr": "Pelage épais", "en": "Thick coat"},

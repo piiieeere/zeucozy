@@ -24,13 +24,25 @@ extends CharacterBody3D
 ##
 ## ⚠️ CE QUI RESTE ICI EST LE CORPS DU CHAT, jamais une arme : vitesse, vie,
 ## rayon d'aimant, visee, animation. C'est la ligne de partage, et elle explique
-## pourquoi les trois passifs survivants (`move_speed`, `max_health`,
-## `pickup_radius`) sont exactement ceux qui ne touchent aucune arme.
+## pourquoi `move_speed`, `max_health` et `pickup_radius` sont exactement les
+## passifs qui ne touchent aucune arme.
 ##
-## Le projectile n'a pas ete supprime — scene, script et `spawn_projectile` sont
-## intacts, et `_fire_at_nearest_enemy` plus bas reste pret a resservir. Il est
-## simplement debranche. Le jour ou il revient, il revient en COMPETENCE, pas en
-## methode du chat.
+## `projectile_speed` (2026-08-19) y ressemble le moins et y appartient quand
+## meme : ce n'est pas la boule de poils qu'il regle, c'est la force avec
+## laquelle LE CHAT crache — n'importe quelle arme a projectile en heritera. Le
+## chat le porte pour la meme raison qu'il porte `xp_gain` : un multiplicateur
+## a la source, applique par celui qui produit la chose.
+##
+## ⚠️ LE PROJECTILE EN SOMMEIL A ETE RETIRE D'ICI le 2026-08-19, et ce n'est pas
+## un revirement : c'est la promesse tenue. Ce fichier gardait trois `@export`
+## (`projectile_damage/speed/range`) et un `_fire_at_nearest_enemy` « prets a
+## resservir », en annoncant que « le jour ou il revient, il revient en
+## COMPETENCE ». Ce jour est passe le 2026-08-17 — `skills/hairball_skill.gd`
+## fait exactement ce que faisait cette methode, avec ses propres paliers. Les
+## laisser cote a cote, c'etait garder deux tireurs dont un seul est branche :
+## le defaut precis que l'aimant a croquettes a fait payer (un chiffre porte a
+## deux endroits, c'est le plus fort qui gagne). La scene, `projectile.gd` et
+## `main.spawn_projectile`, eux, n'ont pas bouge — ils SERVENT.
 
 const CelStyle := preload("res://scripts/systems/cel_style.gd")
 const SkillDefinitions := preload("res://scripts/systems/skill_definitions.gd")
@@ -94,18 +106,6 @@ const IMMORTAL := true
 ## derniere visee valable, plutot que de faire pivoter le chat au hasard.
 @export var aim_dead_zone: float = 0.8
 
-## Le projectile, en sommeil. Conserve pour un usage futur (arme secondaire,
-## ennemi tireur) : sa scene, son script et `spawn_projectile` sont intacts.
-##
-## ⚠️ Ses chiffres NE SUIVENT PLUS AUCUNE UPGRADE depuis le passage aux
-## competences. L'ancien `apply_upgrade` montait `projectile_damage` en meme
-## temps que la griffure, pour qu'il ne se reveille pas perime ; c'est desormais
-## sans objet — le jour ou il revient, il revient en COMPETENCE, avec ses propres
-## paliers, et ces trois valeurs ne seront plus que son T1.
-@export var projectile_damage: int = 1
-@export var projectile_speed: float = 17.5
-@export var projectile_range: float = 10.0
-
 ## L'AIMANT : de quelle distance une croquette vient d'elle-meme vers le chat.
 ## C'est ce que l'ATH appelle deja "AIMANT", et ce que le passif du meme nom
 ## fait monter (3,35 / 4,20 / 5,05 m).
@@ -156,6 +156,17 @@ var invulnerability_timer := 0.0
 ## `skill_definitions.gd` : il est pose sur ce que la croquette RAPPORTE et non
 ## sur le seuil de niveau, pour valoir le meme facteur du debut a la fin de run.
 var xp_gain := 1.0
+
+## Multiplicateur de vitesse des PROJECTILES — le passif "Crachat sec". Porte
+## par le chat et non par la boule de poils : c'est la force du crachat, elle
+## vaudra pour toute arme a projectile a venir.
+##
+## ⚠️ Il se multiplie sur la valeur ABSOLUE du palier, il ne s'y ajoute pas —
+## voir `skill_definitions.gd`, c'est ce qui l'empeche de recreer le double
+## comptage de §2.9. Applique a la ponte, dans `hairball_skill._spit()`, et non
+## sur le projectile deja en vol : une boule qui accelererait en cours de route
+## n'aurait plus la trajectoire lisible que le ralentissement lui a donnee.
+var projectile_speed := 1.0
 
 ## Fraction des degats absorbee — le passif "Pelage epais". Une FRACTION et
 ## jamais un forfait : voir `skill_definitions.gd`.
@@ -363,7 +374,9 @@ func _report_build() -> void:
 		var state := "—" if tier == 0 else "T%d/%d %s" % [
 			tier, SkillDefinitions.max_tier(id), skills.values_of(id)
 		]
-		print("  %-14s %-7s %s" % [id, kind, state])
+		# 17 et non 14 : `projectile_speed` fait 16 caracteres, et une colonne qui
+		# deborde rend la sonde illisible la ou elle sert le plus.
+		print("  %-17s %-7s %s" % [id, kind, state])
 
 	print("  slots auto   %d / %d" % [
 		skills.used_slots(SkillDefinitions.Kind.AUTO), SkillDefinitions.MAX_AUTO_SLOTS
@@ -615,6 +628,7 @@ func _apply_passives() -> void:
 	max_health = int(values.get("max_health", _base_max_health))
 	pickup_radius = float(values.get("pickup_radius", _base_pickup_radius))
 	xp_gain = float(values.get("xp_gain", 1.0))
+	projectile_speed = float(values.get("projectile_speed", 1.0))
 	damage_reduction = clampf(float(values.get("damage_reduction", 0.0)), 0.0, 0.9)
 
 	health = mini(health, max_health)
@@ -643,7 +657,17 @@ func build_stats_text() -> String:
 	# `projectile_speed` faisait a l'ecran — voir `skill_definitions.gd`.
 	if skills.has("hairball"):
 		var hairball := skills.values_of("hairball")
-		line += Locale.t("stats.hairball") % [hairball["damage"], hairball["range"]]
+		# ⚠️ LA VITESSE AFFICHEE EST L'EFFECTIVE, palier x passif — la meme
+		# multiplication qu'a la ponte. Tous les autres passifs ont un chiffre
+		# a eux dans l'ATH (VITESSE, AIMANT, la barre de vie) ; sans celui-ci,
+		# `projectile_speed` serait le seul dont rien a l'ecran ne dit qu'il agit
+		# — soit exactement ce que l'aimant a croquettes a coute avant le
+		# 2026-08-19, par l'autre bout.
+		line += Locale.t("stats.hairball") % [
+			hairball["damage"],
+			hairball["range"],
+			float(hairball["speed"]) * projectile_speed,
+		]
 
 	if skills.has("bite"):
 		var bite := skills.values_of("bite")
@@ -745,30 +769,6 @@ func _mouse_aim_direction() -> Vector3:
 func _face_direction(delta: float) -> void:
 	var wanted := atan2(-aim_direction.x, -aim_direction.z)
 	model.rotation.y = lerp_angle(model.rotation.y, wanted, 1.0 - exp(-turn_speed * delta))
-
-
-## EN SOMMEIL — le projectile n'est plus l'attaque automatique. Conserve tel
-## quel pour un usage futur : la scene, `projectile.gd` et `spawn_projectile`
-## dans main.gd n'ont pas bouge non plus. Le rebrancher tient en une ligne dans
-## `_process`.
-func _fire_at_nearest_enemy() -> void:
-	if game == null:
-		return
-
-	var origin := global_position + Vector3(0.0, muzzle_height, 0.0)
-	var direction := aim_direction
-	var best_distance := INF
-
-	for enemy in game.enemies():
-		var to_enemy := enemy.global_position - global_position
-		to_enemy.y = 0.0
-		var distance := to_enemy.length()
-
-		if distance < best_distance and distance > 0.0:
-			best_distance = distance
-			direction = to_enemy / distance
-
-	game.spawn_projectile(origin, direction, projectile_damage, projectile_speed, projectile_range)
 
 
 func _emit_all_state() -> void:

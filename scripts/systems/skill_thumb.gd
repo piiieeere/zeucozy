@@ -37,7 +37,7 @@ extends RefCounted
 ##     jeu ; lui inventer une image serait lui inventer une presence a l'ecran
 ##     qu'il n'a pas. La carte se replie proprement sans elle.
 
-const CelStyle := preload("res://scripts/systems/cel_style.gd")
+const CelProp := preload("res://scripts/systems/cel_prop.gd")
 
 const CLAW_SHADER := preload("res://shaders/claw_slash.gdshader")
 const BITE_SHADER := preload("res://shaders/bite.gdshader")
@@ -156,19 +156,23 @@ const FX := {
 }
 
 ## La boule de poils n'a pas de shader de FX : c'est le PROJECTILE, un maillage
-## cel-shade comme les ennemis. Sa vignette passe donc par l'autre chemin —
-## meme capsule, meme couleur, meme trait que `projectile.tscn` et
-## `projectile.gd`.
+## cel-shade. Sa vignette passe donc par l'autre chemin — le VRAI modele, habille
+## par `cel_prop` exactement comme en jeu.
 ##
-## ⚠️ Les valeurs sont recopiees de la scene et du script, faute de pouvoir les
-## lire sans instancier un Area3D avec sa collision. C'est la seule duplication
-## de ce fichier, et elle est notee ici pour qu'on sache ou aller la corriger.
+## ✅ LA DUPLICATION NOTEE ICI A DISPARU le 2026-08-19. Ce bloc recopiait le rayon,
+## la hauteur, la couleur et le trait de la capsule placeholder, faute de pouvoir
+## les lire sans instancier un Area3D avec sa collision. Le passage au modele
+## (`tools/build_hairball.py`) la supprime : `CelProp.dress()` prend le maillage
+## et les materiaux dans le meme cache que le projectile en vol, donc la vignette
+## ne PEUT plus diverger de ce que le joueur verra. Il ne reste que le cadrage,
+## qui est une decision de vignette et de rien d'autre.
+##
+## `frame` est la hauteur vue par la camera ortho, en metres. 0,95 pour un amas
+## de 0,77 : la meme marge que les FX, sans laquelle le trait touche le bord.
 const HAIRBALL := {
-	"radius": 0.13,
-	"height": 0.52,
-	"color": Color("#FDD166"),
-	"outline": 0.012,
-	"frame": 0.62,
+	"model": "res://assets/models/projectile_boule_poils.glb",
+	"variant": "boule_poils",
+	"frame": 0.95,
 }
 
 
@@ -238,24 +242,24 @@ static func configure(thumb: SubViewportContainer, id: String) -> bool:
 	var subject := viewport.get_node("Sujet") as MeshInstance3D
 
 	if not FX.has(id):
-		# La boule de poils. Capsule inclinee : verticale elle se lit comme une
-		# pilule, en biais comme quelque chose qui a ete LANCE. Meme geste que
-		# l'inclinaison tiree au hasard des onomatopees.
-		var capsule := CapsuleMesh.new()
-		capsule.radius = HAIRBALL["radius"]
-		capsule.height = HAIRBALL["height"]
-		capsule.radial_segments = 12
-		capsule.rings = 4
-
+		# La boule de poils. Inclinee, et pas de face : son axe long EST son axe
+		# de vol, donc la poser d'aplomb la ferait lire comme un oeuf pose. En
+		# biais, elle se lit comme quelque chose qui a ete CRACHE — meme geste
+		# que l'inclinaison tiree au hasard des onomatopees, sauf qu'ici elle est
+		# fixe : une vignette de carte n'est pas un evenement, elle doit etre la
+		# meme a chaque tirage.
+		#
+		# Deux rotations : le Y ecarte l'axe de la profondeur (sinon le boudin
+		# pointe vers la camera et on ne voit qu'un rond), le Z le penche.
 		camera.size = HAIRBALL["frame"]
-		subject.mesh = capsule
 		subject.position = Vector3.ZERO
-		subject.rotation_degrees = Vector3(0.0, 0.0, 34.0)
-		# ⚠️ `apply_outlined` pose le materiau sur la SURFACE, pas en override :
-		# l'override d'un FX precedent le masquerait entierement. Les trois cartes
-		# se recyclent d'un tirage a l'autre, ce cas arrive donc pour de bon.
+		subject.rotation_degrees = Vector3(-18.0, 90.0, 26.0)
+		# ⚠️ `CelProp.dress` pose les materiaux sur les SURFACES, pas en
+		# override : l'override d'un FX precedent les masquerait entierement.
+		# Les trois cartes se recyclent d'un tirage a l'autre, ce cas arrive
+		# donc pour de bon.
 		subject.material_override = null
-		CelStyle.apply_outlined(subject, HAIRBALL["color"], HAIRBALL["outline"])
+		CelProp.dress(subject, HAIRBALL["model"], HAIRBALL["variant"], CelProp.PICKUP)
 		return true
 
 	var entry: Dictionary = FX[id]
