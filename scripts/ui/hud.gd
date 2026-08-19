@@ -72,6 +72,44 @@ const SETTINGS_SIZE := Vector2(460.0, 250.0)
 const CHOICE_SIZE := Vector2(168.0, 254.0)
 const LANGUAGE_SIZE := Vector2(150.0, 44.0)
 
+## Une carte du carton "quoi remplacer ?" — la meme carte de competence, SANS sa
+## description.
+##
+## ⚠️ CE N'EST PAS UNE ECONOMIE DE PLACE, c'est la seule chose que le joueur n'a
+## pas besoin de relire : il PORTE deja cette competence, il sait ce qu'elle
+## fait. Ce qu'il ne sait pas d'un coup d'oeil, c'est a quel palier il l'a
+## montee — et c'est justement ce qui decide du prix de l'abandon. Le marqueur
+## de palier reste donc, la description part.
+const SACRIFICE_SIZE := Vector2(168.0, 210.0)
+
+## Ce que le carton de remplacement mesure SANS sa grille : marges, titre,
+## legende, separations et bouton de retour. La plaque entiere se calcule au
+## moment de l'ouverture, EN LARGEUR COMME EN HAUTEUR — le nombre de cartes a
+## abandonner va de deux (les actifs) a six (les auto).
+##
+## ⚠️ LA LARGEUR SE CALCULE, ET C'EST §9.1 REGLE 5 QUI L'IMPOSE : « rien n'est
+## centre sauf le carton lui-meme ». Une plaque figee a 560 px avec deux cartes
+## dedans laisse deux marges symetriques de 90 px, et la grille se LIT comme
+## centree — le seul endroit de l'interface a l'etre. Taillee sur sa grille, la
+## plaque se referme dessus et la question ne se pose plus. C'est le meme geste
+## que le carton de niveau, dont les trois cartes remplissent l'interieur au
+## pixel pres (3 x 168 + 2 x 12 = 528).
+##
+## `x` est donc un PLANCHER de largeur et non la largeur, et sa valeur est
+## MESUREE : « REMPLACER » en Dela Gothic 44 px fait 356 px, et deux colonnes
+## n'en offrent que 348 d'interieur — le titre mangeait sa marge de droite. 404
+## lui rend ses 16 px des deux cotes, au prix de 12 px de jeu autour de la
+## grille, invisibles.
+##
+## 🅿️ Mesure a connaitre : a six candidates (deux rangees de 3) le carton fait
+## 612 px de haut pour un viewport de 648. Ca tient, de justesse. La famille AUTO
+## ne peut pas saturer aujourd'hui — quatre competences pour six slots — mais le
+## jour ou elle le fera, c'est ce chiffre qu'il faudra reverifier en capture,
+## pas en le relisant ici.
+const REPLACE_CHROME := Vector2(404.0, 180.0)
+## Le nombre de cartes par rangee. Trois, comme le carton de niveau.
+const REPLACE_COLUMNS := 3
+
 ## Une pastille de cooldown d'ACTIF. Carree — §9.3 regle 6, angles droits sans
 ## exception — et minuscule, comme tout le HUD permanent (§9.1).
 const CHARGE_PIP := Vector2(20.0, 20.0)
@@ -93,6 +131,11 @@ signal language_selected(code: String)
 ## est bloque pour de bon — Échap ne peut plus rien, puisqu'il n'y a plus rien
 ## d'ouvert a fermer. C'est arrive, exactement comme ca.
 signal settings_close_requested
+## Le joueur a designe la competence qui cede sa place. Le HUD ne touche a rien :
+## il dit QUI part, main.gd fait l'echange et relance la run.
+signal replace_selected(id: String)
+## Le joueur renonce a l'echange et veut revoir ses trois cartes.
+signal replace_cancelled
 
 var _time_value: Label
 var _health_fill: ColorRect
@@ -111,6 +154,14 @@ var _level_card: Control
 var _level_title: Label
 var _level_sub: Label
 var _choice_slots: Array[Dictionary] = []
+
+var _replace_card: Control
+var _replace_plate: ColorRect
+var _replace_title: Label
+var _replace_sub: Label
+var _replace_grid: GridContainer
+var _replace_back: Button
+var _replace_slots: Array[Dictionary] = []
 
 var _game_over_card: Control
 var _game_over_summary: Label
@@ -133,6 +184,7 @@ func _ready() -> void:
 	_build_charge_block()
 	_build_telemetry()
 	_build_level_card()
+	_build_replace_card()
 	_build_game_over_card()
 	_build_settings_card()
 
@@ -481,12 +533,7 @@ func _build_card(card_size: Vector2) -> Dictionary:
 		UiStyle.PLATE, UiStyle.RULE, UiStyle.TICK, UiStyle.BORDER, true
 	)
 	plate.set_anchors_preset(Control.PRESET_CENTER)
-	plate.custom_minimum_size = card_size
-	plate.size = card_size
-	plate.offset_left = -card_size.x * 0.5
-	plate.offset_top = -card_size.y * 0.5
-	plate.offset_right = card_size.x * 0.5
-	plate.offset_bottom = card_size.y * 0.5
+	_size_plate(plate, card_size)
 	card.add_child(plate)
 
 	var margin := MarginContainer.new()
@@ -501,6 +548,19 @@ func _build_card(card_size: Vector2) -> Dictionary:
 	margin.add_child(column)
 
 	return {"card": card, "plate": plate, "lines": lines, "column": column, "content": margin}
+
+
+## La taille d'une plaque centree. Elle vaut la peine d'exister parce que le
+## carton de remplacement en CHANGE a chaque ouverture : deux actifs a
+## abandonner ne demandent pas la meme plaque que six auto, et une plaque taillee
+## pour le pire cas laisserait un trou beant sous le cas courant.
+func _size_plate(plate: Control, card_size: Vector2) -> void:
+	plate.custom_minimum_size = card_size
+	plate.size = card_size
+	plate.offset_left = -card_size.x * 0.5
+	plate.offset_top = -card_size.y * 0.5
+	plate.offset_right = card_size.x * 0.5
+	plate.offset_bottom = card_size.y * 0.5
 
 
 func _build_level_card() -> void:
@@ -548,20 +608,26 @@ func _build_level_card() -> void:
 		row.add_child(_make_choice_slot(index))
 
 
-## Une carte de choix : plaque, titre, description, et un bouton TRANSPARENT
-## par-dessus.
+## Une carte de competence : plaque, onglet de type, fenetre, palier, titre.
+##
+## ⚠️ UNE SEULE FABRIQUE POUR LES DEUX CARTONS, et c'est le point de cette
+## methode. Le carton de niveau propose des competences, celui de remplacement en
+## reprend — mais c'est le MEME objet dans les deux cas, et le joueur doit le
+## reconnaitre d'un balayage. Deux fabriques, ce sont deux jeux de marges, de
+## tailles et de couleurs a tenir synchronises : exactement la divergence que ce
+## projet passe son temps a reparer.
 ##
 ## Le bouton est invisible parce qu'un Button de Godot ne sait pas porter cette
 ## plaque : son `material` teinterait aussi son texte. On separe donc le dessin
 ## (ColorRect + Labels) de l'interaction (Button a plat) — c'est plus simple que
 ## de se battre avec un theme, et ca garde les reperes d'angle.
 ##
-## ⚠️ C'ETAIT LE DEFAUT N°1 DE L'INTERFACE. Cette plaque etait a `Color(CREAM,
-## 0.08)`, soit 8 % d'opacite : ce n'etait pas une carte, c'etait un voile pose
-## sur un autre voile. Le joueur devait choisir entre trois fantomes.
-func _make_choice_slot(index: int) -> Control:
+## ⚠️ LA PLAQUE ETAIT LE DEFAUT N°1 DE L'INTERFACE : `Color(CREAM, 0.08)`, soit
+## 8 % d'opacite. Ce n'etait pas une carte, c'etait un voile pose sur un autre
+## voile, et le joueur devait choisir entre trois fantomes.
+func _make_skill_card(card_size: Vector2, with_desc: bool) -> Dictionary:
 	var slot := Control.new()
-	slot.custom_minimum_size = CHOICE_SIZE
+	slot.custom_minimum_size = card_size
 
 	# ⚠️ `relief` — la carte a du VOLUME depuis le 2026-08-17 (§9.9). Biseau,
 	# facette 2 tons et ombre portee dure, tout a bord franc : c'est le cluster
@@ -571,22 +637,29 @@ func _make_choice_slot(index: int) -> Control:
 	# C'est la SEULE plaque du jeu qui doit dire "prends-moi". Les cartons, eux,
 	# n'ont rien a offrir qu'on puisse saisir : ils portent le relief pour ne pas
 	# etre plus plats que ce qu'ils contiennent, jamais pour appeler le clic.
+	#
+	# ⚠️ ELLE RESTE EN RELIEF MEME QUAND ON L'ABANDONNE, et c'est reflechi. Sur le
+	# carton de remplacement, cliquer une carte c'est s'en defaire — mais le geste
+	# reste "designer celle-la", et §9.9 ne connait qu'un seul dispositif pour ca.
+	# Une carte en creux y aurait dit "je recois", soit l'inverse de ce qu'elle
+	# fait ; et deux dessins pour un meme objet obligeraient a l'apprendre deux
+	# fois. Ce qui dit qu'on abandonne, c'est le TITRE DU CARTON, pas la carte.
 	var plate := UiStyle.make_plate(
 		UiStyle.PLATE_RAISED, UiStyle.RULE, UiStyle.TICK, 1.0, true
 	)
 	plate.set_anchors_preset(Control.PRESET_FULL_RECT)
 	slot.add_child(plate)
 
-	# ── Le bandeau de type, en tete de carte ─────────────────────────────────
+	# ── L'onglet de type, en tete de carte ───────────────────────────────────
 	#
 	# AUTO / ACTIF / PASSIF ne se lisaient nulle part : trois cartes identiques,
 	# et le joueur devait deduire le type de la description. Or le type decide de
 	# tout — une slot occupee, une touche a presser, ou un chiffre qu'on ne verra
 	# jamais (§2.1).
 	#
-	# ⚠️ IL EST EN TETE, PAS EN PIED, et pleine largeur. C'est la premiere chose
-	# que le balayage rencontre, donc la premiere qui trie les trois cartes ; en
-	# legende sous le titre il aurait ete une precision de plus, apres coup.
+	# ⚠️ IL EST EN TETE, PAS EN PIED. C'est la premiere chose que le balayage
+	# rencontre, donc la premiere qui trie les cartes ; en legende sous le titre il
+	# aurait ete une precision de plus, apres coup.
 	#
 	# ⚠️ IL NE VA PAS D'UN BORD A L'AUTRE, et ce n'est pas une preference : pleine
 	# largeur, il RECOUVRE LES DEUX REPERES D'ANGLE DU HAUT. La carte se retrouve
@@ -668,6 +741,10 @@ func _make_choice_slot(index: int) -> Control:
 	# ⚠️ Il est INDISPENSABLE depuis que les competences ont des paliers : sans
 	# lui, reprendre l'haleine puante affiche exactement la meme carte qu'a sa
 	# premiere prise, et rien ne dit au joueur s'il debloque ou s'il renforce.
+	# ⚠️ ET IL COMPTE ENCORE PLUS SUR LE CARTON DE REMPLACEMENT, ou il dit
+	# l'inverse : ce qu'un abandon COUTE, c'est le palier qu'on avait monte.
+	# Abandonner un T3 et abandonner un T1 sont deux decisions differentes, et
+	# c'est la seule chose de la carte qui les separe.
 	#
 	# Au corps de LEGENDE (10 px) contre 17 px pour le titre : c'est le contraste
 	# d'echelle de §9.3 regle 5, pas une nuance de gris de plus. Et il reste en
@@ -687,12 +764,20 @@ func _make_choice_slot(index: int) -> Control:
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(title)
 
-	var desc := UiStyle.make_label(
-		"", UiStyle.body_font(), UiStyle.SIZE_CHOICE_DESC,
-		UiStyle.CREAM_DIM, 0, 0, false
-	)
-	desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	column.add_child(desc)
+	var entry := {
+		"slot": slot, "plate": plate, "tier": tier_label, "title": title,
+		"band": band, "band_label": band_label, "window": window, "thumb": thumb,
+		"desc": null,
+	}
+
+	if with_desc:
+		var desc := UiStyle.make_label(
+			"", UiStyle.body_font(), UiStyle.SIZE_CHOICE_DESC,
+			UiStyle.CREAM_DIM, 0, 0, false
+		)
+		desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		column.add_child(desc)
+		entry["desc"] = desc
 
 	var button := Button.new()
 	button.flat = true
@@ -700,17 +785,42 @@ func _make_choice_slot(index: int) -> Control:
 	button.focus_mode = Control.FOCUS_NONE
 	slot.add_child(button)
 
-	var entry := {
-		"slot": slot, "plate": plate, "tier": tier_label, "title": title, "desc": desc,
-		"band": band, "band_label": band_label, "window": window, "thumb": thumb,
-	}
-
-	button.pressed.connect(func() -> void: choice_selected.emit(index))
+	entry["button"] = button
 	button.mouse_entered.connect(_set_slot_hover.bind(entry, true))
 	button.mouse_exited.connect(_set_slot_hover.bind(entry, false))
 
+	return entry
+
+
+## Ce qu'une carte AFFICHE, une fois, dans la langue du moment. Les competences
+## arrivent en `id` et en palier — le catalogue ne porte plus de texte depuis le
+## passage au bilingue, et plus de valeurs depuis le passage aux paliers.
+##
+## `marker` est passe par l'appelant et non deduit ici : le meme couple
+## (id, palier) ne dit pas la meme chose selon le carton. Voir `_tier_marker`.
+func _fill_skill_card(entry: Dictionary, id: String, tier: int, marker: String) -> void:
+	entry["tier"].text = marker
+	entry["title"].text = Locale.skill_title(id).to_upper()
+	_set_slot_kind(entry, SkillDefinitions.kind_of(id))
+
+	if entry["desc"] != null:
+		entry["desc"].text = Locale.skill_description(id, tier)
+
+	# La fenetre disparait quand la competence n'a rien a montrer, elle ne
+	# reste pas vide. Un cadre noir sur une carte de passif se lirait comme
+	# une image qui n'a pas fini de charger — et §2.10 vaut aussi ici : une
+	# carte ne doit rien promettre qu'elle ne tienne.
+	var window: Control = entry["window"]
+	window.visible = SkillThumb.configure(entry["thumb"], id)
+
+	_set_slot_hover(entry, false)
+
+
+func _make_choice_slot(index: int) -> Control:
+	var entry := _make_skill_card(CHOICE_SIZE, true)
+	entry["button"].pressed.connect(func() -> void: choice_selected.emit(index))
 	_choice_slots.append(entry)
-	return slot
+	return entry["slot"]
 
 
 ## Le survol s'exprime en AMBRE — filet, reperes d'angle et titre ensemble.
@@ -758,6 +868,168 @@ func _build_game_over_card() -> void:
 	_restart_button = _make_wide_button(Locale.t("card.restart"))
 	column.add_child(_restart_button)
 	_restart_button.pressed.connect(func() -> void: restart_pressed.emit())
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Le carton « quoi remplacer ? » — chantier 2 de §2.9
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+## Le carton qui s'ouvre quand une competence NEUVE arrive dans une famille de
+## slots pleine (§2.3). Il montre les competences portees qui peuvent lui ceder
+## leur place, et une seule autre issue : revenir au choix.
+##
+## ⛔ IL REMPLACE LE CARTON DE NIVEAU, IL NE S'EMPILE PAS DESSUS. La conception
+## l'annoncait comme un carton « qui doit s'ouvrir PAR-DESSUS un carton de niveau
+## qui attend deja une decision » — et c'est le point qui rendait ce chantier
+## couteux. Il tombe : une fois la carte cliquee, le carton de niveau
+## N'ATTEND PLUS RIEN. Sa decision est prise, il n'a plus qu'a s'effacer.
+##
+## Ce que ca evite est exactement ce que main.gd a deja paye : deux cartons
+## empiles sur un voile a moitie transparent ne se lisent plus, et c'est la
+## raison pour laquelle Échap ne fait rien pendant un carton de niveau. Un seul
+## contenant a l'ecran, toujours — §9.3 regle 2.
+##
+## ⚠️ ET IL FAUT POUVOIR REVENIR. Sans le bouton de retour, decouvrir le prix de
+## l'echange APRES avoir choisi serait un piege : le joueur clique une carte, on
+## lui apprend qu'elle coute une de ses armes, et il n'a plus le droit de
+## preferer les deux autres. Le retour rouvre le carton de niveau avec LES MEMES
+## trois cartes — il ne rejoue pas le tirage, sinon le "retour" serait une
+## seconde chance deguisee.
+func _build_replace_card() -> void:
+	# Bati pour deux cartes ; `show_replace_card` retaille la plaque a l'ouverture.
+	var parts := _build_card(_replace_card_size(2))
+	_replace_card = parts["card"]
+	_replace_plate = parts["plate"]
+	_replace_card.set_meta("plate", parts["plate"])
+	_replace_card.set_meta("lines", parts["lines"])
+	_replace_card.set_meta("content", parts["content"])
+
+	var column: VBoxContainer = parts["column"]
+
+	# Cale a gauche et sans cerne, comme les deux autres cartons : §9.1 regle 5,
+	# rien n'est centre sauf le carton lui-meme.
+	_replace_title = UiStyle.make_label(
+		Locale.t("card.replace_title"), UiStyle.display_font(), UiStyle.SIZE_CARD_TITLE,
+		UiStyle.CREAM, UiStyle.TRACKING_TITLE, 0, true
+	)
+	_replace_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	column.add_child(_replace_title)
+
+	# ⚠️ C'EST CETTE LEGENDE QUI PORTE LA MOITIE MANQUANTE DE L'ECHANGE. Le carton
+	# de niveau vient de s'effacer : sans le nom de la competence qui arrive, le
+	# joueur choisit ce qu'il abandonne sans plus voir ce qu'il gagne.
+	_replace_sub = UiStyle.make_label(
+		"", UiStyle.body_font(), UiStyle.SIZE_CARD_SUB,
+		UiStyle.CREAM_DIM, 1, 0, false
+	)
+	_replace_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	column.add_child(_replace_sub)
+
+	# Une GRILLE et non une rangee : les actifs en presentent deux, les auto
+	# jusqu'a six, et six cartes de 168 px cote a cote debordent l'ecran. Trois par
+	# rangee est la largeur d'interieur deja payee par le carton de niveau.
+	_replace_grid = GridContainer.new()
+	_replace_grid.columns = REPLACE_COLUMNS
+	_replace_grid.add_theme_constant_override("h_separation", 12)
+	_replace_grid.add_theme_constant_override("v_separation", 12)
+	_replace_grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	column.add_child(_replace_grid)
+
+	# Autant de cartes que la plus grande famille a de slots : c'est le pire cas,
+	# et les cartes se recyclent d'une ouverture a l'autre comme celles du niveau.
+	for index in range(SkillDefinitions.MAX_AUTO_SLOTS):
+		var entry := _make_skill_card(SACRIFICE_SIZE, false)
+		# La carte porte l'id qu'elle affiche : la grille se reordonne d'une
+		# ouverture a l'autre (les candidates dependent du build), donc un index
+		# fige mentirait des la deuxieme fois.
+		entry["id"] = ""
+		entry["button"].pressed.connect(_on_sacrifice_pressed.bind(index))
+		_replace_slots.append(entry)
+		_replace_grid.add_child(entry["slot"])
+
+	_replace_back = _make_wide_button(Locale.t("card.replace_back"))
+	column.add_child(_replace_back)
+	# Comme REPRENDRE et RELANCER : le bouton DEMANDE, main.gd decide. Un bouton
+	# d'UI qui rouvrirait lui-meme le carton de niveau laisserait main.gd croire
+	# que l'echange est en cours, et le prochain clic ferait n'importe quoi.
+	_replace_back.pressed.connect(func() -> void: replace_cancelled.emit())
+
+
+func _on_sacrifice_pressed(index: int) -> void:
+	var id: String = _replace_slots[index]["id"]
+
+	if id != "":
+		replace_selected.emit(id)
+
+
+## `candidates` arrive en {id, tier}, comme les choix du carton de niveau — le
+## HUD ne sait pas ce que le chat porte, et il n'a pas a le savoir.
+func show_replace_card(new_id: String, candidates: Array) -> void:
+	_replace_title.text = Locale.t("card.replace_title")
+	_replace_sub.text = Locale.t("card.replace_sub") % Locale.skill_title(new_id)
+	_replace_back.text = Locale.t("card.replace_back")
+
+	var count := mini(candidates.size(), _replace_slots.size())
+	_replace_grid.columns = maxi(mini(count, REPLACE_COLUMNS), 1)
+
+	for index in range(_replace_slots.size()):
+		var entry: Dictionary = _replace_slots[index]
+		var slot: Control = entry["slot"]
+
+		if index >= count:
+			# Vide l'id AUSSI : une carte masquee qui garderait l'id d'une ouverture
+			# precedente est une carte qui echangerait la mauvaise competence le jour
+			# ou un clic l'atteindrait.
+			entry["id"] = ""
+			slot.visible = false
+			continue
+
+		var id := String(candidates[index]["id"])
+		var tier := int(candidates[index].get("tier", 1))
+		entry["id"] = id
+		slot.visible = true
+		# Le NOMBRE, toujours, jamais "NOUVEAU" — voir `_tier_marker`.
+		_fill_skill_card(entry, id, tier, Locale.t("card.tier") % tier)
+
+	_size_plate(_replace_plate, _replace_card_size(count))
+
+	# AVANT `_open_card`, comme le carton de niveau : les quatre poses d'ouverture
+	# sont ce qui donne au SubViewport le temps de rendre sa premiere frame.
+	_set_replace_thumbs_running(true)
+	_open_card(_replace_card)
+
+
+## La plaque se taille sur ce qu'elle porte, dans les deux dimensions. Deux
+## actifs tiennent en une rangee ; six auto en demandent deux, et une plaque
+## figee sur le pire cas laisserait un demi-carton vide dans le cas courant.
+func _replace_card_size(count: int) -> Vector2:
+	var columns := clampi(count, 1, REPLACE_COLUMNS)
+	var rows := int(ceil(float(maxi(count, 1)) / float(columns)))
+	# Deux colonnes au minimum : c'est ce qu'il faut au titre de 44 px.
+	var wide := maxi(columns, 2)
+
+	return Vector2(
+		maxf(
+			REPLACE_CHROME.x,
+			UiStyle.PAD * 2.0 + float(wide) * SACRIFICE_SIZE.x + float(wide - 1) * 12.0
+		),
+		REPLACE_CHROME.y + float(rows) * SACRIFICE_SIZE.y + float(rows - 1) * 12.0
+	)
+
+
+func hide_replace_card() -> void:
+	_replace_card.visible = false
+	_set_replace_thumbs_running(false)
+
+
+func is_replace_card_open() -> bool:
+	return _replace_card.visible
+
+
+func _set_replace_thumbs_running(running: bool) -> void:
+	for entry in _replace_slots:
+		SkillThumb.set_running(entry["thumb"], running)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -921,6 +1193,13 @@ func apply_language() -> void:
 	_settings_language_label.text = Locale.t("settings.language")
 	_settings_close.text = Locale.t("settings.close")
 	_level_sub.text = Locale.t("card.level_sub")
+	# ⚠️ La LEGENDE du carton de remplacement n'est pas ici : elle porte le nom de
+	# la competence qui arrive, que seul `show_replace_card` connait. Elle n'a pas
+	# a etre rafraichie pour autant — on ne peut pas ouvrir les reglages pendant un
+	# carton de remplacement (voir main.gd), donc aucun texte ne change sous les
+	# yeux du joueur. Meme raison que pour le carton de niveau.
+	_replace_title.text = Locale.t("card.replace_title")
+	_replace_back.text = Locale.t("card.replace_back")
 	_restart_button.text = Locale.t("card.restart")
 	_sync_language_slots()
 
@@ -963,19 +1242,7 @@ func show_level_card(level: int, choices: Array) -> void:
 			var id := String(choices[index]["id"])
 			var tier := int(choices[index].get("tier", 1))
 			slot.visible = true
-			entry["tier"].text = _tier_marker(id, tier)
-			entry["title"].text = Locale.skill_title(id).to_upper()
-			entry["desc"].text = Locale.skill_description(id, tier)
-			_set_slot_kind(entry, SkillDefinitions.kind_of(id))
-
-			# La fenetre disparait quand la competence n'a rien a montrer, elle ne
-			# reste pas vide. Un cadre noir sur une carte de passif se lirait comme
-			# une image qui n'a pas fini de charger — et §2.10 vaut aussi ici : une
-			# carte ne doit rien promettre qu'elle ne tienne.
-			var window: Control = entry["window"]
-			window.visible = SkillThumb.configure(entry["thumb"], id)
-
-			_set_slot_hover(entry, false)
+			_fill_skill_card(entry, id, tier, _tier_marker(id, tier))
 		else:
 			slot.visible = false
 
@@ -1018,6 +1285,12 @@ func _set_slot_kind(entry: Dictionary, kind: SkillDefinitions.Kind) -> void:
 ## sont trois : "NOUVEAU" ouvre une arme qu'il n'avait pas, "PALIER 2" approfondit
 ## une arme qu'il joue deja, "ULTIME" ferme une bifurcation pour le reste de la
 ## run (§2.2). Un seul et meme "PALIER %d" les aplatirait tous les trois.
+##
+## ⚠️ IL NE SERT QUE LE CARTON DE NIVEAU, et c'est pour ca que `_fill_skill_card`
+## recoit le marqueur au lieu de le calculer. Ces mots decrivent ce qu'une carte
+## OFFRE ; sur le carton de remplacement, rien n'est offert — un T1 qu'on
+## abandonne n'est pas "NOUVEAU", c'est un palier 1, et c'est le seul chiffre qui
+## dit ce que l'abandon coute.
 func _tier_marker(id: String, tier: int) -> String:
 	if tier <= 1:
 		return Locale.t("card.tier_new")

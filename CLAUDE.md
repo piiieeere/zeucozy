@@ -456,7 +456,8 @@ zeucozy/
 │   │   └── breath_skill.gd  # 💨 L'haleine puante — pilote l'aura, pas son dessin
 │   ├── systems/
 │   │   ├── skill_definitions.gd    # ⭐ LE catalogue — types, paliers, poids de tirage
-│   │   ├── skill_set.gd            # ⭐ Ce que le chat PORTE — build + horloge des compétences
+│   │   ├── skill_set.gd            # ⭐ Ce que le chat PORTE — build, horloge, et
+│   │   │                           #    l'ÉCHANGE de slot (`replace`)
 │   │   ├── cel_style.gd            # Matériaux cel des primitives, du sol + ombre de contact
 │   │   ├── cel_model.gd            # ⭐ Le style du chat — partagé jeu ↔ banc de test
 │   │   ├── cel_prop.gd             # ⭐ Le style des .glb sans squelette — 2 familles :
@@ -479,7 +480,8 @@ zeucozy/
 │   │   ├── impact_frame.gd         # 💤 Flash ambré plein cadre — DÉBRANCHÉ, gardé entier
 │   │   └── hit_burst.gd            # 💥 Éclat de collision — étoile de manga, 6 poses
 │   ├── ui/
-│   │   └── hud.gd       # 🖥️ Le HUD + les cartons, construits EN CODE depuis ui_style
+│   │   └── hud.gd       # 🖥️ Le HUD + les 4 cartons (niveau · REMPLACER · K.O. ·
+│   │                    #    réglages), construits EN CODE depuis ui_style
 │   └── tests/
 │       ├── cel_test.gd  # Cadrage, bascules et captures du banc du chat
 │       ├── prop_test.gd # Banc des .glb sans squelette : 8 directions + taille au chat
@@ -835,8 +837,8 @@ possible, et c'est tout l'objet du changement : **la fuite cesse d'être passive
 
 Les 7 upgrades à plat ont cédé la place au système de `Gameplay et Progression` §2.
 **Seul le socle est fait** — types, paliers, slots, tirage pondéré, et les deux armes
-existantes ramenées au même contrat. Le contenu (§2.9 chantier 3) et le carton de
-remplacement (chantier 2) ne sont **pas** écrits.
+existantes ramenées au même contrat. ✅ Le carton de remplacement (chantier 2) est venu le
+2026-08-19 ; le contenu (§2.9 chantier 3) reste ouvert.
 
 | Fichier | Ce qu'il porte |
 |---|---|
@@ -848,10 +850,11 @@ remplacement (chantier 2) ne sont **pas** écrits.
   `ACTIF` (touche + cooldown — **les deux slots sont pleines** depuis le même jour,
   `bite` et `hiss`), `PASSIF` (un chiffre, jamais
   dessiné — donc illimité en nombre, mais plafonné à **T3** sans ultime).
-- **Slots : 6 AUTO · 2 ACTIFS · ∞ passifs.** Quand une famille est pleine, `roll` cesse
-  de proposer des compétences **neuves** de ce type et continue d'en proposer les paliers.
-  Le carton « quoi remplacer ? » n'existe pas — proposer une 7ᵉ arme serait proposer
-  quelque chose que le jeu ne sait pas faire.
+- **Slots : 6 AUTO · 2 ACTIFS · ∞ passifs.** ✅ **Quand une famille est pleine, on
+  remplace** (2026-08-19) — voir « Le carton de remplacement ». `roll` propose une neuve du
+  type saturé tant qu'au moins une compétence portée peut lui céder sa place, et la choisir
+  ouvre le carton « quoi remplacer ? ». Une neuve **sans candidate** reste écartée : une
+  carte qui ouvrirait un carton vide bloquerait le jeu en pause.
 - **Tirage pondéré** AUTO ×3 · ACTIF ×2 · PASSIF ×1, sans doublon dans le tirage.
 - **Le catalogue actuel — 13 entrées** : `claw` (AUTO dirigé, de départ) · `hairball`
   (AUTO auto-visé) · `breath` (AUTO de zone) · `dust` (AUTO semé) · `bite` (ACTIF) ·
@@ -918,6 +921,7 @@ le chat frappe simplement un peu moins fort qu'il ne devrait.
 #   --breath=<n>        gardé tel quel — il sert déjà aux captures
 #   --autofire          les 2 slots d'ACTIF partent dès qu'elles sont prêtes
 #   --walk              le chat marche en rond tout seul, à vitesse pleine
+#   --replace=<a>:<b>   joue un ÉCHANGE de slot au lancement (§2.3)
 ```
 
 > ⚠️ **`--walk` n'est pas un confort, c'est le pendant exact de `--autofire`.** Dans un
@@ -978,6 +982,8 @@ Le catalogue passe de **7 à 11 entrées**. C'est le chantier 3 de `Gameplay et 
   invulnérable en début de run et inutile à la fin, quand le chaser tape à 21 — c'est
   exactement l'argument qui avait fait passer la vie à 100 points.
 
+> ✅ **Et il l'est depuis le 2026-08-19** — voir « Le carton de remplacement ».
+>
 > ⚠️ **LES SLOTS ACTIVES SONT PLEINES À DEUX**, et c'est ce que ce lot débloque vraiment.
 > Avec `bite` + `hiss`, la famille ACTIF est **saturée** : `roll` cesse de proposer des
 > actifs neufs. Le chantier 2 (le carton « quoi remplacer ? ») devient donc **atteignable
@@ -1137,6 +1143,111 @@ rien tant que le chat est à pleine vie :
 > Ce n'est pas un défaut : `delta` vaut alors 33 ms contre une pose de 83 ms, donc une pose
 > tient 3 frames au lieu de 2,5. **Une cadence ne se mesure pas à un `--fixed-fps` plus lent
 > qu'elle.**
+
+---
+
+### Le carton de remplacement — chantier 2, fait le 2026-08-19
+
+Quand une compétence **neuve** est choisie alors que sa famille de slots est pleine, le
+carton de niveau s'efface et **REMPLACER** prend sa place : les compétences portées qui
+peuvent céder leur slot, et un bouton pour revenir au choix. C'est le chantier 2 de
+`Gameplay et Progression` §2.9, que le ronron avait rendu **atteignable** deux jours plus
+tôt en portant la famille ACTIF à trois compétences pour deux slots.
+
+| | Avant | Après |
+|---|---|---|
+| `roll` sur famille pleine | ne propose plus **aucune** neuve du type | propose celles qui ont **au moins une candidate** |
+| Choisir une neuve | impossible, elle n'était jamais tirée | ouvre le carton « quoi remplacer ? » |
+| La slot de la survivante | — | **inchangée**, donc sa touche aussi |
+| Sortie de la compétence partie | — | `Skill.release()` + `queue_free()` |
+
+> ⛔ **LE CARTON NE S'EMPILE PAS SUR CELUI DE NIVEAU, ET LA DIFFICULTÉ ANNONCÉE
+> N'EXISTAIT PAS.** §2.9 décrivait le chantier comme *« la vraie complexité d'UI : un
+> carton qui doit s'ouvrir **par-dessus** un carton de niveau qui attend déjà une
+> décision »*. C'est faux dès qu'on le regarde de près : **une fois la carte cliquée, le
+> carton de niveau n'attend plus rien.** Sa décision est prise, il s'efface. Ce qui restait
+> à écrire n'était donc pas un empilement mais un **second carton ordinaire**, avec le même
+> squelette que les trois autres.
+>
+> Et l'empilement était de toute façon interdit : c'est exactement pour ça qu'Échap ne fait
+> rien pendant un carton de niveau — *« deux cartons empilés sur un voile à moitié
+> transparent ne se lisent plus »*. §9.3 règle 2 : un seul contenant à l'écran.
+
+- ⚠️ **LA NOUVELLE S'INSÈRE EXACTEMENT LÀ OÙ L'ANCIENNE ÉTAIT.** L'ordre de `_tiers` **est**
+  l'ordre des slots d'actifs : effacer puis ajouter en queue ferait remonter la survivante
+  d'une slot, donc **changer sa touche en pleine run**. `skill_set.replace()` reconstruit
+  donc le dictionnaire dans l'ordre, avec substitution. ✅ Vérifié par sonde : `bite` (slot
+  1) + `hiss` (slot 2), on remplace `bite` par `purr` → slots `purr · hiss`. Le défaut
+  aurait été **muet** — le build a l'air juste, c'est le doigt du joueur qui est faux.
+- ⚠️ **UN SEUL CALCUL POUR LE TIRAGE ET POUR LE CARTON** (`replacement_candidates`). Deux
+  filtres séparés finiraient par diverger, et le symptôme serait une carte proposée qui
+  ouvre un carton **vide** : plus rien à cliquer, jeu en pause pour de bon — le blocage que
+  le pool épuisé et le bouton REPRENDRE ont déjà produit chacun leur tour.
+- ⚠️ **« LA FAMILLE EST PLEINE » NE SUFFIT PAS À DIRE QU'ON PEUT REMPLACER**, à cause de la
+  slot AUTO n°1. Une **arme dirigée** ne cède sa place qu'à une autre arme dirigée (§2.3) —
+  sinon un build peut finir sans une seule arme sous le curseur, et la visée souris, ce que
+  le jeu a de plus singulier, cesse d'exister pour la run. Une famille pleine peut donc
+  n'avoir **aucune** candidate, et la carte ne doit pas sortir du tirage.
+  🅿️ Le drapeau `directed` n'est porté que par `claw` : la règle est écrite et **exercée par
+  la sonde**, jamais par le jeu tant qu'AUTO ne sature pas (4 compétences pour 6 slots).
+- **Le retour rend LES MÊMES trois cartes**, jamais un nouveau tirage. Sans lui, découvrir
+  le prix de l'échange *après* avoir cliqué serait un piège ; avec un re-tirage, le retour
+  deviendrait une seconde chance qu'on prendrait exprès.
+- **Le marqueur de palier dit le NOMBRE, jamais « NOUVEAU ».** Ces mots décrivent ce qu'une
+  carte *offre* ; ici rien n'est offert, et abandonner un T3 n'est pas la même décision
+  qu'abandonner un T1. C'est la seule chose de la carte qui les sépare — d'où
+  `_fill_skill_card` qui **reçoit** le marqueur au lieu de le déduire.
+
+> ⚠️ **`Skill.release()` — LE PIÈGE SILENCIEUX DE TOUTE COMPÉTENCE RETIRÉE.** Libérer le
+> node ne suffit pas. Un dessin **enfant** de la compétence part avec elle sans une ligne
+> de code (aura de l'haleine, onde du feulement, halo du ronron) ; les **moutons de
+> poussière**, eux, sont plantés dans le monde sous `$Fx` et sont des `DrivenFx` — ils
+> n'ont pas de `_process`, et `dust_skill` est **la seule chose au monde** qui les avance.
+> ✅ Mesuré : **10 touffes armées et immortelles** restaient au sol sans ce crochet, 0 avec.
+> La question à se poser en écrivant une compétence est *« ai-je mis quelque chose ailleurs
+> que sous moi ? »*.
+>
+> ⚠️ Elles disparaissent **d'un coup, sans pouf** : `consume()` les figerait sur la première
+> pose du pouf, l'horloge venant de partir — le défaut d'origine de `dust_skill`, remis à
+> l'endroit exact où il pouvait revenir.
+
+> ⚠️ **UNE SEULE FABRIQUE DE CARTE POUR LES DEUX CARTONS** (`hud._make_skill_card`). Le
+> carton de niveau propose des compétences, celui de remplacement en reprend — c'est le
+> **même objet**, et le joueur doit le reconnaître d'un balayage. Deux fabriques, ce sont
+> deux jeux de marges, de tailles et de couleurs à tenir synchronisés. La seule différence
+> est la **description**, retirée : le joueur *porte* déjà ces compétences.
+>
+> La carte reste **en relief** même quand on l'abandonne. Cliquer, c'est toujours
+> « désigner celle-là », et §9.9 ne connaît qu'un dispositif pour ça ; une carte en creux y
+> dirait *« je reçois »*, l'inverse de ce qu'elle fait. **Ce qui dit qu'on abandonne, c'est
+> le titre du carton, pas la carte.**
+
+> ⚠️ **LA PLAQUE SE TAILLE SUR SA GRILLE, EN LARGEUR COMME EN HAUTEUR**, et c'est §9.1
+> règle 5 qui l'impose — *« rien n'est centré sauf le carton lui-même »*. À 560 px figés,
+> deux cartes laissent 90 px de marge de chaque côté et la grille **se lit comme centrée**,
+> seul endroit de l'interface à l'être. La largeur a un **plancher mesuré** de 404 px :
+> « REMPLACER » en Dela Gothic 44 px fait 356 px, et deux colonnes n'offrent que 348 px
+> d'intérieur — le titre mangeait sa marge de droite.
+> 🅿️ À six candidates (deux rangées de 3) le carton ferait **612 px de haut pour 648** de
+> viewport. Ça tient de justesse ; à revérifier **en capture** le jour où AUTO saturera.
+
+**Juger et vérifier** — un échange appliqué de travers ne casse rien et ne se signale pas :
+
+```bash
+# Le carton, dans les deux langues (⚠️ il faut un build dont une famille est PLEINE)
+"C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --path . \
+  --write-movie <dossier>/r.png --fixed-fps 30 --quit-after 20 -- --aim=135 --lang=fr \
+  --ui-card=replace --skill=bite:1 --skill=hiss:3 --ui-choices=purr:1
+#   --ui-card=replace     ouvre le carton ; --ui-choices donne la compétence qui ARRIVE
+# La sonde de build dit ce qu'une neuve coûterait, et l'ORDRE des slots d'actifs
+"C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --headless --path . \
+  --quit-after 5 -- --build-report --skill=bite:1 --skill=hiss:2 --replace=bite:purr
+#   « slots actifs 2 / 2  [purr · hiss] »  ← la survivante n'a PAS changé de touche
+#   « echanges (competences neuves) »      ← qui peut céder sa place, et à qui
+#   --replace=<ancienne>:<nouvelle>        joue l'échange au lancement. Pendant de
+#     `--autofire` : le carton se ferme sur un CLIC, et un `--write-movie` n'en envoie
+#     jamais — sans lui, un build issu d'un échange est incapturable
+```
 
 ---
 
@@ -1743,9 +1854,15 @@ compétences pour deux slots** : c'est ce qui rend le carton de remplacement (ch
 échange. ✅ Vérifié par sonde : `bite` + `hiss` pris, `purr` T1 ne sort plus d'aucun des
 8 tirages.
 
-**Restent à faire :** le carton de remplacement lui-même (chantier 2) ; les **zoomies**,
-4ᵉ actif déjà spécifié (voir « Les zoomies » plus bas) ; les ultimes T4 ; et le reste du
-contenu (~6 auto, ~2 actifs de plus).
+**Le carton de remplacement est posé le 2026-08-19** — chantier 2 de §2.9, voir « Le
+carton de remplacement » plus haut. Une compétence neuve d'une famille saturée redevient
+tirable, et la choisir ouvre un second carton : **qui cède sa slot ?** La nouvelle prend la
+place exacte de l'ancienne, donc la survivante garde sa touche. La difficulté annoncée —
+un carton empilé sur un carton — **n'existait pas** : une fois la carte cliquée, le carton
+de niveau n'attend plus rien.
+
+**Restent à faire :** les **zoomies**, 4ᵉ actif déjà spécifié (voir « Les zoomies » plus
+bas) ; les ultimes T4 ; et le reste du contenu (~6 auto, ~2 actifs de plus).
 
 **Le jeu est bilingue depuis le 2026-08-17** — voir « Le jeu est bilingue » plus haut.
 Français et anglais, un carton de réglages ouvert par Échap, et le choix conservé d'une

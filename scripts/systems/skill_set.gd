@@ -11,9 +11,10 @@ extends Node3D
 ## l'ancien `apply_upgrade`, qui faisait `claw_damage += 1` et perdait aussitot
 ## le compte : les valeurs de palier etant absolues (voir `skill_definitions.gd`),
 ## `{"claw": 2}` dit TOUT de la griffure du chat. Reappliquer un palier deux fois
-## ne change rien, et retirer une competence ne laisse aucune trace a nettoyer —
-## ce sont les deux prerequis du remplacement de slot (§2.3) et de l'ultime qui
-## transforme (§2.2).
+## ne change rien, et retirer une competence ne laisse aucune trace a nettoyer.
+## ✅ Le premier des deux prerequis a ete encaisse le 2026-08-19 : `replace()`
+## echange une competence contre une autre sans avoir une seule valeur a defaire.
+## Reste l'ultime qui transforme (§2.2).
 ##
 ## ⚠️ C'est aussi lui qui tient L'HORLOGE de toutes les competences. Elles n'ont
 ## pas de `_process` : `player._process` appelle `tick`, et `player._process`
@@ -145,9 +146,14 @@ func passive_values() -> Dictionary:
 ##   • une competence a son palier maximum SORT du pool. C'est le defaut exact
 ##     des 7 upgrades d'avant : en fin de run, le tirage ne proposait plus que du
 ##     deja-vu ;
-##   • une competence NEUVE ne sort pas si sa famille de slots est pleine
-##     (§2.3). Le carton "quoi remplacer ?" n'existe pas encore — proposer une
-##     7e arme serait proposer quelque chose que le jeu ne sait pas faire ;
+##   • une competence NEUVE ne sort que si le chat peut LUI FAIRE DE LA PLACE.
+##     Tant que sa famille a une slot libre, il n'y a rien a demander ; une fois
+##     pleine, il faut qu'au moins une des competences portees puisse lui ceder
+##     la sienne (§2.3), et c'est le carton "quoi remplacer ?" qui tranche.
+##     ⚠️ C'est `replacement_candidates` qui repond, PAS "la famille est-elle
+##     pleine ?" : une arme dirigee ne se remplace que par une arme dirigee,
+##     donc une famille pleine peut n'avoir aucune candidate. Proposer une carte
+##     dont le carton suivant serait vide, c'est proposer un cul-de-sac ;
 ##   • le poids penche du cote des armes, sans rien garantir.
 func roll(count: int) -> Array[Dictionary]:
 	var pool: Array[Dictionary] = []
@@ -159,7 +165,7 @@ func roll(count: int) -> Array[Dictionary]:
 		if next > SkillDefinitions.max_tier(id):
 			continue
 
-		if next == 1 and _is_slot_family_full(definition["kind"]):
+		if next == 1 and needs_replacement(id) and replacement_candidates(id).is_empty():
 			continue
 
 		pool.append({
@@ -179,6 +185,106 @@ func roll(count: int) -> Array[Dictionary]:
 		pool.remove_at(index)
 
 	return choices
+
+
+## Prendre cette competence NEUVE demanderait-il d'en abandonner une ?
+##
+## Faux des qu'elle est deja portee : monter un palier n'occupe pas de slot de
+## plus, c'est la competence DISTINCTE qui en occupe une (voir `used_slots`).
+## Faux aussi pour un passif, dont la famille n'a pas de plafond (§2.5).
+func needs_replacement(id: String) -> bool:
+	if has(id):
+		return false
+
+	return _is_slot_family_full(SkillDefinitions.kind_of(id))
+
+
+## Les competences portees qui peuvent ceder leur place a `new_id` — DANS
+## L'ORDRE DES SLOTS, celui de `_tiers`.
+##
+## C'est ce que le carton "quoi remplacer ?" affiche, et c'est aussi ce que
+## `roll` interroge pour savoir s'il a le droit de proposer la carte. UN SEUL
+## calcul pour les deux : deux filtres separes finiraient par diverger, et le
+## symptome serait une carte proposee qui ouvre un carton vide — le jeu se
+## bloquerait exactement comme il l'a deja fait sur un pool epuise.
+##
+## ⚠️ UNE ARME DIRIGEE NE SE REMPLACE QUE PAR UNE ARME DIRIGEE (§2.3). C'est le
+## seul filtre au-dela de la famille, et il n'est pas cosmetique : sans lui, un
+## build peut se retrouver sans une seule arme sous le curseur, et la visee
+## souris — ce que le jeu a de plus singulier — cesse d'exister pour la run.
+func replacement_candidates(new_id: String) -> Array[String]:
+	var kind := SkillDefinitions.kind_of(new_id)
+	var incoming_directed := SkillDefinitions.is_directed(new_id)
+	var candidates: Array[String] = []
+
+	for id in _tiers:
+		if id == new_id or SkillDefinitions.kind_of(id) != kind:
+			continue
+
+		if SkillDefinitions.is_directed(id) and not incoming_directed:
+			continue
+
+		candidates.append(id)
+
+	return candidates
+
+
+## `new_id` prend LA PLACE de `old_id`, a son palier 1. Rend ses valeurs, comme
+## `take` — l'appelant y lit les evenements de palier.
+##
+## ⚠️ LA NOUVELLE S'INSERE EXACTEMENT LA OU L'ANCIENNE ETAIT, et ce n'est pas de
+## la coquetterie : l'ordre de `_tiers` EST l'ordre des slots d'actifs (voir
+## `active_slots`). Effacer puis ajouter en queue ferait remonter la survivante
+## d'une slot — donc changer sa TOUCHE en pleine run, ce qu'aucun joueur ne peut
+## suivre. Le dictionnaire est donc reconstruit dans l'ordre, avec substitution.
+##
+## Rien a defaire du cote des chiffres : les valeurs de palier sont ABSOLUES, et
+## `player._apply_passives()` recalcule tout depuis la base. C'est precisement le
+## prerequis que le passage aux paliers s'etait donne, et le remplacement est le
+## premier chantier a l'encaisser.
+func replace(old_id: String, new_id: String) -> Dictionary:
+	assert(_tiers.has(old_id), "Remplacement d'une competence non portee : " + old_id)
+
+	_release(old_id)
+
+	var rebuilt := {}
+
+	for id in _tiers:
+		if id == old_id:
+			rebuilt[new_id] = 1
+		else:
+			rebuilt[id] = _tiers[id]
+
+	_tiers = rebuilt
+
+	var values := SkillDefinitions.tier_values(new_id, 1)
+	var definition := SkillDefinitions.find(new_id)
+
+	if definition["kind"] != SkillDefinitions.Kind.PASSIVE:
+		_ensure_node(definition).set_tier(1, values)
+
+	return values
+
+
+## La competence quitte le build : son node part, et ce qu'elle a seme aussi.
+##
+## ⚠️ LIBERER LE NODE NE SUFFIT PAS, et l'oubli serait SILENCIEUX. Une competence
+## dont le dessin est son ENFANT (l'aura de l'haleine, l'onde du feulement, le
+## halo du ronron) part proprement avec lui ; les moutons de poussiere, eux, sont
+## plantes dans le monde sous `$Fx` et n'ont pas d'horloge a eux — `dust_skill`
+## est la SEULE chose qui les avance. Libere sans rien dire, il laisserait dix
+## touffes armees et immortelles au sol. D'ou `Skill.release()`, que la
+## competence redefinit quand elle a seme dehors.
+func _release(id: String) -> void:
+	if not _nodes.has(id):
+		return
+
+	var node := _nodes[id]
+	_nodes.erase(id)
+
+	if is_instance_valid(node):
+		node.release()
+		node.queue_free()
 
 
 ## Combien de slots d'un type sont occupees. Un palier ne compte pas double : ce

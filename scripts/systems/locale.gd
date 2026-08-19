@@ -90,6 +90,24 @@ const STRINGS := {
 	"skill.kind.auto": {"fr": "AUTO", "en": "AUTO"},
 	"skill.kind.active": {"fr": "ACTIF", "en": "ACTIVE"},
 	"skill.kind.passive": {"fr": "PASSIF", "en": "PASSIVE"},
+	# ── Le carton "quoi remplacer ?" — §2.3, chantier 2 ─────────────────────
+	#
+	# ⚠️ LA LEGENDE NOMME LA COMPETENCE QUI ARRIVE, et ce n'est pas une politesse.
+	# Le carton de niveau s'est efface pour laisser la place a celui-ci : sans son
+	# nom, le joueur choisit ce qu'il abandonne sans plus avoir sous les yeux ce
+	# qu'il gagne, et un echange dont on ne voit qu'une moitie n'est pas un choix.
+	#
+	# ⚠️ "%s" PORTE LE NOM AU MILIEU DE LA PHRASE, donc l'ordre des mots change
+	# d'une langue a l'autre — le francais met l'arrivante en tete, l'anglais la
+	# rejette a la fin. C'est exactement le cas que la regle "des phrases
+	# entieres, jamais des morceaux a recoller" existe pour couvrir.
+	"card.replace_title": {"fr": "REMPLACER", "en": "REPLACE"},
+	"card.replace_sub": {
+		"fr": "%s prend la place de laquelle ?",
+		"en": "Which one gives up its slot to %s?",
+	},
+	"card.replace_back": {"fr": "REVENIR AU CHOIX", "en": "BACK TO THE CHOICE"},
+
 	"card.game_over_summary": {
 		"fr": "Survie %d:%02d  ·  Niveau %d",
 		"en": "Survived %d:%02d  ·  Level %d",

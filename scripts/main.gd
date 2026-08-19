@@ -30,6 +30,15 @@ var elapsed_time := 0.0
 var spawn_timer := 0.0
 var game_over := false
 var current_upgrade_choices: Array[Dictionary] = []
+## La competence choisie qui attend qu'on lui fasse de la place (§2.3). Vide
+## quand aucun echange n'est en cours.
+##
+## ⚠️ `current_upgrade_choices` N'EST PAS VIDEE PENDANT CE TEMPS, et c'est ce qui
+## rend le bouton de retour possible : le carton de niveau se rouvre sur LES
+## MEMES trois cartes. Rejouer un tirage ferait du retour une seconde chance
+## deguisee — on cliquerait la carte la plus chere expres, pour en obtenir trois
+## nouvelles.
+var pending_replacement := ""
 var arena_rect := Rect2(-ARENA_SIZE * 0.5, ARENA_SIZE)
 
 @onready var player: Player = $Player
@@ -76,6 +85,8 @@ func _ready() -> void:
 	player.died.connect(_on_player_died)
 
 	hud.choice_selected.connect(_on_upgrade_button_pressed)
+	hud.replace_selected.connect(_on_replacement_chosen)
+	hud.replace_cancelled.connect(_on_replacement_cancelled)
 	hud.restart_pressed.connect(_on_restart_button_pressed)
 	hud.language_selected.connect(_on_language_selected)
 	hud.settings_close_requested.connect(_close_settings)
@@ -111,6 +122,8 @@ func _ready() -> void:
 ## jusqu'au level-up ou jusqu'a la mort.
 ##
 ##   --ui-card=level      le carton de niveau et ses 3 choix
+##   --ui-card=replace    le carton "quoi remplacer ?" — demande un build dont
+##                        une famille de slots est pleine (voir plus bas)
 ##   --ui-card=gameover   le carton de K.O.
 ##
 ## Meme convention d'arguments utilisateur que `--pitch=` et `--capture` des
@@ -132,6 +145,13 @@ func _apply_ui_preview() -> void:
 				if current_upgrade_choices.is_empty():
 					current_upgrade_choices = player.roll_skill_choices(3)
 				hud.show_level_card(3, current_upgrade_choices)
+			"replace":
+				# ⚠️ IL FAUT UN BUILD POUR LE VOIR : ce carton n'existe que quand une
+				# famille de slots est pleine. `--skill=bite:1 --skill=hiss:1` la
+				# sature, et `--ui-choices=purr:1` dit ce qui frappe a la porte.
+				get_tree().paused = true
+				var forced := _forced_choices()
+				_open_replacement(String(forced[0]["id"]) if not forced.is_empty() else "purr")
 			"gameover":
 				game_over = true
 				get_tree().paused = true
@@ -210,7 +230,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if hud.is_settings_card_open():
 		_close_settings()
-	elif game_over or hud.is_level_card_open():
+	elif game_over or hud.is_level_card_open() or hud.is_replace_card_open():
 		return
 	else:
 		_open_settings()
@@ -449,15 +469,87 @@ func _on_player_level_up_requested(choices: Array[Dictionary]) -> void:
 	hud.show_level_card(player.level, choices)
 
 
+## Le joueur a choisi une carte.
+##
+## ⚠️ DEUX SORTIES DEPUIS LE 2026-08-19, et la seconde est le chantier 2 de §2.9 :
+## si la competence est NEUVE et que sa famille de slots est pleine, on ne la
+## prend pas encore — le carton de niveau s'efface et celui de "quoi remplacer ?"
+## prend sa place. Le jeu reste en pause pendant tout l'echange : c'est une seule
+## decision en deux temps, pas deux decisions.
 func _on_upgrade_button_pressed(index: int) -> void:
 	if index >= current_upgrade_choices.size():
 		return
 
-	player.take_skill(current_upgrade_choices[index]["id"])
+	var id := String(current_upgrade_choices[index]["id"])
+
+	if player.skill_needs_replacement(id):
+		_open_replacement(id)
+		return
+
+	player.take_skill(id)
 	current_upgrade_choices.clear()
 	hud.hide_level_card()
 	get_tree().paused = false
 	_update_objective_text()
+
+
+## Le carton "quoi remplacer ?" — les competences portees qui peuvent ceder leur
+## place, avec le palier auquel le joueur les a montees.
+##
+## ⚠️ LE PALIER VIENT D'ICI ET NON DU HUD, comme tout le reste : le HUD ne sait
+## pas ce que le chat porte, il dessine ce qu'on lui envoie. Sans lui, une carte
+## a abandonner ne dirait pas ce qu'elle coute — abandonner un T3 et abandonner
+## un T1 sont deux decisions differentes.
+func _open_replacement(new_id: String) -> void:
+	var candidates: Array[Dictionary] = []
+
+	for id in player.skill_replacement_candidates(new_id):
+		candidates.append({"id": id, "tier": player.skills.tier_of(id)})
+
+	# ⚠️ Garde-fou, jamais atteint : `skill_set.roll` ne propose une neuve de
+	# famille pleine que s'il existe au moins une candidate — un seul et meme
+	# calcul des deux cotes. Si la liste sortait vide malgre tout, le carton
+	# n'offrirait rien a cliquer et le jeu serait bloque en pause, exactement comme
+	# l'a deja fait un pool epuise. On prend alors la carte comme avant.
+	if candidates.is_empty():
+		push_warning("Remplacement sans candidate pour « %s » : prise directe." % new_id)
+		player.take_skill(new_id)
+		current_upgrade_choices.clear()
+		hud.hide_level_card()
+		get_tree().paused = false
+		_update_objective_text()
+		return
+
+	pending_replacement = new_id
+	hud.hide_level_card()
+	hud.show_replace_card(new_id, candidates)
+
+
+## Le joueur a designe la competence qui cede sa place.
+func _on_replacement_chosen(old_id: String) -> void:
+	if pending_replacement == "":
+		return
+
+	player.replace_skill(old_id, pending_replacement)
+	pending_replacement = ""
+	current_upgrade_choices.clear()
+	hud.hide_replace_card()
+	get_tree().paused = false
+	_update_objective_text()
+
+
+## Le joueur renonce a l'echange : on lui rend SES TROIS CARTES, pas un nouveau
+## tirage. Le carton de niveau se rouvre en pas, comme la premiere fois.
+func _on_replacement_cancelled() -> void:
+	pending_replacement = ""
+	hud.hide_replace_card()
+
+	# La partie ne peut pas reprendre : le level-up n'a toujours pas ete depense.
+	if current_upgrade_choices.is_empty():
+		get_tree().paused = false
+		return
+
+	hud.show_level_card(player.level, current_upgrade_choices)
 
 
 func _on_player_died() -> void:

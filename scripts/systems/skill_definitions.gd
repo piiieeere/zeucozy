@@ -60,11 +60,21 @@ extends RefCounted
 
 enum Kind { AUTO, ACTIVE, PASSIVE }
 
-## Les slots du chat — §2.3. Le remplacement quand c'est plein n'existe pas
-## encore (c'est le chantier 2) : en attendant, `roll` cesse simplement de
-## proposer des competences NEUVES du type sature, et continue d'en proposer les
-## paliers. Sans ce garde-fou, le jeu offrirait une 7e arme qu'il ne saurait pas
-## faire porter.
+## Les slots du chat — §2.3.
+##
+## ⚠️ QUAND C'EST PLEIN, ON REMPLACE (2026-08-19, chantier 2 de §2.9). Jusqu'a
+## ce jour, `roll` cessait simplement de proposer des competences NEUVES du type
+## sature : le jeu n'aurait pas su faire porter une 7e arme. Il sait desormais —
+## une neuve reste tirable tant qu'au moins une des competences portees peut lui
+## ceder sa place, et le carton "quoi remplacer ?" ouvre derriere le choix.
+##
+## ⚠️ "AU MOINS UNE PEUT LUI CEDER SA PLACE" N'EST PAS "LA FAMILLE EST PLEINE",
+## et c'est la slot AUTO n°1 qui fait la difference : une arme DIRIGEE ne se
+## remplace que par une autre arme dirigee (voir `is_directed`). Une neuve dont
+## la liste de candidates serait vide ne doit donc pas sortir du tirage — d'ou
+## un seul et meme calcul pour le tirage et pour le carton
+## (`skill_set.replacement_candidates`). Deux filtres separes, c'est une carte
+## qu'on propose et qu'on ne peut pas prendre.
 const MAX_AUTO_SLOTS := 6
 const MAX_ACTIVE_SLOTS := 2
 
@@ -464,6 +474,25 @@ static func find(id: String) -> Dictionary:
 
 static func kind_of(id: String) -> Kind:
 	return find(id)["kind"]
+
+
+## L'arme DIRIGEE — celle qui obeit au curseur. La griffure est la seule
+## aujourd'hui, et c'est la slot AUTO n°1 de §2.3.
+##
+## ⚠️ CE DRAPEAU EST UNE REGLE DE REMPLACEMENT, pas une etiquette. §2.3 : le chat
+## garde TOUJOURS une arme sous le curseur, il peut seulement en changer. La
+## visee souris est ce que le jeu a de plus singulier — un build qui
+## l'abandonnerait ferait retomber Zeucozy dans le survivor pur, ou le joueur ne
+## decide que de sa position. Une arme dirigee ne peut donc ceder sa place qu'a
+## une autre arme dirigee.
+##
+## 🅿️ Question restee ouverte, et elle ne se pose pas encore : DEUX armes
+## dirigees a la fois. `claw` etant la seule du catalogue, le cas est
+## inatteignable ; le jour ou une seconde sera ecrite, il faudra trancher si
+## elles coexistent (deux armes sur le meme curseur "ne font qu'une arme",
+## dit-on de la boule de poils) ou si la slot n°1 est exclusive.
+static func is_directed(id: String) -> bool:
+	return find(id).get("directed", false)
 
 
 ## Le dernier palier atteignable. Les ultimes n'etant ecrits nulle part, toute

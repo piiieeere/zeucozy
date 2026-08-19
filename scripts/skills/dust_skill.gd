@@ -143,6 +143,29 @@ func _age(delta: float) -> void:
 	_bunnies = kept
 
 
+## L'arme quitte le build : le semis part avec elle.
+##
+## ⚠️ C'EST LA SEULE COMPETENCE QUI AIT BESOIN DE CE CROCHET, et c'est pour la
+## raison exacte qui l'a deja fait laisser des touffes immortelles au sol
+## (voir `_age`) : `_bunnies` est LA SEULE CHOSE AU MONDE qui appelle
+## `advance()` dessus. Les touffes vivent sous `$Fx`, pas sous cette
+## competence — les liberer avec le node ne serait donc pas automatique, et le
+## defaut serait muet : dix mines molles armees et eternelles, posees la ou le
+## chat passait au moment du remplacement.
+##
+## ⚠️ ELLES DISPARAISSENT D'UN COUP, SANS POUF, et c'est voulu. `consume()` les
+## ferait pouffer — mais le pouf est une animation, et son horloge vient de
+## partir : elles se figeraient sur sa premiere pose, exactement le defaut
+## d'origine. Un semis qui s'efface au moment ou le carton se referme se lit
+## d'ailleurs comme ce qu'il est : l'arme n'est plus la.
+func release() -> void:
+	for bunny in _bunnies:
+		if is_instance_valid(bunny):
+			bunny.queue_free()
+
+	_bunnies.clear()
+
+
 ## Le semis. Rien ne tombe si le chat n'a pas assez avance : voir `MIN_SPACING`.
 func _drop() -> void:
 	if player == null:

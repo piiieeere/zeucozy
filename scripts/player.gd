@@ -324,6 +324,13 @@ func _apply_aim_lock() -> void:
 ##   --breath=3   au troisieme (3,9 m) — pour verifier que le trait ne grossit
 ##                PAS avec la zone
 ##   --skill=claw:3   n'importe quelle competence a n'importe quel palier
+##   --replace=hiss:purr   l'echange de slot (§2.3), joue tout de suite
+##
+## ⚠️ `--replace=` n'est PAS un confort, c'est le pendant de `--autofire` : le
+## carton "quoi remplacer ?" se ferme sur un CLIC, et dans un `--write-movie`
+## aucun clic n'est envoye. Sans lui, un build issu d'un echange est strictement
+## incapturable — on ne pourrait jamais voir a l'image que la competence
+## survivante a garde sa touche.
 ##
 ## Meme convention d'arguments utilisateur que `--ui-card=`, `--pitch=` et
 ## `--decor-outline=` : tout ce projet dit qu'un reglage qu'on ne peut pas
@@ -343,6 +350,9 @@ func _apply_skill_preview() -> void:
 		elif argument.begins_with("--skill="):
 			var parts := argument.trim_prefix("--skill=").split(":")
 			_preview_skill(parts[0], int(parts[1]) if parts.size() > 1 else 1)
+		elif argument.begins_with("--replace="):
+			var pair := argument.trim_prefix("--replace=").split(":")
+			replace_skill(pair[0], pair[1])
 
 
 func _preview_skill(id: String, tier: int) -> void:
@@ -381,13 +391,47 @@ func _report_build() -> void:
 	print("  slots auto   %d / %d" % [
 		skills.used_slots(SkillDefinitions.Kind.AUTO), SkillDefinitions.MAX_AUTO_SLOTS
 	])
-	print("  slots actifs %d / %d" % [
-		skills.used_slots(SkillDefinitions.Kind.ACTIVE), SkillDefinitions.MAX_ACTIVE_SLOTS
+	# ⚠️ LES ACTIFS SONT LISTES DANS L'ORDRE DES SLOTS, pas seulement comptes, et
+	# c'est le remplacement qui l'a impose : la slot 1 est le clic gauche, la
+	# slot 2 le clic droit, et un echange qui ferait remonter la survivante
+	# changerait sa TOUCHE en pleine run. Le defaut serait muet — le build a l'air
+	# juste, c'est le doigt du joueur qui est faux.
+	var active_ids: Array[String] = []
+
+	for slot in skills.active_slots():
+		active_ids.append(slot.id)
+
+	print("  slots actifs %d / %d  [%s]" % [
+		skills.used_slots(SkillDefinitions.Kind.ACTIVE),
+		SkillDefinitions.MAX_ACTIVE_SLOTS,
+		" · ".join(active_ids),
 	])
 	print("  corps        vitesse %.2f · vie %d/%d · aimant %.2f" % [
 		speed, health, max_health, pickup_radius
 	])
 	print("  ATH          %s" % build_stats_text())
+	# ── Ce qu'une NEUVE couterait ────────────────────────────────────────────
+	#
+	# Une competence proposee qui ouvrirait un carton vide bloque le jeu en pause
+	# sans rien a cliquer — le defaut exact d'un pool epuise. Et la regle de la
+	# slot AUTO n°1 (une arme dirigee ne cede sa place qu'a une arme dirigee) ne se
+	# voit NULLE PART en jouant : elle ne fait que retirer une carte d'une liste.
+	# Les deux se lisent ici, ensemble.
+	print("  echanges (competences neuves) :")
+
+	for definition in SkillDefinitions.DEFINITIONS:
+		var id: String = definition["id"]
+
+		if skills.has(id) or definition["kind"] == SkillDefinitions.Kind.PASSIVE:
+			continue
+
+		var candidates := skills.replacement_candidates(id)
+		print("    %-17s %s → %s" % [
+			id,
+			"REMPLACE" if skills.needs_replacement(id) else "slot libre",
+			"—" if candidates.is_empty() else " · ".join(candidates),
+		])
+
 	print("  tirage x8 :")
 
 	for _draw in range(8):
@@ -628,8 +672,33 @@ func roll_skill_choices(count: int) -> Array[Dictionary]:
 ## portee de la griffure vivent dans son palier, pas ici — c'est ce qui a fait
 ## disparaitre l'ancien `apply_upgrade` et ses sept cas particuliers.
 func take_skill(id: String) -> void:
-	var gained := skills.take(id)
+	_absorb(skills.take(id))
 
+
+## Prendre cette competence NEUVE demanderait-il d'en abandonner une ? Et
+## laquelle peut ceder sa place ? Le chat ne repond a aucune des deux : il relaie
+## le build, qui est le seul a savoir ce qu'il porte.
+func skill_needs_replacement(id: String) -> bool:
+	return skills.needs_replacement(id)
+
+
+func skill_replacement_candidates(id: String) -> Array[String]:
+	return skills.replacement_candidates(id)
+
+
+## `new_id` prend la place de `old_id` — le carton "quoi remplacer ?" vient de
+## trancher (§2.3).
+##
+## Le chat ne DEFAIT rien : les paliers etant absolus, `_absorb` recalcule ses
+## chiffres depuis la base et la competence partie ne laisse aucune trace. C'est
+## le meme chemin que `take_skill`, et il n'y en a qu'un — deux facons de changer
+## le build, ce sont deux endroits ou oublier de repousser l'etat au HUD.
+func replace_skill(old_id: String, new_id: String) -> void:
+	_absorb(skills.replace(old_id, new_id))
+
+
+## Ce que le chat relit apres CHAQUE changement de build, prise ou remplacement.
+func _absorb(gained: Dictionary) -> void:
 	_apply_passives()
 
 	# Le soin de "Reserve de vie" est un EVENEMENT du palier, pas un etat : il se

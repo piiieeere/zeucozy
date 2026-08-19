@@ -15,6 +15,7 @@ extends Node3D
 ##   • `setup(player, id)`        qui je sers
 ##   • `set_tier(tier, values)`   a quel palier je suis, et avec quels chiffres
 ##   • `tick(delta)`              avance d'une frame
+##   • `release()`                je quitte le build (voir tout en bas)
 ##
 ## ─── L'HORLOGE VIENT DE DEHORS, ET C'EST LE POINT ───
 ##
@@ -73,6 +74,24 @@ func tick(_delta: float) -> void:
 
 ## Le crochet des sous-classes : la competence vient de changer de palier.
 func _on_tier_changed() -> void:
+	pass
+
+
+## La competence quitte le build — elle vient d'etre remplacee (§2.3). Son node
+## va etre libere juste apres ; ce crochet n'existe que pour ce qu'elle a laisse
+## AILLEURS.
+##
+## ⚠️ NE RIEN FAIRE EST LE BON DEFAUT, ET C'EST CE QUI REND L'OUBLI DANGEREUX.
+## Un dessin enfant de la competence part avec elle sans une ligne de code —
+## l'aura de l'haleine, l'onde du feulement, le halo du ronron. Une competence
+## qui plante ses FX DANS LE MONDE (`GameRoot.add_fx`) est le cas contraire, et
+## le defaut est muet : ces FX sont des `DrivenFx`, ils n'ont pas de `_process`,
+## donc la competence liberee est la seule chose au monde qui les avancait. Ils
+## resteraient au sol pour toujours, armes, sans que rien ne le signale.
+##
+## La question a se poser en ecrivant une competence est donc : "est-ce que j'ai
+## mis quelque chose ailleurs que sous moi ?"
+func release() -> void:
 	pass
 
 
