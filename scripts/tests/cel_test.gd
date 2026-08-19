@@ -20,6 +20,8 @@ extends Node3D
 ## 2. Capture — tour de camera 8 directions + sondes de skinning, puis quitte.
 ##      ... res://scenes/tests/cel_test.tscn -- --capture
 
+const RenderQuality := preload("res://scripts/systems/render_quality.gd")
+
 const CAPTURE_DIR := "C:/Users/tibo/AppData/Local/Temp/claude/c--Users-tibo-Games-zeucozy/e5b98d13-5f39-461b-a336-1f8fdf50a087/scratchpad"
 const CAPTURE_SIZE := Vector2i(720, 720)
 const WINDOW_SIZE := Vector2i(1100, 820)
@@ -65,6 +67,9 @@ var _capture_dir := CAPTURE_DIR
 
 func _ready() -> void:
 	_capture_mode = "--capture" in OS.get_cmdline_user_args()
+
+	# Le banc rend sous le MEME AA que le jeu : c'est tout l'objet d'un banc.
+	RenderQuality.apply_cmdline_overrides(get_viewport())
 
 	# Plongee et dossier de sortie surchargeables, pour comparer plusieurs
 	# cadrages d'affilee. `--pitch=` porte le meme nom que dans le jeu

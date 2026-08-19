@@ -19,6 +19,7 @@ extends Node3D
 ##   "C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64.exe" \
 ##       --path . res://scenes/tests/prop_test.tscn -- --capture
 
+const RenderQuality := preload("res://scripts/systems/render_quality.gd")
 const CelProp := preload("res://scripts/systems/cel_prop.gd")
 const CelStyle := preload("res://scripts/systems/cel_style.gd")
 
@@ -72,6 +73,9 @@ var _outline_scale := CelProp.OUTLINE_SCALE
 
 func _ready() -> void:
 	_capture_mode = "--capture" in OS.get_cmdline_user_args()
+
+	# Le banc rend sous le MEME AA que le jeu : c'est tout l'objet d'un banc.
+	RenderQuality.apply_cmdline_overrides(get_viewport())
 
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--pitch="):

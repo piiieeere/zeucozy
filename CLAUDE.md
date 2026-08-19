@@ -327,8 +327,16 @@ powershell -ExecutionPolicy Bypass -File tools/fetch_fonts.ps1
 #   --nograin   grain coupe          --oldgrain  grain en phase (l'etat d'avant)
 #   --root-step rebond en escalier   --shots     vignettes du chat, frame par frame
 # Le jeu, en enregistrant des PNG puis en quittant — pour juger le rendu sans y jouer
+# ⚠️ --aim= est OBLIGATOIRE des qu'on compare deux captures : sans lui le curseur
+#    physique donne un cap au chat, et les deux images ne sont pas comparables.
 "C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --path . \
-  --write-movie <dossier>/game.png --fixed-fps 30 --quit-after 200
+  --write-movie <dossier>/game.png --fixed-fps 30 --quit-after 200 -- --aim=135
+# Comparer l'ANTIALIASING de la silhouette, sans editer project.godot
+"C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --path . \
+  --write-movie <dossier>/g.png --fixed-fps 60 --quit-after 40 -- --aim=135 --msaa=0
+#   --msaa=0|2|4|8   la couverture de geometrie — la silhouette. 4 est le reglage du jeu
+#   --ssaa=2.0       la resolution interne de la 3D — TOUS les bords, cluster compris
+#   --aim=<degres>   cloue la visee : c'est ce qui rend deux captures comparables
 ```
 
 > Le banc de test **et** le jeu partagent le même rendu, via `scripts/systems/cel_model.gd` :
@@ -439,6 +447,7 @@ zeucozy/
 │   │   ├── cel_model.gd            # ⭐ Le style du chat — partagé jeu ↔ banc de test
 │   │   ├── cel_prop.gd             # ⭐ Le style des meubles — .glb sans squelette
 │   │   ├── fx_cadence.gd           # ⭐ Les 3 durées de pose des FX (§7) — source unique
+│   │   ├── render_quality.gd       # 🪞 L'AA de la 3D — MSAA 4×, + `--msaa=` / `--ssaa=`
 │   │   ├── driven_fx.gd            # ⭐ `class_name DrivenFx` — les FX dont l'horloge vient
 │   │   │                           #    de DEHORS (aura, mouton, onde). Une méthode :
 │   │   │                           #    `advance(delta)`. Les FX autonomes n'en sont pas
@@ -591,14 +600,73 @@ coordonnées de leur repère, comme le `ps` des six shaders de FX.
 > candidat au même défaut, et il est silencieux des deux côtés puisque chacun a l'air correct
 > chez lui. Même famille que le `.blend` retrouvé réenregistré sur un état antérieur.
 
-> 🅿️ **Deux chantiers d'AA restent ouverts**, inventaire et protocole dans la Todo du vault
-> (« L'antialiasing — l'inventaire des bords ») : le **MSAA** sur la silhouette — la coque
-> inversée est un vrai bord de géométrie et `[rendering]` de `project.godot` ne contient que
-> le driver — et le **bord du cluster** (`step()` brut dans `cel_toon`/`cel_face`), que MSAA
-> ne touche pas et qui **ne se juge pas à l'œil** puisque `edge_noise` le rend
-> volontairement irrégulier. ⛔ **TAA est disqualifié** : il accumule sur plusieurs frames
-> alors que le squelette change de pose d'un coup toutes les 3 frames — il lisserait la
-> discontinuité que la cadence existe pour créer.
+> ✅ **Le MSAA sur la silhouette est fait le 2026-08-19** — voir juste en dessous. 🅿️ Il
+> reste **le bord du cluster** (`step()` brut dans `cel_toon`/`cel_face`), que MSAA ne
+> touche pas — c'est du fragment — et qui **ne se juge pas à l'œil** puisque `edge_noise`
+> le rend volontairement irrégulier.
+
+### L'antialiasing de la SILHOUETTE — MSAA 4× (2026-08-19)
+
+`[rendering]` de `project.godot` ne contenait que le driver : **aucun réglage d'AA**. Les
+six shaders de FX, le sol, puis le visage et les pattes lissent déjà leurs bords à un pixel
+près — mais tout ça est du **fragment**. Le trait du chat et des meubles est une **coque
+inversée**, donc un vrai bord de **géométrie**, et c'était la dernière famille de bords du
+jeu à être restée brute. `project.godot` porte désormais `anti_aliasing/quality/msaa_3d=2`
+(4×), et `scripts/systems/render_quality.gd` pose les surcharges de comparaison.
+
+**Mesuré sur la silhouette du chat à taille de jeu**, contre une référence supersamplée
+(`--msaa=8 --ssaa=2.0`), sur les 534 pixels de bord de géométrie à fort contraste :
+
+| | sans AA | 2× | **4×** | 8× | référence |
+|---|---|---|---|---|---|
+| Erreur au bord (moyenne) | 14,9/255 | 8,6 | **4,9** | 3,4 | 0 |
+| Pire pixel | 87/255 | 75 | **54** | 58 | 0 |
+| Pixels à couverture partielle | 36,0 % | 44,6 % | **46,4 %** | 48,3 % | 47,8 % |
+
+- **4× et pas 8×.** 4× reprend **les deux tiers** de l'erreur et arrive à 1,4 point de la
+  référence sur la couverture partielle ; 8× achète le dernier dixième. Le manuel tranche
+  pareil : *« sticking to 2× or 4× MSAA is highly recommended as 8× MSAA is usually too
+  demanding »*.
+- ⛔ **TAA reste disqualifié** — il accumule sur plusieurs frames alors que le squelette
+  change de pose d'un coup toutes les 3 frames : il lisserait exactement la discontinuité
+  que la cadence existe pour créer, et tenterait de faire converger un grain bruité
+  **exprès** à 20 Hz déphasé. ❌ **FXAA / SMAA** : écran-espace, ils floutent, et ils
+  floutent **le trait d'encre** — contre le « bord franc » de §6.
+- **MSAA 2D reste à 0** : l'interface est faite d'aplats à **angles droits** (§9), il n'y a
+  pas une diagonale à lisser.
+- 🅿️ **Le coût n'a PAS pu être mesuré**, et il faut le dire plutôt que l'inventer : chaque
+  chemin de mesure disponible (temps GPU du `--write-movie`, `motion_probe`) est **dominé
+  par la relecture de frame**, qui coûte dix fois le rendu. Trois tours entrelacés
+  0×/4×/8× rendent 6,0 ms partout, au centième près — c'est l'enregistreur qu'on mesure.
+
+> ⛔ **LA 3D NE REND PAS À LA RÉSOLUTION DE LA FENÊTRE, ET C'EST MESURÉ.** La note de la
+> Todo affirmait que `stretch/mode="canvas_items"` ne touche que la 2D. **Faux** : le
+> viewport racine garde la taille de base du projet, tout y est rendu — 3D comprise — puis
+> l'image est étirée à la fenêtre. Relevé : **viewport 1175 × 648 pour une fenêtre
+> 2560 × 1411**, soit un facteur **2,18**. Trois conséquences :
+> - chaque marche d'escalier de silhouette est **agrandie 2,18 fois** avant d'atteindre
+>   l'œil du joueur — c'est ce qui rend cette passe payante ;
+> - le coût de MSAA est **borné une fois pour toutes** : il ne dépend pas de l'écran ;
+> - `--ssaa=2.0` n'est donc pas du supersampling, c'est **rendre la 3D à la résolution de
+>   l'écran**. À reprendre quand on tranchera le bord du cluster.
+>
+> `RenderQuality.report()` imprime les trois chiffres dès qu'on passe `--msaa=` ou
+> `--ssaa=` : une mesure d'antialiasing qui ne sait pas à quelle résolution elle regarde ne
+> mesure rien.
+
+> ⚠️ **UNE CAPTURE DU JEU N'ÉTAIT PAS REPRODUCTIBLE, ET PERSONNE NE LE SAVAIT.**
+> `player.gd` affirmait en commentaire que *« dans les captures `--write-movie` la souris ne
+> bougera jamais »*. Faux : le curseur **physique** est quelque part quand la fenêtre s'ouvre
+> dessous, Windows envoie un mouvement, et `aim_source` bascule sur MOUSE. Deux
+> `--write-movie` identiques lancés à la suite ont sorti le chat **de dos** dans l'un et
+> **de profil** dans l'autre — ~3 500 pixels d'écart sur le chat seul, sur une comparaison
+> qui n'en cherchait que 600.
+>
+> D'où **`--aim=<degrés>`**, qui cloue la visée et rend la souris muette. Avec lui, deux
+> captures du chat sont **bit à bit identiques** (0 pixel d'écart, vérifié) — sans lui,
+> aucune mesure de bord n'a de sens. ⚠️ **Ça vaut pour toute capture comparative du dépôt** :
+> `--pitch=`, `--decor-outline=`, un réglage de shader — l'écart qu'on croit lire entre deux
+> images peut n'être qu'un cap de chat.
 
 ### Les griffes — 3 traits par patte (2026-08-16)
 
@@ -1343,6 +1411,14 @@ ennemis, **attaque de griffure au corps à corps**, **aura d'haleine puante**, X
 **système de compétences à paliers**, scaling difficulté, HUD complet, Game Over/restart,
 arène large. Toute la logique de gameplay tourne — le passage en 3D ne l'a pas touchée.
 
+**La silhouette est antialiasée depuis le 2026-08-19** — MSAA 4× dans `project.godot`,
+voir « L'antialiasing de la SILHOUETTE ». Le trait est une coque inversée, donc un bord de
+géométrie : c'était la dernière famille de bords à n'être traitée par rien. L'erreur au
+bord tombe de 14,9/255 à 4,9 sur la silhouette du chat, à taille de jeu. La passe a sorti
+deux choses au passage : **la 3D ne rend PAS à la résolution de la fenêtre** (1175 × 648
+pour 2560 × 1411, facteur 2,18), et **une capture du jeu n'était pas reproductible** tant
+que la souris pouvait prendre la visée — d'où `--aim=`.
+
 **La pause est passée au moteur le 2026-08-18** (P1 de la revue de code) — voir « La
 pause » plus haut. Treize copies de `_is_run_paused()` et le `run_paused` maison ont cédé
 la place à `get_tree().paused` + les `process_mode` de `main.tscn`. Ça corrige au passage
@@ -2055,3 +2131,14 @@ entre deux captures.
 "C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --path . \
   --write-movie <dossier>/g.png --fixed-fps 30 --quit-after 12 -- --decor-outline=1.0
 ```
+
+**Comparer l'antialiasing.** `--msaa=0|2|4|8` et `--ssaa=<facteur>`, lus par
+`render_quality.gd` dans le jeu **et** dans les deux bancs. Le réglage du jeu est MSAA 4× ;
+ces arguments servent à **mesurer**, jamais à capturer autrement que ce que le joueur voit
+— supersampler les seules captures reviendrait à juger une image qui n'existe pas, soit la
+divergence banc/jeu, encore.
+
+**Rendre une capture reproductible.** `--aim=<degrés>` cloue la visée du chat et rend la
+souris muette. ⚠️ **Sans lui, deux captures du même build ne sont pas comparables** : le
+curseur physique se trouve quelque part quand la fenêtre s'ouvre dessous, et le chat part
+dans cette direction-là. Avec lui, deux captures sont bit à bit identiques.

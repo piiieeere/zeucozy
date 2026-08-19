@@ -17,6 +17,7 @@ const HIT_BURST_SCENE := preload("res://scenes/fx/hit_burst.tscn")
 const Locale := preload("res://scripts/systems/locale.gd")
 const SettingsStore := preload("res://scripts/systems/settings_store.gd")
 const SkillDefinitions := preload("res://scripts/systems/skill_definitions.gd")
+const RenderQuality := preload("res://scripts/systems/render_quality.gd")
 
 ## Aire de jeu, en metres. Environ 4 largeurs d'ecran de large — le meme
 ## rapport qu'avant entre l'arene et le cadre.
@@ -51,6 +52,12 @@ var arena_rect := Rect2(-ARENA_SIZE * 0.5, ARENA_SIZE)
 
 func _ready() -> void:
 	randomize()
+
+	# L'AA de la 3D. Le niveau retenu vit dans `project.godot` et s'applique
+	# tout seul ; cet appel n'existe que pour les surcharges de comparaison
+	# (`--msaa=`, `--ssaa=`), posees a l'execution plutot qu'editees entre
+	# deux captures.
+	RenderQuality.apply_cmdline_overrides(get_viewport())
 
 	# AVANT tout affichage. Le HUD est un enfant, donc son `_ready` a deja
 	# construit ses labels quand on arrive ici — dans la langue par defaut. C'est

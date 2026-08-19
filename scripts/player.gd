@@ -186,13 +186,21 @@ var _base_pickup_radius := 0.0
 ## D'ou vient la visee. La MANETTE viendra s'ajouter ici : une source de plus,
 ## qui prend la main tant que le stick droit est pousse, exactement comme la
 ## souris prend la main des qu'elle bouge.
-enum AimSource { MOVEMENT, MOUSE }
+enum AimSource { MOVEMENT, MOUSE, LOCKED }
 
 ## On demarre au deplacement, PAS a la souris, et ce n'est pas un detail : le
-## curseur est quelque part au lancement sans que le joueur l'y ait mis, et
-## dans les captures `--write-movie` il ne bougera jamais. Sans cette bascule,
-## le chat prendrait un cap arbitraire des la premiere frame. La souris prend
-## la visee au premier mouvement reel — voir `_input`.
+## curseur est quelque part au lancement sans que le joueur l'y ait mis. Sans
+## cette bascule, le chat prendrait un cap arbitraire des la premiere frame. La
+## souris prend la visee au premier mouvement reel — voir `_input`.
+##
+## ⚠️ "DANS UNE CAPTURE LA SOURIS NE BOUGE JAMAIS" EST FAUX, mesure le
+## 2026-08-19. Le curseur PHYSIQUE est quelque part sur l'ecran quand la
+## fenetre s'ouvre dessous, et Windows envoie un mouvement : deux
+## `--write-movie` lances a la suite sortent le chat oriente differemment,
+## donc deux images qu'on ne peut pas comparer. C'est ce qui a rendu la
+## mesure de l'antialiasing impossible avant `--aim=`, et ca vaut pour TOUTE
+## capture comparative (`--pitch=`, `--decor-outline=`, un reglage de shader) :
+## l'ecart qu'on croit lire entre deux captures peut n'etre qu'un cap de chat.
 var aim_source := AimSource.MOVEMENT
 
 ## La direction visee : celle des armes dirigees, et celle que le modele regarde.
@@ -247,9 +255,34 @@ func _ready() -> void:
 
 	CelStyle.apply_contact_shadow($Shadow)
 	_sync_pickup_radius()
+	_apply_aim_lock()
 	_apply_skill_preview()
 	_emit_all_state()
 	_report_build()
+
+
+## `--aim=<degres>` cloue la visee, et la souris ne la reprend plus.
+##
+## ⚠️ CE N'EST PAS UN CONFORT, c'est ce qui rend une capture REPRODUCTIBLE —
+## meme famille que `--walk` et `--autofire`, qui existent parce que dans un
+## `--write-movie` aucune touche n'est pressee et aucun clic n'est envoye.
+## Ici c'est l'inverse : la souris, elle, PARLE — le curseur physique se trouve
+## quelque part quand la fenetre s'ouvre, et le chat part dans cette
+## direction-la. Mesure : deux `--write-movie` identiques lances a la suite ont
+## sorti le chat de dos dans l'un et de profil dans l'autre, soit ~3 500 pixels
+## d'ecart sur le chat seul — assez pour qu'une comparaison A/B mesure le cap
+## du chat en croyant mesurer un reglage.
+##
+## Reperes : 0° = vers la camera (le chat de face, sa pose d'ouverture par
+## defaut), 90° = vers la droite de l'ecran, 180° = vers le fond.
+func _apply_aim_lock() -> void:
+	for argument in OS.get_cmdline_user_args():
+		if not argument.begins_with("--aim="):
+			continue
+
+		var angle := deg_to_rad(float(argument.trim_prefix("--aim=")))
+		aim_direction = Vector3(sin(angle), 0.0, cos(angle))
+		aim_source = AimSource.LOCKED
 
 
 ## Ouvre des competences au lancement, pour les JUGER a l'image sans avoir a
@@ -379,7 +412,7 @@ func _physics_process(delta: float) -> void:
 ## panneau d'upgrade, le HUD — avale les mouvements de souris qui le survolent,
 ## et le joueur perdrait la visee pour avoir passe le curseur sur son ATH.
 func _input(event: InputEvent) -> void:
-	if event is InputEventMouseMotion:
+	if event is InputEventMouseMotion and aim_source != AimSource.LOCKED:
 		aim_source = AimSource.MOUSE
 
 
@@ -624,6 +657,10 @@ func _sync_animation(moving: bool) -> void:
 ## une visee qui s'annule ferait pivoter le chat vers un cap arbitraire pendant
 ## une frame, et la griffure part sur cette frame-la.
 func _read_aim_direction(move_direction: Vector3) -> Vector3:
+	# Clouee par `--aim=` : ni la souris ni la marche ne la reprennent.
+	if aim_source == AimSource.LOCKED:
+		return aim_direction
+
 	if aim_source == AimSource.MOUSE:
 		var pointed := _mouse_aim_direction()
 		return pointed if pointed != Vector3.ZERO else aim_direction
@@ -725,4 +762,3 @@ func _emit_all_state() -> void:
 	health_changed.emit(health, max_health)
 	xp_changed.emit(current_xp, xp_to_next, level)
 	stats_changed.emit(build_stats_text())
-
