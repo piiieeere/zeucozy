@@ -9,7 +9,14 @@ extends RefCounted
 ## ─── Les trois types (§2.1) ───
 ##
 ##   AUTO    une ARME qui agit seule. Occupe une slot ET se dessine a l'ecran.
-##   ACTIF   se declenche sur une touche, a un cooldown. Aucun n'existe encore.
+##   ACTIF   se declenche sur une touche, a un cooldown. Il y en a TROIS depuis
+##           le 2026-08-19 — `bite`, `hiss` et `purr` — pour DEUX slots.
+##           ⚠️ C'est le point de cette derniere entree, et il vaut plus que la
+##           competence elle-meme : tant qu'il n'y avait que deux actifs, la
+##           famille etait saturee des qu'on les avait pris, mais `roll` n'avait
+##           rien a proposer en remplacement — le carton "quoi remplacer ?"
+##           (chantier 2 de §2.9) ne pouvait donc JAMAIS s'ouvrir, meme une fois
+##           ecrit. A trois, il devient exercable en jeu.
 ##   PASSIF  un modificateur de chiffre, jamais dessine. Ne coute ni slot ni
 ##           pixel — c'est ce qui justifie qu'il soit illimite en nombre.
 ##
@@ -259,12 +266,60 @@ const DEFINITIONS: Array[Dictionary] = [
 		# griffure, mais sur 360°) : c'est ce qui la rend utile quand on est
 		# encercle, cas ou toutes les autres armes ne repondent que d'un cote.
 		#
-		# La recharge est LA PLUS LONGUE du jeu. Une sortie de secours qui revient
-		# vite n'est plus une decision, c'est une touche a marteler.
+		# La recharge est longue. Une sortie de secours qui revient vite n'est
+		# plus une decision, c'est une touche a marteler.
+		#
+		# ⚠️ Elle etait LA PLUS LONGUE du jeu jusqu'au 2026-08-19 ; le ronron lui
+		# a pris ce titre (14 s), et pour une raison qui vaut d'etre notee :
+		# le feulement rend de la PLACE, qui se reperd des que les ennemis
+		# reviennent, alors que le ronron rend de la VIE, qui reste acquise. Ce
+		# qu'une competence laisse derriere elle se paye en recharge.
 		"tiers": [
 			{"radius": 3.60, "damage": 1, "cooldown": 11.0},
 			{"radius": 4.30, "damage": 2, "cooldown": 9.5},
 			{"radius": 5.00, "damage": 3, "cooldown": 8.0},
+		],
+		"ultimates": [],
+	},
+
+	{
+		"id": "purr",
+		"kind": Kind.ACTIVE,
+		"script": "res://scripts/skills/purr_skill.gd",
+		# Le ronron — le 3e ACTIF, et le premier SOIN du jeu (2026-08-19).
+		#
+		# ⚠️ IL RENDRAIT TROP VITE S'IL RENDAIT D'UN COUP, et ce n'est pas une
+		# question de quantite : c'est ce qui decide qu'il y ait une decision. Le
+		# soin tombe en QUATRE bouffees sur deux secondes (`purr_halo.PULSES`),
+		# donc un ronron lance trop tard ne sauve pas — sa quatrieme bouffee
+		# arrive apres le coup fatal. Un soin instantane se presse quand la barre
+		# est basse et ne demande rien a personne ; celui-ci demande d'anticiper.
+		# Voir `purr_skill.gd`.
+		#
+		# ─── L'ECHELLE DES CHIFFRES ───
+		#
+		# Le chaser tape a 15 au contact, la brute a 30, et un ennemi colle frappe
+		# toutes les 0,7 s — soit ~21 points de vie par seconde. Le ronron T1
+		# rend 1,3 par seconde : il ne tient PAS un chat au contact, et c'est
+		# voulu. C'est un outil d'entre-deux-vagues, pas un bouclier. Au T3 il
+		# rend 40, soit un peu plus qu'un coup de brute : de quoi effacer une
+		# erreur, jamais de quoi en faire une strategie.
+		#
+		# ⚠️ LA RECHARGE EST LA PLUS LONGUE DU JEU (14 s au T1), devant le
+		# feulement. Ce qu'une competence laisse derriere elle se paye en
+		# recharge : la place rendue par le feulement se reperd, la vie rendue par
+		# le ronron est acquise.
+		#
+		# ⚠️ `heal` EST BIEN UNE VALEUR DE PALIER ORDINAIRE ICI, a ne pas
+		# confondre avec la cle `heal` de `max_health`. La-bas c'est un EVENEMENT
+		# de prise, que `skill_set.passive_values` exclut expressement pour ne pas
+		# resoigner le chat a chaque recalcul ; ici c'est la feuille de soin d'un
+		# actif, lue au declenchement par `purr_skill._fire`. Les deux ne se
+		# croisent jamais — `passive_values` ne regarde que les PASSIFS.
+		"tiers": [
+			{"heal": 18, "cooldown": 14.0},
+			{"heal": 28, "cooldown": 12.0},
+			{"heal": 40, "cooldown": 10.0},
 		],
 		"ultimates": [],
 	},

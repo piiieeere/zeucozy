@@ -44,6 +44,7 @@ const BITE_SHADER := preload("res://shaders/bite.gdshader")
 const HISS_SHADER := preload("res://shaders/hiss_ring.gdshader")
 const DUST_SHADER := preload("res://shaders/dust_bunny.gdshader")
 const BREATH_SHADER := preload("res://shaders/breath_aura.gdshader")
+const PURR_SHADER := preload("res://shaders/purr_halo.gdshader")
 
 ## Le rendu, en px. Carre — la camera orthogonale a alors le meme cadrage en
 ## largeur qu'en hauteur, et `frame` reste UN nombre au lieu de deux.
@@ -141,6 +142,26 @@ const FX := {
 		"frame": 1.75,
 		"offset": Vector3.ZERO,
 		"pose": {"puff": 1.00, "seed": 0.44},
+	},
+
+	# Le ronron, sur sa pose de SOIN (`purr_halo.HEAL_POSE` = 0) : les deux arches
+	# pleines et le croissant creme ouvert au maximum. C'est la pose ou la
+	# competence agit, et la seule ou le 2e ton du cluster existe — les cinq
+	# autres la degonflent et referment le creme.
+	#
+	# ⚠️ SEUL FX DONT LE `size` N'EST PAS DERIVE D'UNE PORTEE. Les cinq autres
+	# recopient ici un rayon de palier x un facteur de dessin ; le halo du ronron
+	# ne promet aucune distance (voir l'en-tete de son shader), sa taille est une
+	# constante du FX. Rien a tenir synchronise avec le catalogue.
+	"purr": {
+		"shader": PURR_SHADER,
+		"size": 2.80,
+		# Les arches vivent au-dessus du centre, entre 0,46 et 0,82 de rayon :
+		# centrees sur le quad, elles laisseraient la moitie basse vide. Le
+		# decalage les ramene au milieu de la fenetre, le cadrage les y serre.
+		"frame": 2.6,
+		"offset": Vector3(0.0, -0.85, 0.0),
+		"pose": {"swell": 1.00, "core": 0.55, "seed": 0.28},
 	},
 
 	# L'haleine puante, sur sa pose de MORSURE (`breath_aura.BITE_POSE` = 0) :

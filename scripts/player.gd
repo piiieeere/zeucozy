@@ -531,6 +531,32 @@ func take_damage(amount: int, attacker_position: Vector3 = Vector3.INF) -> void:
 		died.emit()
 
 
+## Rend des points de vie. Le seul chemin de soin du jeu — le ronron s'en sert
+## a chaque bouffee, et l'evenement `heal` du palier "Reserve de vie" y passe
+## aussi (voir `take_skill`).
+##
+## ⚠️ `IMMORTAL` NE LE TOUCHE PAS, et c'est volontaire : ce mode de test coupe
+## les DEGATS, pas la vie. Il rend simplement le soin inoperant de fait — avec
+## une barre clouee a 100/100 il n'y a rien a rendre. C'est la seule competence
+## du jeu que le mode de test rend intestable, et c'est dit dans `purr_skill.gd`.
+##
+## Pas de surplus : ce qui depasse `max_health` est perdu. Un ronron lance a
+## pleine vie est donc une recharge gaspillee, exactement comme une morsure qui
+## part dans le vide — et il se voit pareil, puisque la pastille du HUD repart de
+## zero. Une competence active depensee pour rien doit se voir.
+func heal(amount: int) -> void:
+	# Le chat mort ne se releve pas : le carton de K.O. est deja a l'ecran, et un
+	# soin qui arriverait dessus ferait remonter une barre que plus rien ne lit.
+	if amount <= 0 or health <= 0:
+		return
+
+	var before := health
+	health = mini(max_health, health + amount)
+
+	if health != before:
+		health_changed.emit(health, max_health)
+
+
 ## Le point de contact : entre le chat et ce qui le touche, a mi-hauteur de
 ## corps. Pas au centre du chat — l'eclat y serait a moitie cache derriere lui
 ## — et pas sur l'ennemi non plus : c'est le CHAT qui encaisse, le decalque
@@ -609,8 +635,11 @@ func take_skill(id: String) -> void:
 	# Le soin de "Reserve de vie" est un EVENEMENT du palier, pas un etat : il se
 	# joue une fois, a la prise. Fusionne aux valeurs permanentes, il resoignerait
 	# le chat a chaque recalcul.
+	#
+	# Il passe par `heal()` comme le ronron : deux facons d'ajouter des points de
+	# vie, c'est deux endroits ou oublier le plafond ou le signal du HUD.
 	if gained.has("heal"):
-		health = mini(max_health, health + int(gained["heal"]))
+		heal(int(gained["heal"]))
 
 	_emit_all_state()
 

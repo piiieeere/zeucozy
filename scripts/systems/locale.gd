@@ -170,6 +170,10 @@ const STRINGS := {
 	# Le feulement, lui, DIVERGE — et c'est le cas qui justifie la clé. Un chat
 	# qui feule s'écrit "FFFCHH" en français et "HSSSS" en anglais.
 	"skill.hiss.shout": {"fr": "FFFCHH", "en": "HSSSS"},
+	# Le ronron diverge aussi, et c'est le cas d'école : le français a un mot
+	# redoublé, l'anglais une consonne tenue. Deuxième onomatopée sur trois à ne
+	# pas s'écrire pareil — la clé n'était pas une précaution théorique.
+	"skill.purr.shout": {"fr": "RONRON", "en": "PURRRR"},
 
 	"skill.bite.title": {"fr": "Morsure", "en": "Bite"},
 	"skill.bite.t1.desc": {
@@ -211,6 +215,24 @@ const STRINGS := {
 	"skill.hiss.t3.desc": {
 		"fr": "L'onde balaie tout le tour et revient bien plus vite.",
 		"en": "The wave sweeps all around and returns much sooner.",
+	},
+
+	# ⚠️ Les trois descriptions disent « peu à peu » / « little by little », et ce
+	# n'est pas du remplissage : c'est LA règle de la compétence. Un joueur qui
+	# croit à un soin instantané le gardera pour le moment où il sera déjà trop
+	# tard. La carte doit dire ce que le geste fait, pas seulement ce qu'il rend.
+	"skill.purr.title": {"fr": "Ronron", "en": "Purr"},
+	"skill.purr.t1.desc": {
+		"fr": "Clic : le chat ronronne et se remet peu à peu. Il faut y penser avant.",
+		"en": "Click: the cat purrs and mends little by little. Think ahead.",
+	},
+	"skill.purr.t2.desc": {
+		"fr": "Le ronron rend plus de vie et revient plus vite.",
+		"en": "The purr gives back more health and returns sooner.",
+	},
+	"skill.purr.t3.desc": {
+		"fr": "Le ronron efface un gros coup, et revient bien plus vite.",
+		"en": "The purr wipes off a big hit, and returns much sooner.",
 	},
 
 	"skill.dust.title": {"fr": "Moutons de poussière", "en": "Dust bunnies"},

@@ -1,0 +1,20 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Shader" path="res://shaders/purr_halo.gdshader" id="1_purrhalo"]
+[ext_resource type="Script" path="res://scripts/systems/purr_halo.gd" id="2_purrhalo"]
+
+[sub_resource type="QuadMesh" id="QuadMesh_purrhalo"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_purrhalo"]
+render_priority = 1
+shader = ExtResource("1_purrhalo")
+
+; Aucune rotation ici, contrairement a la couronne de l'haleine et a l'onde du
+; feulement : le halo est un BILLBOARD, et c'est le shader qui l'oriente vers la
+; camera. La hauteur, elle, est posee par le script (`PurrHalo.LIFT`), pour que
+; le chiffre vive a cote des poses qui en dependent.
+[node name="PurrHalo" type="MeshInstance3D"]
+cast_shadow = 0
+mesh = SubResource("QuadMesh_purrhalo")
+material_override = SubResource("ShaderMaterial_purrhalo")
+script = ExtResource("2_purrhalo")

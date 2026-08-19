@@ -452,6 +452,7 @@ zeucozy/
 │   │   ├── dust_skill.gd    # 🌫️ Les moutons — AUTO semé derrière, récompense de BOUGER
 │   │   ├── bite_skill.gd    # 🦷 La morsure — le 1ᵉʳ ACTIF, cible unique
 │   │   ├── hiss_skill.gd    # 💢 Le feulement — ACTIF de RECUL, ne compte pas en dégâts
+│   │   ├── purr_skill.gd    # 💤 Le ronron — ACTIF de SOIN, le 3ᵉ, en 4 bouffées
 │   │   └── breath_skill.gd  # 💨 L'haleine puante — pilote l'aura, pas son dessin
 │   ├── systems/
 │   │   ├── skill_definitions.gd    # ⭐ LE catalogue — types, paliers, poids de tirage
@@ -469,6 +470,7 @@ zeucozy/
 │   │   ├── bite_fx.gd              # 🦷 Les mâchoires de la morsure — 8 poses, crocs dessinés
 │   │   ├── shout_fx.gd             # 💥 L'onomatopée des ACTIFS — CHOMP, en pas, dans le monde
 │   │   ├── hiss_ring.gd            # 💢 L'onde du feulement — 6 poses, pousse par le FRONT
+│   │   ├── purr_halo.gd            # 💤 Le halo du ronron — 2 arches, 4 bouffées de 6 poses
 │   │   ├── dust_bunny.gd           # 🌫️ Une touffe — naissance / repos / pouf, 3 cadences
 │   │   ├── skill_thumb.gd          # 🖼️ La vignette d'une compétence — le VRAI FX en SubViewport
 │   │   ├── ui_style.gd             # ⭐ Le style de l'interface — palette, polices, cadence
@@ -489,6 +491,7 @@ zeucozy/
 │                     # ui_speedlines (lignes de vitesse)
 │                     # bite (la morsure — gencives rouges + crocs de chat qui s'engrènent)
                      # hiss_ring (le feulement — onde crème/encre, le seul FX sans chroma)
+                     # purr_halo (le ronron — 2 arches menthe, le seul FX SANS PORTÉE)
                      # dust_bunny (le mouton de poussière — touffe cernée posée au sol)
 │                     # cel_paws (bouts de pattes + les 3 griffes dessinées)
 │                     # cel_ground (parquet peint), cel_rug (tapis)
@@ -552,6 +555,7 @@ Le réglage à bouger en premier si le chat paraît trop petit est `distance` da
 | **Haleine** *(rayon / dégât par morsure)* | 2,8 m · 1 | 3,35 m · 2 | 3,9 m · 3 |
 | **Moutons** *(dégât / cadence / vie / rayon)* | 3 · 0,55 s · 3,5 s · 0,75 m | 4 · 0,46 s · 4,4 s · 0,85 m | 6 · 0,42 s · 5,0 s · 0,95 m |
 | **Feulement** *(rayon / dégât / recharge)* | 3,6 m · 1 · 11,0 s | 4,3 m · 2 · 9,5 s | 5,0 m · 3 · 8,0 s |
+| **Ronron** *(soin total / recharge)* | 18 · 14,0 s | 28 · 12,0 s | 40 · 10,0 s |
 
 Arc frontal de griffure **120°, à tous les paliers** — l'ancienne description promettait un
 balayage « plus large », le code ne l'a jamais fait.
@@ -841,17 +845,19 @@ remplacement (chantier 2) ne sont **pas** écrits.
 | `skills/skill.gd` | **Le contrat** : `setup` / `set_tier` / `tick` |
 
 - **Trois types :** `AUTO` (une arme qui agit seule — occupe une slot **et** se dessine),
-  `ACTIF` (touche + cooldown — **aucun n'existe encore**), `PASSIF` (un chiffre, jamais
+  `ACTIF` (touche + cooldown — **les deux slots sont pleines** depuis le même jour,
+  `bite` et `hiss`), `PASSIF` (un chiffre, jamais
   dessiné — donc illimité en nombre, mais plafonné à **T3** sans ultime).
 - **Slots : 6 AUTO · 2 ACTIFS · ∞ passifs.** Quand une famille est pleine, `roll` cesse
   de proposer des compétences **neuves** de ce type et continue d'en proposer les paliers.
   Le carton « quoi remplacer ? » n'existe pas — proposer une 7ᵉ arme serait proposer
   quelque chose que le jeu ne sait pas faire.
 - **Tirage pondéré** AUTO ×3 · ACTIF ×2 · PASSIF ×1, sans doublon dans le tirage.
-- **Le catalogue actuel — 12 entrées** : `claw` (AUTO dirigé, de départ) · `hairball`
+- **Le catalogue actuel — 13 entrées** : `claw` (AUTO dirigé, de départ) · `hairball`
   (AUTO auto-visé) · `breath` (AUTO de zone) · `dust` (AUTO semé) · `bite` (ACTIF) ·
-  `hiss` (ACTIF de recul) · `move_speed` · `max_health` · `pickup_radius` · `xp_gain` ·
-  `projectile_speed` · `toughness`. Voir « Quatre compétences de plus » plus bas.
+  `hiss` (ACTIF de recul) · `purr` (ACTIF de soin) · `move_speed` · `max_health` ·
+  `pickup_radius` · `xp_gain` · `projectile_speed` · `toughness`. Voir « Quatre
+  compétences de plus » et « Le ronron » plus bas.
 - **La carte de choix porte un marqueur de palier** — `NOUVEAU` / `PALIER 2` / `ULTIME`, en
   légende de 10 px au-dessus d'un titre de 17 (le contraste d'échelle de DA §9.3 règle 5,
   pas une nuance de gris de plus). Il reste en crème assourdi **même au survol** : l'ambre
@@ -1004,6 +1010,195 @@ Le catalogue passe de **7 à 11 entrées**. C'est le chantier 3 de `Gameplay et 
 > d'un chaser de départ — il en tue donc en début de run, alors que sa fiche dit « ça ne
 > tue pas ». Ça se corrige tout seul dès que la difficulté monte ; à revoir seulement si un
 > jour on peut avoir un T3 très tôt.
+
+### Le ronron — le 3ᵉ ACTIF, et le 1ᵉʳ soin du jeu (2026-08-19)
+
+Le chat se met à **ronronner** : quatre bouffées sur deux secondes, chacune lui rend une
+poignée de points de vie. Il ne s'arrête pas de courir, il ne frappe pas, il ne repousse
+rien. `skills/purr_skill.gd` · `systems/purr_halo.gd` · `shaders/purr_halo.gdshader`.
+
+| Palier | Soin total | Recharge | Par bouffée |
+|---|---|---|---|
+| 1 | **18** | 14,0 s | 5 · 5 · 4 · 4 |
+| 2 | **28** | 12,0 s | 7 × 4 |
+| 3 | **40** | 10,0 s | 10 × 4 |
+
+> ⚠️ **CE QUE CETTE COMPÉTENCE DÉBLOQUE VAUT PLUS QUE LA COMPÉTENCE.** C'est le **3ᵉ**
+> actif pour **2** slots. Tant qu'il n'y en avait que deux, la famille était saturée dès
+> qu'on les avait pris — mais `roll` n'avait **rien à proposer en échange**, donc le carton
+> « quoi remplacer ? » (chantier 2 de §2.9) ne pouvait **jamais** s'ouvrir, même une fois
+> écrit. ✅ Vérifié par sonde : avec `bite` + `hiss` pris, `purr` T1 disparaît des 8
+> tirages ; avec `bite` + `purr`, c'est `hiss` qui disparaît.
+
+- ⚠️ **IL SOIGNE LENTEMENT, ET C'EST TOUTE LA COMPÉTENCE.** Un soin instantané ne pose
+  aucune décision : on le presse quand la barre est basse, il n'y a rien à choisir. Étalé
+  sur quatre bouffées, il cesse d'être une réponse à une urgence et devient une
+  **anticipation** — un ronron lancé à 15 points de vie avec une souris sur le dos ne sauve
+  personne, sa 4ᵉ bouffée arrive après le coup fatal. C'est ce qui le range dans le type
+  ACTIF au sens de §2.4 : la question qu'il pose est *quand*, et elle a une vraie mauvaise
+  réponse.
+- ⚠️ **IL NE CLOUE PAS LE CHAT SUR PLACE**, et ce n'est pas un oubli. Un canal serait une
+  mécanique neuve, et dans un jeu dont tout consiste à ne pas se laisser enfermer, elle
+  ferait d'un soin un suicide. Le ronron est un **état**, pas une posture.
+- **L'échelle des chiffres est celle du contact, pas celle du confort.** Le chaser tape 15,
+  la brute 30, et un ennemi collé frappe toutes les 0,7 s — soit ~21 points de vie par
+  seconde. Le ronron T1 en rend **1,3** : il ne tient **pas** un chat au contact, c'est un
+  outil d'entre-deux-vagues. Au T3 il efface un coup de brute, jamais une stratégie.
+- ⚠️ **Sa recharge est LA PLUS LONGUE DU JEU** (14 s), devant le feulement (11 s) — dont le
+  commentaire a été corrigé. La règle qui en sort : **ce qu'une compétence laisse derrière
+  elle se paye en recharge.** La place rendue par le feulement se reperd dès que les
+  ennemis reviennent ; la vie rendue par le ronron est acquise.
+- **Le cycle de poses EST l'intervalle de soin**, il n'y a pas deux horloges — la leçon de
+  l'haleine puante reprise telle quelle. La bouffée tombe sur la pose pleine : la barre
+  remonte d'un cran sur la frame exacte où le halo claque.
+- **`player.heal()` est le seul chemin de soin**, et l'événement `heal` du palier « Réserve
+  de vie » y est passé aussi. Deux façons d'ajouter des points de vie, c'est deux endroits
+  où oublier le plafond ou le signal du HUD.
+- **Pas de ligne d'ATH**, contrairement à la morsure. Le retour du ronron **est** la barre
+  de vie, qui porte déjà son nombre (§9.6) ; une ligne « RONRON 18 / 14 s » redirait ce que
+  la barre et la pastille de cooldown montrent déjà.
+- ⛔ **C'est la seule compétence que `player.IMMORTAL` rend INTESTABLE.** Barre clouée à
+  100/100 = rien à rendre. Il a fallu la repasser à `false` pour la mesurer, puis la
+  remettre.
+
+> ⚠️ **LE HALO EST LE 1ᵉʳ FX DU JEU QUI NE PROMET AUCUNE DISTANCE.** Les six autres ont
+> tous un contrat de portée — la couronne de l'haleine affleure son rayon de morsure,
+> l'onde du feulement finit sur sa portée de poussée, la griffure et la morsure
+> dimensionnent leur décalque sur `range`. Le ronron soigne le chat, personne d'autre.
+> Trois contraintes tombent avec ça : `size` est une **constante** (aucun palier ne le fait
+> grandir, donc le trait peut vivre en unités de quad sans le risque signalé sur
+> l'haleine) ; le gonflement n'a rien à mentir ; et rien n'est à revérifier entre le dessin
+> et la feuille de soin. **Ce qui le borne à la place, c'est le BORD DU QUAD** —
+> `swell × (echo_radius + echo_thick) + ink ≤ 0,98`, la borne exacte que la morsure avait
+> déjà payée avec `jaw_offset + gape + thick`.
+
+> 🔍 **QUATRE DÉFAUTS, TOUS TROUVÉS EN CAPTURE, AUCUN EN LISANT LE CODE.** Les deux
+> premiers sortaient une image entièrement fausse sans lever la moindre erreur :
+> - **Le halo sortait EN BOL SOUS LES PATTES**, ouvert vers le ciel. C'est le piège du
+>   `QuadMesh` que la griffure et la morsure ont déjà payé — *le Y de l'UV descend quand le
+>   Y local monte* — et `UV * 2 - 1` retourne le dessin. ⚠️ **Un FX symétrique ne l'aurait
+>   pas montré** : c'est parce qu'une arche a un haut et un bas qu'il est sorti à la
+>   première frame.
+> - **Les deux arches sortaient en APLATS BRUNS PLEINS**, sans un pixel de menthe ni de
+>   crème. L'encre était prise **forme par forme** puis fusionnée au `max` — or un pixel au
+>   cœur de l'arche est, par construction, **loin** de l'écho, donc le masque de l'écho y
+>   vaut 1, donc tout est encre. Les deux masques étaient justes chacun de son côté.
+>   Parade : l'encre se prend sur le champ de **l'union** (`min` des deux), qui ne mesure
+>   que la distance au bord qui cerne vraiment ce pixel.
+> - **L'arche portait le chat comme un casque.** À `LIFT` 0,95 sa bande couvrait 1,46–1,91 m
+>   — pile la tête et les **oreilles**, c'est-à-dire la signature de silhouette que la
+>   plongée à 45° avait été choisie pour préserver. Le halo est monté à **1,60 m** et a
+>   rétréci à **2,8 m** : il passe au-dessus sans rien cacher, et l'effleurement qui reste
+>   est ce qui l'attache au chat plutôt que de le faire flotter.
+> - **Deux arcs concentriques d'aplomb, c'est le pictogramme du SIGNAL WIFI.** Le lecteur y
+>   voyait une barre de réseau avant d'y voir un ronron, et aucun réglage de couleur ou
+>   d'encre ne rattrape ça. **Une icône est axée ; un dessin ne l'est pas.** D'où une
+>   inclinaison tirée au hasard (±0,23 rad) — exactement le geste des onomatopées, et pour
+>   la même raison : posée d'aplomb, une onomatopée redevient un sous-titre.
+
+> ⚠️ **DEUX ARCHES, PAS TROIS, ET C'EST LE PIXEL QUI L'A DÉCIDÉ.** Une arche doit porter son
+> encre des **deux** côtés (~1,9 px chacune) plus son aplat : sous ~9 px de large elle sort
+> en trait double, c'est-à-dire en saleté. Restent une **grosse arche** qui porte le cluster
+> 2 tons et un **écho fin**. C'est le contraste d'échelle qui fait le travail que la
+> régularité ne faisait pas — même geste que les deux canines au milieu des petites dents,
+> et que le 44 px contre 10 px des cartons (§9.3).
+
+> **La menthe `#60C498` est la seule couleur de §4 restée inutilisée** (« Bonus / heal »),
+> et c'est le seul vert des FX : rien à apprendre, la couleur **dit** le soin. ⚠️ Elle est
+> plus froide que tout ce que la palette pose d'habitude sur le parquet ; ce qui la tient
+> est sa **valeur** (0,68), qui tranche des deux côtés — parquet 0,84–0,93, pelage 0,29. Si
+> elle se met un jour à lire comme une tache froide, la parade est celle déjà payée sur le
+> canapé et sur le corps de la griffure : **descendre la valeur et réchauffer la teinte,
+> jamais baisser l'alpha.**
+
+**Juger le ronron sans jouer** — il n'existe pas tant qu'on ne l'a pas pris, et il ne rend
+rien tant que le chat est à pleine vie :
+
+```bash
+# Le geste, a taille de jeu — ⚠️ --fixed-fps 60, une pose tient 5 frames
+"C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --path . \
+  --write-movie <dossier>/g.png --fixed-fps 60 --quit-after 130 -- --aim=135 \
+  --autofire --skill=purr:1
+# Le SOIN — il faut que le chat ait encaisse, donc IMMORTAL a false et de quoi survivre
+"C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --path . \
+  --write-movie <dossier>/g.png --fixed-fps 30 --quit-after 340 -- --aim=135 --autofire \
+  --skill=purr:3 --skill=toughness:3 --skill=max_health:3
+# La carte, avec sa vignette
+"C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --path . \
+  --write-movie <dossier>/c.png --fixed-fps 30 --quit-after 20 -- \
+  --ui-card=level --ui-choices=purr:1,hiss:2,toughness:1
+```
+
+> ✅ **Tout est mesuré sur les frames, rien n'est supposé.** Le halo tient **exactement
+> 120 frames** à 60 fps — 4 bouffées × 6 poses × 5 frames — puis disparaît d'un coup, sans
+> fondu (§8). Et la barre de vie remonte de **+10 px à chaque bouffée** sur une barre pleine
+> de 184 px pour 190 PV, soit les 10 PV attendus du T3.
+> ⚠️ **Les bouffées sortent à 0,60 s d'intervalle dans une capture à 30 fps, et non 0,50.**
+> Ce n'est pas un défaut : `delta` vaut alors 33 ms contre une pose de 83 ms, donc une pose
+> tient 3 frames au lieu de 2,5. **Une cadence ne se mesure pas à un `--fixed-fps` plus lent
+> qu'elle.**
+
+---
+
+### Les zoomies — le 4ᵉ actif, SPÉCIFIÉ mais PAS CODÉ (2026-08-19)
+
+Le *quart d'heure de folie* du chat : une salve de vitesse brève, déclenchée par le joueur.
+**Rien n'en est écrit** — ni entrée de catalogue, ni script, ni FX, ni texte. Ce qui suit
+est la spécification et la liste des pièges relevés **avant** de coder, pour ne pas les
+découvrir en capture.
+
+| Palier | Vitesse | Durée | Recharge |
+|---|---|---|---|
+| 1 | ×2,0 | 1,2 s | 10,0 s |
+| 2 | ×2,3 | 1,5 s | 8,5 s |
+| 3 | ×2,6 | 1,8 s | 7,0 s |
+
+**Ce qu'il apporte que rien d'autre n'apporte :** de la **mobilité commandée**. Le chat a
+quatre façons de tuer, une de dégager (`hiss`), une de se refaire (`purr`) — et *aucune*
+de traverser. C'est aussi la première pièce active de la fantasy « chat rapide » du Game
+Manifest §11, que seul le passif `move_speed` sert aujourd'hui.
+
+> ⛔ **PIÈGE N°1, ET IL EST SILENCIEUX : NE PAS ÉCRIRE LE BONUS DANS `player.speed`.**
+> `_apply_passives()` recalcule `speed = values.get("speed", _base_speed)` **à chaque prise
+> de compétence** — c'est ce qui rend les paliers absolus rejouables. Une salve écrite dans
+> `speed` serait donc **effacée sans un mot** par le premier level-up qui tombe pendant
+> qu'elle tourne, et le joueur verrait sa compétence s'arrêter au milieu sans savoir
+> pourquoi. Le bonus doit être un **multiplicateur séparé**, appliqué au déplacement.
+
+> ⚠️ **PIÈGE N°2 : le double comptage de §2.9 avec `move_speed`.** La sortie existe déjà et
+> elle est écrite deux fois dans le catalogue (`projectile_speed`, `toughness`) : un
+> **multiplicateur** posé sur une base absolue **compose** au lieu de s'ajouter. Et ici un
+> second argument le protège — l'effet est **temporaire**, ce qu'un passif n'est jamais.
+
+> ⛔ **PIÈGE N°3 : ce n'est PAS le bond, et il ne faut pas le refaire.** Le bond a été
+> retiré le 2026-08-17 pour devenir un déplacement **vertical** — le saut sur le canapé, la
+> priorité n°1. `shaders/pounce_trail.gdshader` et son script ont été **supprimés** ; ne pas
+> les ressusciter. Les zoomies restent une **vitesse horizontale continue**, jamais un dash
+> ni un téléport : sinon les deux mécaniques se disputent le même bouton et la même fantasy.
+
+> ⚠️ **PIÈGE N°4 : les pattes patinent DÉJÀ d'un facteur 8,3** (mesuré, voir « La
+> fluidité »). À ×2,6 le facteur monte à ~21. Les zoomies ne créent pas ce défaut mais elles
+> le rendent impossible à ignorer — **le galop de 4 poses sur 12 frames doit passer avant**,
+> sinon la compétence la plus rapide du jeu sera celle où le chat glisse le plus.
+
+> ⚠️ **PIÈGE N°5 : c'est le 1ᵉʳ actif dont l'effet est sur LE MOUVEMENT DU CHAT**, donc le
+> premier qu'une capture immobile ne peut pas juger du tout. `--walk` sera **obligatoire**,
+> exactement comme pour les moutons de poussière — et pour la même raison : dans un
+> `--write-movie`, aucune touche n'est pressée.
+
+- **FX** — §8 prescrit déjà le vocabulaire : *« traînées dédoublées plutôt qu'un flou de
+  mouvement »* et *« lignes de vitesse courtes et chaudes sur les dashs »*. ⚠️
+  `shaders/ui_speedlines.gdshader` existe mais il est en `canvas_item`, pour les cartons :
+  ce sera un shader de monde à écrire, pas un à réutiliser.
+- **Onomatopée obligatoire** — le socle `active_skill.shout()` la déduit de l'`id`, et une
+  clé manquante lève. `FRRRT` / `ZOOM` sont les candidats ; à trancher dans `locale.gd`,
+  les deux langues côte à côte.
+- ⚠️ **Une fois codé, la famille ACTIF comptera QUATRE compétences pour deux slots.** Rien
+  ne change pour `roll` (le carton de remplacement était déjà exerçable à trois), mais le
+  choix de *quoi garder* devient un vrai arbitrage de build — c'est là que le chantier 2
+  cessera d'être une formalité.
+
+---
 
 ### Les contrôles — WASD + les deux clics (2026-08-17)
 
@@ -1541,9 +1736,16 @@ qui réveille le projectile). Les contrôles sont passés à **WASD + les deux c
 (voir « Quatre compétences de plus »). Les slots ACTIVES sont désormais **saturables**,
 donc le chantier 2 devient atteignable en jeu.
 
-**Restent à faire :** un **3ᵉ actif**, sans quoi le carton de remplacement n'a rien à
-proposer et ne s'ouvrira jamais ; puis le carton lui-même (chantier 2), les ultimes T4, et
-le reste du contenu (~6 auto, ~3 actifs de plus).
+**Le 3ᵉ actif est posé le 2026-08-19** — le **ronron**, voir « Le ronron » plus bas. Le
+catalogue passe à **13 entrées**, et surtout la famille ACTIF compte désormais **trois
+compétences pour deux slots** : c'est ce qui rend le carton de remplacement (chantier 2)
+**exerçable en jeu**, ce qu'il n'était pas à deux — `roll` n'avait rien à proposer en
+échange. ✅ Vérifié par sonde : `bite` + `hiss` pris, `purr` T1 ne sort plus d'aucun des
+8 tirages.
+
+**Restent à faire :** le carton de remplacement lui-même (chantier 2) ; les **zoomies**,
+4ᵉ actif déjà spécifié (voir « Les zoomies » plus bas) ; les ultimes T4 ; et le reste du
+contenu (~6 auto, ~2 actifs de plus).
 
 **Le jeu est bilingue depuis le 2026-08-17** — voir « Le jeu est bilingue » plus haut.
 Français et anglais, un carton de réglages ouvert par Échap, et le choix conservé d'une
