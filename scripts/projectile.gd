@@ -29,18 +29,23 @@ const VARIANT := "boule_poils"
 
 ## Vitesse de rotation sur l'axe de vol, en tours par seconde.
 ##
-## ⚠️ Elle n'existe QUE parce que le projectile a ralenti (17,5 -> 10,0 m/s au
+## ⚠️ Elle n'existe QUE parce que le projectile a ralenti (17,5 -> 7,0 m/s au
 ## T1). A l'ancienne vitesse il traversait sa propre longueur en trois frames :
 ## faire tourner un objet qu'on ne voit pas se poser n'aurait rien montre. A
-## 10 m/s il vit ~1,1 s a l'ecran, et une boule de poils qui roule sur sa
+## 7 m/s il vit ~1,6 s a l'ecran, et une boule de poils qui roule sur sa
 ## trajectoire est la seule chose qui dise qu'elle a ete CRACHEE et non posee.
 ##
+## 1,6 tr/s et non 2,2 : sur 1,6 s de vol ca fait deux tours et demi, soit un
+## roulement. A 2,2 la boule en faisait plus de trois et se lisait comme une
+## perceuse — et surtout les traces claires du pelage passaient trop vite pour
+## qu'on voie ce qu'elles sont.
+##
 ## Autour de l'axe de VOL et pas d'un axe du monde : c'est ce qui fait defiler
-## les bourrelets sans changer la silhouette. La croquette a le probleme inverse
-## et la meme parade — voir `xp_orb._physics_process`.
-@export var spin_speed: float = 2.2
+## les touffes sans changer la silhouette. La croquette a le probleme inverse et
+## la meme parade — voir `xp_orb._physics_process`.
+@export var spin_speed: float = 1.6
 
-@export var speed: float = 10.0
+@export var speed: float = 7.0
 @export var damage: int = 1
 @export var max_distance: float = 10.0
 

@@ -500,7 +500,7 @@ zeucozy/
 │   ├── build_outline.py    # Contour Blender : épaisseur × Attr_Style.R, 1 encre / surface
 │   ├── build_couch.py      # Canapé : géométrie ET Attr_Style, dans un .blend neuf
 │   ├── build_kibble.py     # Croquette : trèfle à 3 lobes, 300 tris, même moule
-│   ├── build_hairball.py   # Boule de poils : amas à 6 touffes, 308 tris, même moule
+│   ├── build_hairball.py   # Boule de poils : amas à 6 touffes + 3 mèches, 308 tris
 │   ├── export_prop.py      # Export générique d'un .glb, même réinjection COLOR_0
 │   ├── fetch_fonts.ps1     # Récupère les polices d'UI en sous-ensembles (rejouable)
 │   └── dump_paws.gd        # Relève os porteurs + boîtes de repos — source des PAWS
@@ -542,7 +542,7 @@ Le réglage à bouger en premier si le chat paraît trop petit est `distance` da
 | | T1 | T2 | T3 |
 |---|---|---|---|
 | **Griffure** *(dégât / cadence / portée)* | 3 · 1,10 s · 5,2 m | 4 · 0,94 s · 5,65 m | 5 · 0,80 s · 6,1 m |
-| **Boule de poils** *(dégât / cadence / portée / vitesse)* | 2 · 1,60 s · 11 m · 10 m/s | 3 · 1,35 s · 13 m · 12 m/s | 4 · 1,10 s · 15 m · 14 m/s |
+| **Boule de poils** *(dégât / cadence / portée / vitesse)* | 2 · 1,60 s · 11 m · 7 m/s | 3 · 1,35 s · 13 m · 8,5 m/s | 4 · 1,10 s · 15 m · 10 m/s |
 | **Morsure** *(dégât / portée / recharge)* | 7 · 3,6 m · 6,0 s | 10 · 4,0 m · 5,0 s | 14 · 4,4 m · 4,2 s |
 | **Haleine** *(rayon / dégât par morsure)* | 2,8 m · 1 | 3,35 m · 2 | 3,9 m · 3 |
 | **Moutons** *(dégât / cadence / vie / rayon)* | 3 · 0,55 s · 3,5 s · 0,75 m | 4 · 0,46 s · 4,4 s · 0,85 m | 6 · 0,42 s · 5,0 s · 0,95 m |
@@ -551,10 +551,15 @@ Le réglage à bouger en premier si le chat paraît trop petit est `distance` da
 Arc frontal de griffure **120°, à tous les paliers** — l'ancienne description promettait un
 balayage « plus large », le code ne l'a jamais fait.
 
-> ⚠️ **La boule de poils a été RALENTIE le 2026-08-19** (17,5 / 19 / 21 → 10 / 12 / 14 m/s),
-> et le passif **`projectile_speed`** multiplie cette base (×1,30 / 1,60 / 2,00). Voir
-> « La boule de poils modélisée » plus bas — la vitesse et la portée montent **ensemble**,
-> donc le temps de vol reste constant (1,10 / 1,08 / 1,07 s) aux trois paliers.
+> ⚠️ **La boule de poils a été RALENTIE DEUX FOIS le 2026-08-19** — 17,5 / 19 / 21, puis
+> 10 / 12 / 14, enfin **7 / 8,5 / 10 m/s** — et le passif **`projectile_speed`** multiplie
+> cette base (×1,30 / 1,60 / 2,00). Voir « La boule de poils modélisée » plus bas : la
+> vitesse et la portée montent **ensemble**, donc le temps de vol reste constant
+> (1,57 / 1,53 / 1,50 s) aux trois paliers.
+>
+> ⚠️ **7 m/s est la vraie borne basse : c'est la vitesse du chat** (7,5 m/s). En dessous, il
+> rattraperait ses propres boules, et un projectile qu'on double ne se lit plus comme un
+> tir.
 >
 > ⚠️ **Les trois `@export` du projectile en sommeil ont disparu de `player.gd`** le même
 > jour, avec `_fire_at_nearest_enemy`. Ils promettaient « le jour où il revient, il revient
@@ -1491,7 +1496,7 @@ arène large. Toute la logique de gameplay tourne — le passage en 3D ne l'a pa
 **La boule de poils est modélisée et ralentie depuis le 2026-08-19** — voir « La boule de
 poils modélisée » plus bas. Le dernier placeholder de primitive du gameplay disparaît : le
 projectile est un amas de fourrure à 6 touffes, dans la couleur du chat, qui **roule** sur
-son axe de vol à 10 m/s au lieu de 17,5. Le ralentissement n'est pas un effet de bord du
+son axe de vol à 7 m/s au lieu de 17,5. Le ralentissement n'est pas un effet de bord du
 modèle, c'est sa condition : à l'ancienne vitesse la boule sautait la moitié de sa propre
 longueur d'une frame à l'autre. Il ouvre au passage la place du passif **`projectile_speed`**,
 qui avait été sorti du pool le 2026-08-16 faute d'améliorer quoi que ce soit de visible.
@@ -1579,7 +1584,7 @@ dessinées** compris, et il se lit à taille de jeu — désormais en **tuxedo n
 qui se détache mieux du
 parquet que l'ambre d'avant. Les **canapés sont modélisés** et posés dans l'arène en deux
 variantes (bleu ciel, vert sauge). Le reste est placeholder : ennemis en primitives 3D,
-tables / plantes / coussins en boîtes pastel. **Les croquettes d'XP sont modélisées** depuis le 2026-08-19 — trèfle à 3 lobes, 300 tris — et **la boule de poils** le même jour : amas à 6 touffes, 308 tris, dans la fourrure du chat. **Plus aucun placeholder de primitive hors les ennemis et le petit mobilier.**
+tables / plantes / coussins en boîtes pastel. **Les croquettes d'XP sont modélisées** depuis le 2026-08-19 — trèfle à 3 lobes, 300 tris — et **la boule de poils** le même jour : amas à 6 touffes, 308 tris, dans la fourrure du chat, mèches claires comprises. **Plus aucun placeholder de primitive hors les ennemis et le petit mobilier.**
 
 **Passe rétro anime — faite le 2026-08-16.** `Attr_Style` peint et câblé, trait à
 épaisseur variable **des deux côtés du pont** (Godot par `cel_outline.gdshader`, Blender par
@@ -2217,7 +2222,8 @@ les suivants.
 
 Le projectile était une **capsule primitive** `#FDD166`. C'est désormais
 `assets/models/projectile_boule_poils.glb` : un **amas allongé hérissé de 6 touffes**,
-**308 tris**, 156 sommets, un seul matériau — **la fourrure du chat**, `#4A4038`.
+**308 tris**, 156 sommets, **deux matériaux** — la fourrure du chat `#4A4038`, et trois
+**mèches claires** `#B3A895` qui la traversent.
 `tools/build_hairball.py` (le `.blend` est **régénéré**, jamais édité à la main, comme le
 canapé et la croquette) puis `tools/export_prop.py`, qui n'a **toujours** pas eu à bouger.
 
@@ -2227,7 +2233,8 @@ Deux choses ont bougé ensemble, et l'une ne valait rien sans l'autre :
 |---|---|---|
 | Modèle | capsule, 12 seg. | **amas à 6 touffes**, 308 tris |
 | Couleur | `#FDD166` jaune pâle | **`#4A4038`**, le pelage tuxedo |
-| Vitesse T1→T3 | 17,5 / 19 / 21 m/s | **10 / 12 / 14 m/s** |
+| Traces claires | — | **3 mèches** `#B3A895`, 12 % de la surface |
+| Vitesse T1→T3 | 17,5 / 19 / 21 m/s | **7 / 8,5 / 10 m/s** |
 | Sphère de collision | 0,30 pour un corps de 0,13 | **0,26**, sa taille réelle |
 | Passif de vitesse | — | **`projectile_speed`** ×1,30 / 1,60 / 2,00 |
 
@@ -2240,17 +2247,25 @@ Deux choses ont bougé ensemble, et l'une ne valait rien sans l'autre :
 - ⚠️ **RALENTIE POUR ÊTRE VUE.** À 17,5 m/s la boule parcourait **0,29 m par frame** à
   60 fps pour 0,77 m de long : elle sautait la moitié de sa propre longueur d'une frame à
   l'autre, et à 30 fps de capture elle n'apparaissait que deux ou trois fois sur tout son
-  trajet. Modéliser un objet qu'on ne voit pas passer n'aurait rien montré. À 10 m/s elle
-  se **recouvre elle-même** d'une frame à la suivante.
-- **Vitesse et portée montent ENSEMBLE** : le temps de vol reste à 1,10 / 1,08 / 1,07 s
+  trajet. Modéliser un objet qu'on ne voit pas passer n'aurait rien montré. À 7 m/s elle
+  avance de **0,12 m par frame**, un sixième de sa longueur : l'œil **suit** une
+  trajectoire au lieu de constater une traînée de fantômes.
+- ⚠️ **7 m/s est la borne basse, et ce n'est pas un goût : c'est la vitesse du chat**
+  (7,5 m/s). En dessous il rattraperait ses propres boules. Elle reste au-dessus du chaser
+  de départ (3,7 m/s) et le rejoint vers 180 s de run, quand la difficulté le pousse à
+  ~6,3 — à ce moment-là seul un ennemi qui **coupe** la trajectoire y échappe, ceux qui
+  foncent sur le chat lui rentrent dedans. C'est là que `projectile_speed` prend sa valeur.
+- **Vitesse et portée montent ENSEMBLE** : le temps de vol reste à 1,57 / 1,53 / 1,50 s
   aux trois paliers. Un palier qui n'aurait allongé que la portée aurait rendu l'arme
   *plus lente* à atteindre sa cible à mesure qu'on la renforce.
 - **La contrepartie assumée** : la boule ne se vise pas, elle part vers la position de
   l'ennemi au moment du tir. Plus lente, elle peut être manquée par un ennemi qui coupe la
   trajectoire. **C'est ce qui donne quelque chose à acheter au passif.**
-- **Elle ROULE sur son axe de vol** (`spin_speed` 2,2 tr/s), et ce réglage n'existe que
+- **Elle ROULE sur son axe de vol** (`spin_speed` **1,6 tr/s**), et ce réglage n'existe que
   parce qu'elle a ralenti : à l'ancienne vitesse, faire tourner un objet qu'on ne voit pas
-  se poser n'aurait rien montré.
+  se poser n'aurait rien montré. 1,6 et non 2,2 — sur 1,6 s de vol ça fait deux tours et
+  demi, soit un roulement ; à 2,2 elle se lisait comme une perceuse et les mèches claires
+  passaient trop vite pour qu'on voie ce qu'elles sont.
 - **Le maillage est DÉJÀ orienté** — axe long sur Z en Godot (Y dans Blender). La matrice
   de rotation que `projectile.tscn` posait sur la capsule a disparu avec elle : un jour ou
   l'autre, quelqu'un aurait réglé l'une sans l'autre.
@@ -2300,6 +2315,36 @@ Deux choses ont bougé ensemble, et l'une ne valait rien sans l'autre :
 >   sorti **en coin**, avec des arêtes franches — l'angle vif que §3 interdit, sur l'objet
 >   dont toute la DA dit qu'il doit être rond. `smoothstep` a une dérivée nulle aux **deux**
 >   bouts : pied fondu, sommet arrondi.
+
+> ⚠️ **LES TRACES CLAIRES SONT DES MÈCHES, PAS DES TACHES** — trouvé en capture, et le
+> premier jet peignait deux **touffes entières** en clair. L'idée de départ était bonne (la
+> couleur suit la forme, comme la calotte peinte du poitrail épouse le volume du dos) et le
+> rendu était une **plaque de lichen sur un caillou**. Deux causes :
+> - une tache ronde de la taille d'une touffe est une **masse**, pas une mèche. Du poil est
+>   fait de fibres : ce qui le dit est l'**allongement**, pas la tache ;
+> - le matériau se décide **par face**, et le maillage n'a que 22 colonnes. Le bord d'une
+>   calotte y sort en escalier à gros pas, ce qui se lit comme un éclat dans la matière ; le
+>   bord d'une **bande** suit les colonnes — il est droit, donc il se lit comme un trait
+>   peint, ce qu'il doit être.
+>
+> Chaque mèche est ~3,5 fois plus longue que large et court le long du corps, dans le sens
+> où la boule a été roulée. Et comme la boule **tourne** en vol, la mèche défile : c'est ce
+> qui la fait lire comme de la matière plutôt que comme un décalque.
+
+> ⚠️ **LE CRÈME DU CHAT NE POUVAIT PAS SERVIR TEL QUEL.** `#F7EFE0` (0,97 de valeur) contre
+> `#4A4038` (0,29) fait **0,68 d'écart à l'INTÉRIEUR de la silhouette** — plus fort que
+> l'écart de l'objet avec le parquet. La trace serait devenue le sujet et la boule se
+> lirait en deux morceaux. `#B3A895` la pose à 0,70 : elle se voit franchement sans
+> découper l'objet. Même geste que le canapé, dont le bâti est la couleur du coussin
+> descendue d'un cran — pas une seconde teinte, la même matière à deux valeurs.
+
+> ⚠️ **UN SEUIL SUR UN `smoothstep` N'EST PAS UNE TAILLE, IL RONGE LA FORME.** Le masque des
+> mèches vaut `smoothstep(1 − d)` : à un seuil de 0,34 il ne retient que `d ≤ 0,60`, soit
+> **36 % de l'aire** de l'ellipse nominale. Les trois mèches ne couvraient plus que 5 % de
+> l'objet et la boule paraissait simplement **salie**. À 0,12 on garde `d ≤ 0,78` et on
+> retrouve les 12 % voulus. **Le seuil et les demi-axes se règlent ensemble**, jamais l'un
+> sans l'autre — et le défaut est muet, les deux chiffres ayant l'air justes chacun de son
+> côté.
 
 > ⚠️ **PAS D'ACCENT DE BRILLANCE** (canal B à zéro partout), et c'est une décision. Sur un
 > aplat à 0,29 de valeur, le mélange vers le crème fabrique un **3ᵉ ton de cluster** — le

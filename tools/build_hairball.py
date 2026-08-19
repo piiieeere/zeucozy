@@ -31,8 +31,10 @@ donc dans le sens de son vol sans qu'aucun node n'ait a le tourner, alors que la
 capsule placeholder avait besoin d'une matrice posee dans la scene.
 
 COULEUR — c'est la fourrure DU CHAT, pas une couleur de plus.
-`#4A4038`, le brun tres sombre que `cel_model.NOIR` pose sur le pelage tuxedo.
-Deux raisons, et aucune n'est esthetique :
+`#4A4038`, le brun tres sombre que `cel_model.NOIR` pose sur le pelage tuxedo,
+traverse de TROIS MECHES CLAIRES (voir `LIGHT_STREAKS`) : le chat est noir ET
+blanc, sa boule de poils aussi.
+Deux raisons au fond sombre, et aucune n'est esthetique :
 
   * une boule de poils est faite des poils du chat. Lui donner une teinte a elle
     en ferait un objet du decor, pas quelque chose que le chat a crache ;
@@ -153,9 +155,67 @@ TAPER = 0.17
 N_U = 22
 N_V = 8
 
-# Materiau. UN seul — §5 : une couleur principale par objet. C'est le pelage du
-# chat (`cel_model.NOIR`), pas une couleur de plus dans le jeu.
+# ─── LE PELAGE, EN DEUX MATIERES ──────────────────────────────────────────────
+#
+# Le fond est `cel_model.NOIR`, le pelage du chat lui-meme. Les TRACES CLAIRES
+# sont le crème du tuxedo, mais ASSOURDI — jamais le `#F7EFE0` du poitrail.
+#
+# ⚠️ POURQUOI ASSOURDI, ET PAS LE CREME DU CHAT. Une boule de poils est du poil
+# MATE, roule dans la salive et la poussiere : elle n'a plus l'eclat du pelage
+# vivant. Et surtout, sur un objet de ~22 px, `#F7EFE0` (0,97 de valeur) contre
+# `#4A4038` (0,29) fait un ecart de 0,68 A L'INTERIEUR de la silhouette — plus
+# fort que l'ecart de l'objet avec le parquet. La trace deviendrait le sujet et
+# la boule se lirait comme deux morceaux. `#B3A895` la pose a 0,70 : elle se voit
+# franchement, elle ne decoupe pas l'objet.
+#
+# C'est le meme geste que le canape, ou le bati est la couleur du coussin
+# descendue d'un cran — pas une seconde teinte, la meme matiere a deux valeurs.
+# §5 tient : une couleur principale par objet, et le tuxedo est deja fait de ca.
 POILS = "#4A4038"
+POILS_CLAIRS = "#B3A895"
+
+# Les traces claires : trois MECHES, chacune (u central, v central, demi-largeur
+# autour de l'axe, demi-longueur le long de l'axe) — en radians.
+#
+# ⚠️ DES MECHES ALLONGEES, ET PAS DES CALOTTES RONDES. Le premier jet peignait
+# deux touffes entieres en clair : ca partait d'une bonne idee (la couleur suit
+# la forme) et c'est sorti en PLAQUES DE LICHEN sur un caillou. Deux raisons,
+# toutes deux visibles au banc et aucune en lisant le code :
+#
+#   * une tache ronde de la taille d'une touffe est une MASSE, pas une meche.
+#     Du poil est fait de fibres : ce qui le dit est l'allongement, pas la
+#     tache ;
+#   * le materiau se decide PAR FACE, et le maillage n'a que 22 colonnes. Le
+#     bord d'une calotte y sort en escalier a gros pas, ce qui se lit comme un
+#     eclat dans la matiere. Le bord d'une bande, lui, suit les colonnes : il
+#     est droit, donc il se lit comme un trait peint — ce qu'il doit etre.
+#
+# Chaque meche est nettement plus longue que large (0,9 contre 0,28) : elles
+# courent le long du corps, dans le sens ou la boule a ete roulee.
+#
+# ⚠️ Ecrites en dur, comme les touffes : la forme doit etre la MEME d'un tir a
+# l'autre, sinon aucune capture n'est comparable.
+LIGHT_STREAKS = [
+	# (u, v, demi-largeur, demi-longueur)
+	(0.70, 0.22, 0.46, 1.05),
+	(3.40, -0.42, 0.40, 0.85),
+	(5.15, 0.62, 0.32, 0.58),
+]
+
+# En deca de ce poids, la face reste sombre.
+#
+# ⚠️ CE SEUIL N'EST PAS LA TAILLE DE LA MECHE, il la RONGE — et le premier
+# reglage s'est fait avoir. Le poids est un `smoothstep(1 - d)` : a 0,34 il ne
+# retient que `d <= 0,60`, soit 36 % de l'aire de l'ellipse nominale. Les trois
+# meches ne couvraient plus que 5 % de l'objet, et la boule paraissait
+# simplement salie. A 0,12 on garde `d <= 0,78` et on retrouve les ~13 % voulus.
+# Le seuil et les demi-axes se reglent donc ENSEMBLE, jamais l'un sans l'autre.
+#
+# ⚠️ Borne haute connue : au-dela de ~20 % l'amas se lit comme un objet BICOLORE
+# et non comme un pelage mele — la borne que la croquette a payee par l'autre
+# bout, ses trois accents couvrant 15 % et sortant en salissure. La difference
+# ici est que la trace a une DIRECTION ; l'accent de la croquette n'en avait pas.
+LIGHT_THRESHOLD = 0.12
 
 # Memes reglages que les uniforms de cel_toon.gdshader : le ton d'ombre de
 # Blender est celui de Godot, et non un second reglage a la main.
@@ -266,6 +326,35 @@ def tuft_rise(u: float, v: float) -> float:
     return rise
 
 
+def light_weight(u: float, v: float) -> float:
+    """Combien ce point appartient a une meche CLAIRE, de 0 a 1.
+
+    Le poids de la meche la plus proche, PAS la somme : deux meches qui se
+    frolent ne doivent pas s'additionner en une troisieme, plus large que les
+    deux — c'est ce qui referme des traits sur eux-memes et redonne une tache.
+    """
+    best = 0.0
+
+    for u0, v0, half_u, half_v in LIGHT_STREAKS:
+        # L'ecart en `u` est ramene dans [-pi, pi] : sans ca, une meche posee
+        # pres de la couture se couperait en deux au passage de 2*pi. Il est
+        # aussi ramene a une longueur d'ARC par `cos(v)`, sinon la meche
+        # s'evaserait en approchant des poles, la ou les meridiens se resserrent.
+        du = (u - u0 + math.pi) % math.tau - math.pi
+        du *= math.cos(v)
+        dv = v - v0
+
+        d = math.sqrt((du / half_u) ** 2 + (dv / half_v) ** 2)
+
+        if d >= 1.0:
+            continue
+
+        t = 1.0 - d
+        best = max(best, t * t * (3.0 - 2.0 * t))
+
+    return best
+
+
 def surface_point(u: float, v: float) -> Vector:
     """Un point de la surface : l'ellipsoide de base, plus les touffes.
 
@@ -315,15 +404,37 @@ def build_mesh():
 
     bm.verts.ensure_lookup_table()
 
+    # Le materiau se decide sur le (u, v) du CENTRE PARAMETRIQUE de la face,
+    # jamais sur le barycentre de ses sommets.
+    #
+    # ⚠️ Deux raisons, et la seconde est un piege : `u` boucle a 2*pi, donc la
+    # moyenne des sommets d'une face a cheval sur la couture rend pi au lieu de
+    # 0 — la face se retrouverait peinte a l'oppose de sa vraie place, sur une
+    # seule colonne de l'objet. Et le maillage est RECENTRE plus bas : un test
+    # sur les positions monde changerait de reponse selon qu'on le fait avant
+    # ou apres.
+    def material_of(u: float, v: float) -> int:
+        return 1 if light_weight(u, v) >= LIGHT_THRESHOLD else 0
+
+    ring_v = [-math.pi * 0.5 + math.pi * j / float(N_V) for j in range(0, N_V + 1)]
+
     for i in range(N_U):
         nxt = (i + 1) % N_U
-        bm.faces.new((back, rings[0][i], rings[0][nxt]))
-        bm.faces.new((front, rings[-1][nxt], rings[-1][i]))
+        mid_u = math.tau * (i + 0.5) / float(N_U)
 
-    for lower, upper in zip(rings, rings[1:]):
+        face = bm.faces.new((back, rings[0][i], rings[0][nxt]))
+        face.material_index = material_of(mid_u, (ring_v[0] + ring_v[1]) * 0.5)
+
+        face = bm.faces.new((front, rings[-1][nxt], rings[-1][i]))
+        face.material_index = material_of(mid_u, (ring_v[-1] + ring_v[-2]) * 0.5)
+
+    for j, (lower, upper) in enumerate(zip(rings, rings[1:])):
+        mid_v = (ring_v[j + 1] + ring_v[j + 2]) * 0.5
+
         for i in range(N_U):
             nxt = (i + 1) % N_U
-            bm.faces.new((lower[i], upper[i], upper[nxt], lower[nxt]))
+            face = bm.faces.new((lower[i], upper[i], upper[nxt], lower[nxt]))
+            face.material_index = material_of(math.tau * (i + 0.5) / float(N_U), mid_v)
 
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
 
@@ -555,7 +666,11 @@ def main():
     setup_scene()
 
     mesh, coords = build_mesh()
+    # ⚠️ L'ORDRE EST LE CONTRAT. `face.material_index` a ete pose pendant la
+    # construction : 0 = fond sombre, 1 = trace claire. Intervertir ces deux
+    # lignes retournerait le pelage sans lever quoi que ce soit.
     mesh.materials.append(toon_material("poils", POILS))
+    mesh.materials.append(toon_material("poils_clairs", POILS_CLAIRS))
     stats = paint(mesh, coords)
 
     obj = bpy.data.objects.new(MESH_OBJECT, mesh)
@@ -573,6 +688,10 @@ def main():
           % (len(mesh.vertices), len(mesh.polygons), tris))
     print("  emprise  X %.3f a %.3f   Y %.3f a %.3f   Z %.3f a %.3f"
           % (lo.x, hi.x, lo.y, hi.y, lo.z, hi.z))
+    clair = sum(1 for p in mesh.polygons if p.material_index == 1)
+    print("  traces claires : %d faces sur %d (%.0f %%), %d meches"
+          % (clair, len(mesh.polygons), 100.0 * clair / len(mesh.polygons),
+             len(LIGHT_STREAKS)))
     print("  %d touffes de %.0f°, hauteurs %.3f a %.3f m  ->  rayon %.3f a %.3f"
           % (TUFTS, math.degrees(TUFT_WIDTH), min(TUFT_HEIGHTS), max(TUFT_HEIGHTS),
              RADIUS, RADIUS + max(TUFT_HEIGHTS)))

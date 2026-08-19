@@ -183,6 +183,17 @@ const PALETTES := {
 	# sol. Le brun est a 0,29 contre 0,96 : 0,67 d'ecart.
 	"boule_poils": {
 		"poils": Color("#4A4038"),
+		# Les TRACES CLAIRES du pelage tuxedo — mais assourdies, jamais le
+		# `#F7EFE0` du poitrail. Une boule de poils est du poil mate, roule dans
+		# la salive : elle n'a plus l'eclat du pelage vivant. Et a ~22 px, le
+		# creme plein contre le brun sombre ferait 0,68 d'ecart A L'INTERIEUR de
+		# la silhouette — plus que l'ecart de l'objet avec le parquet. La trace
+		# deviendrait le sujet et la boule se lirait en deux morceaux.
+		#
+		# Meme geste que le canape, dont le bati est la couleur du coussin
+		# descendue d'un cran : pas une seconde teinte, la meme matiere a deux
+		# valeurs. §5 tient — le tuxedo du chat est deja fait de ca.
+		"poils_clairs": Color("#B3A895"),
 	},
 }
 

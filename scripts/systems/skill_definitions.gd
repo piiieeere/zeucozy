@@ -126,32 +126,35 @@ const DEFINITIONS: Array[Dictionary] = [
 		# Peu de degats sur UNE cible, mais a 11 m — le double de la griffure.
 		# Elle porte loin, elle ne nettoie pas.
 		#
-		# ⚠️ RALENTIE LE 2026-08-19 (17,5 / 19 / 21 -> 10 / 12 / 14 m/s), en meme
-		# temps que le passage de la capsule au modele. A 17,5 m/s la boule
-		# parcourait 0,29 m par frame a 60 fps pour 0,60 m de long : elle sautait
-		# la moitie de sa propre longueur d'une frame a l'autre, et a 30 fps de
-		# capture elle n'apparaissait que deux ou trois fois sur tout son trajet.
-		# Modeliser un objet qu'on ne voit pas passer n'aurait rien montre.
+		# ⚠️ RALENTIE DEUX FOIS LE 2026-08-19 : 17,5 / 19 / 21, puis 10 / 12 / 14,
+		# enfin 7 / 8,5 / 10 m/s (demande directe). Le premier pas venait du
+		# passage de la capsule au modele — a 17,5 m/s la boule parcourait 0,29 m
+		# par frame a 60 fps pour 0,77 m de long, sautait la moitie de sa propre
+		# longueur d'une frame a l'autre, et n'apparaissait que deux ou trois fois
+		# sur tout son trajet dans une capture a 30 fps. Modeliser un objet qu'on
+		# ne voit pas passer n'aurait rien montre.
 		#
-		# A 10 m/s elle avance de 0,17 m par frame, soit un tiers de sa longueur :
-		# elle se recouvre elle-meme d'une frame a la suivante, ce qui est le
-		# seuil a partir duquel l'oeil suit une trajectoire au lieu de constater
-		# une trainee de fantomes.
+		# A 7 m/s elle avance de 0,12 m par frame, soit un sixieme de sa longueur.
+		# Elle se recouvre largement d'une frame a la suivante : l'oeil SUIT une
+		# trajectoire au lieu de constater une trainee de fantomes.
+		#
+		# ⚠️ C'EST LA VITESSE DU CHAT (7,5 m/s), ET C'EST LA VRAIE BORNE BASSE.
+		# En dessous, le chat rattraperait ses propres boules — un projectile
+		# qu'on double ne se lit plus comme un tir. Elle reste au-dessus du chaser
+		# de depart (3,7 m/s) et le rejoint vers 180 s de run, quand la difficulte
+		# le pousse a ~6,3 : a ce moment-la seul un ennemi qui COUPE la
+		# trajectoire echappe encore a la boule, ceux qui foncent sur le chat lui
+		# rentrent dedans. C'est exactement la ou `projectile_speed` prend sa
+		# valeur.
 		#
 		# ⚠️ VITESSE ET PORTEE MONTENT ENSEMBLE, et c'est ce qui garde le temps de
-		# vol constant : 1,10 / 1,08 / 1,07 s aux trois paliers. Un palier qui
+		# vol constant : 1,57 / 1,53 / 1,50 s aux trois paliers. Un palier qui
 		# n'aurait allonge que la portee aurait rendu l'arme PLUS LENTE a
 		# atteindre sa cible a mesure qu'on la renforce.
-		#
-		# Ce que le ralentissement coute, et c'est assume : la boule ne se vise
-		# pas, elle part vers la position de l'ennemi au moment du tir. Un ennemi
-		# qui coupe la trajectoire peut donc etre manque — la ou l'ancienne
-		# vitesse touchait presque a coup sur. C'est precisement ce qui donne
-		# quelque chose a acheter au passif `projectile_speed`.
 		"tiers": [
-			{"damage": 2, "interval": 1.60, "speed": 10.0, "range": 11.0},
-			{"damage": 3, "interval": 1.35, "speed": 12.0, "range": 13.0},
-			{"damage": 4, "interval": 1.10, "speed": 14.0, "range": 15.0},
+			{"damage": 2, "interval": 1.60, "speed": 7.0, "range": 11.0},
+			{"damage": 3, "interval": 1.35, "speed": 8.5, "range": 13.0},
+			{"damage": 4, "interval": 1.10, "speed": 10.0, "range": 15.0},
 		],
 		"ultimates": [],
 	},
