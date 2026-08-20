@@ -106,6 +106,34 @@ const PLATE_LOW := Color("#2A2A28")
 ## avant : c'est la face sombre qui doit rester au-dessus du fond, pas la claire.
 const PLATE_RAISED := Color("#504F4B")
 
+## La TRANCHE d'une plaque en relief — le COTE de l'objet, celui qu'on voit
+## parce que la camera n'est pas exactement en face. Posee le 2026-08-20 avec
+## l'amplification du relief.
+##
+## Elle se loge entre DEUX valeurs deja posees, et l'ecart disponible est mince :
+##
+##   • au-dessus, LA FACADE DU CARTON a 0,197 — `PLATE` (0,23) moins sa propre
+##     facette. C'est le fond contre lequel la tranche se detache dans la fente
+##     de 12 px entre deux cartes ;
+##   • en dessous, L'OMBRE PORTEE a 0,102, qui la longe sur toute sa longueur.
+##
+## ⚠️ LE PREMIER ESSAI A 0,18 ETAIT INVISIBLE, et pour la raison exacte que §9.9
+## donne a propos de `PLATE_RAISED` : il avait ete choisi contre `PLATE` (0,23)
+## en oubliant que la facette du carton lui reprend 0,030. Mesure en capture, la
+## tranche sortait a 46/255 contre 50 pour le carton — quatre points d'ecart, une
+## carte sans epaisseur. UNE VALEUR SE CHOISIT CONTRE CE QU'ELLE TOUCHE
+## REELLEMENT, jamais contre la constante dont ce voisin descend.
+##
+## 0,149 partage donc l'ecart restant en deux : 0,05 sous le carton, 0,05
+## au-dessus de l'ombre. Deux bandes sombres accolees ne feraient plus une
+## epaisseur, elles feraient une ombre deux fois trop grande.
+##
+## ⚠️ C'est un HEX, pas un retrait applique a `plate_color` dans le shader. Un
+## retrait de valeur donne un resultat different selon que le canvas travaille
+## en sRGB ou en lineaire ; un gris nomme se compare aux autres gris de la
+## rampe (§9.5) et ne derive pas.
+const PLATE_WALL := Color("#262624")
+
 ## Le filet et les reperes d'angle des cartons. Assez clair pour se lire sur la
 ## plaque, assez sombre pour ne pas concurrencer le texte.
 ##
@@ -245,27 +273,62 @@ const TICK_WIDTH := 2.0
 const NO_TICK := 0.0
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Le relief des plaques — §9.9 (2026-08-17)
+# Le relief des plaques — §9.9 (2026-08-17), AMPLIFIE le 2026-08-20
 # ─────────────────────────────────────────────────────────────────────────────
 #
 # Les cartes de choix etaient trois aplats poses sur un aplat : rien ne disait
 # qu'on pouvait les prendre. Le volume se fait en BANDES DE VALEUR A BORD FRANC
-# (§9.1 regle 2 interdit le degrade) — biseau + facette + ombre portee dure, le
-# detail est dans `ui_frame.gdshader`.
+# (§9.1 regle 2 interdit le degrade) — biseau + facette + TRANCHE + ombre portee
+# dure, le detail est dans `ui_frame.gdshader`.
 #
 # ⚠️ IL N'EST PAS UNIVERSEL, et c'est la ligne de partage : le relief va a ce qui
 # est POSE SUR l'image (cartons, cartes, pastilles de langue), jamais a ce qui y
 # est CREUSE (pistes de jauge, pastilles de cooldown). Une jauge en relief se
 # lirait comme un bouton, donc comme quelque chose sur quoi cliquer.
+#
+# ─── DEUX NIVEAUX, et non plus un booleen (2026-08-20) ───
+#
+# Le relief du 2026-08-17 etait le MEME pour le carton et pour les cartes qu'il
+# porte. C'etait deja limite — un contenant aussi epais que son contenu ne le
+# porte pas, il flotte a cote — et ca devient bloquant des qu'on amplifie : la
+# seule plaque a qui on demande de dire "prends-moi" est la carte, et c'est donc
+# elle, et elle seule, qui doit etre la plus EPAISSE de l'ecran.
+#
+#   RELIEF_FLAT   — rien. La plaque retombe sur son dessin d'avant le 08-17.
+#   RELIEF_CARTON — le contenant. Il a du volume pour ne pas etre plus plat que
+#                   ce qu'il contient, jamais pour appeler le clic.
+#   RELIEF_RAISED — ce qu'on peut PRENDRE : cartes de choix, pastilles de langue.
+#
+# ⚠️ L'ECART ENTRE LES DEUX NIVEAUX EST L'INFORMATION, pas leur valeur absolue.
+# Amplifier les deux du meme coup rendrait l'interface plus epaisse sans rien
+# rendre plus cliquable — c'est exactement le defaut qu'on repare ici.
+enum { RELIEF_FLAT, RELIEF_CARTON, RELIEF_RAISED }
 
 ## ⚠️ 3 px et non 2, et l'ecart de valeur a monte avec. A 2 px sur `PLATE_LOW`
 ## (0,16), le biseau ne se voyait tout simplement pas en capture — une plaque
 ## sombre absorbe une bande claire etroite, la ou une plaque claire l'aurait
 ## rendue criarde. Le biseau se dose sur CE QU'IL CERNE, comme le trait du chat,
 ## comme le cerne d'un glyphe de 12 px : jamais en valeur absolue partagee.
+##
+## Le carton garde ses 3 px du 2026-08-17 ; la carte passe a 4 et gagne l'ecart
+## de valeur qui va avec. C'est la meme regle qu'au-dessus, appliquee une fois de
+## plus : un bord se dose sur l'objet, et la carte est desormais un objet plus
+## epais que le carton.
+## ⚠️ LA BANDE SOMBRE A BAISSE QUAND LA TRANCHE EST ARRIVEE, et c'est le seul
+## reglage du relief a etre parti dans ce sens. Le biseau sombre ETAIT
+## l'epaisseur du bord tant qu'il n'y en avait pas d'autre ; maintenant que la
+## tranche la montre pour de bon, il ne lui reste que son vrai role — la face
+## qui recoit moins de lumiere en s'approchant de son arete. Laisse a 0,10, il
+## s'additionnait a la tranche et aux 4 px du biseau : neuf pixels de bande
+## sombre sur le bord droit de chaque carte, soit un cadre en creux, exactement
+## ce que le relief existe pour ne pas etre.
 const BEVEL := 3.0
 const BEVEL_LIFT := 0.14
-const BEVEL_DROP := 0.10
+const BEVEL_DROP := 0.07
+
+const BEVEL_RAISED := 4.0
+const BEVEL_LIFT_RAISED := 0.19
+const BEVEL_DROP_RAISED := 0.06
 
 ## La coupe de la facette, en fraction de la hauteur.
 ##
@@ -279,14 +342,48 @@ const BEVEL_DROP := 0.10
 ## quarts, pas la moitie de sa facade. A 0,13 le bandeau clair se lit comme
 ## l'epaisseur eclairee du haut de la plaque — le meme geste que les deux ombres
 ## portees peintes du canape, qui font lire son volume de dessus (§4).
+##
+## ⚠️ LA COUPE NE BOUGE PAS EN AMPLIFIANT, seuls ses deux tons s'ecartent. Elle
+## dit OU la lumiere tourne sur l'objet, pas de combien il est epais — la
+## descendre pour "plus de relief" ramenerait exactement les deux rectangles
+## empiles de 0,42.
 const FACET_SPLIT := 0.13
 const FACET_LIFT := 0.045
 const FACET_DROP := 0.030
 
+## ⚠️ La face sombre reste au-dessus du carton, et c'est ce qui BORNE
+## `FACET_DROP_RAISED`. `PLATE_RAISED` vaut 0,30 : a 0,045 de retrait la facade
+## tombe a 0,255, encore au-dessus du carton (0,23). Un cran de plus et la carte
+## redevient le trou qu'elle etait avant le 2026-08-17 — le relief se paie sur la
+## face CLAIRE, jamais sur la sombre.
+const FACET_LIFT_RAISED := 0.075
+const FACET_DROP_RAISED := 0.045
+
+## La TRANCHE, en px — le cote de l'objet, entre sa face et son ombre.
+##
+## C'est l'ajout du 2026-08-20, et c'est lui qui porte l'amplification : biseau
+## et facette modelent une face, ils ne lui donnent pas d'epaisseur. Une bande
+## cernee de 5 px le long des bords bas et droit, elle, se lit immediatement
+## comme le COTE d'une piece — ce que §9.9 demandait en disant "plastique ou
+## metal".
+##
+## ⚠️ ELLE SE MESURE EN PX ET NON EN FRACTION, comme le decor du jeu se mesure en
+## metres et jamais en fraction d'arene : une epaisseur proportionnelle donnerait
+## un carton de 600 px avec un cote de 20, soit une caisse, et une pastille de
+## langue avec un cote de 1, soit rien du tout.
+const WALL := 3.0
+const WALL_RAISED := 5.0
+
 ## Le decalage de l'ombre portee. Meme sens que `SHADOW_OFFSET` du texte (bas
-## droite), et a peine plus grand : deux ombres qui partiraient de cotes
-## differents donneraient deux soleils dans la meme image.
-const PLATE_SHADOW := 3.0
+## droite) : deux ombres qui partiraient de cotes differents donneraient deux
+## soleils dans la meme image.
+##
+## ⚠️ 6 px pour une carte, contre 3 avant le 2026-08-20 — et c'est la TRANCHE qui
+## l'autorise. Une ombre de 6 px collee a la face se lisait comme une ombre de
+## logiciel, un bloc noir decale sans cause ; separee de la face par un cote et
+## par un filet, elle devient la consequence d'une epaisseur qu'on voit.
+const PLATE_SHADOW := 4.0
+const PLATE_SHADOW_RAISED := 6.0
 
 ## Le decalage de l'ombre, en px. Deux suffisent : au-dela ca ne lit plus comme
 ## un defaut de registre mais comme une ombre portee, et on retombe sur l'UI de
@@ -439,15 +536,16 @@ static func make_hud_label(text: String, size: int = SIZE_LABEL, color: Color = 
 ## solution de facilite au meme probleme — "cet element est trop present" — et la
 ## vraie reponse est de le rendre plus petit, plus sombre, ou de le supprimer.
 ##
-## `relief` donne a la plaque son volume — biseau, facette et ombre portee. Il
-## est FAUX par defaut : voir le bloc « Le relief des plaques », le relief va a
-## ce qui est pose sur l'image, jamais a ce qui y est creuse.
+## `relief` donne a la plaque son volume — biseau, facette, tranche et ombre
+## portee. Il vaut `RELIEF_FLAT` par defaut : voir le bloc « Le relief des
+## plaques », le relief va a ce qui est pose sur l'image, jamais a ce qui y est
+## creuse.
 static func make_frame(
 	plate: Color = PLATE,
 	ink: Color = RULE,
 	tick: float = TICK,
 	border: float = BORDER,
-	relief: bool = false
+	relief: int = RELIEF_FLAT
 ) -> ShaderMaterial:
 	var mat := ShaderMaterial.new()
 	mat.shader = FRAME_SHADER
@@ -461,17 +559,59 @@ static func make_frame(
 
 	# A plat, on ne pose RIEN : les uniforms de relief valent zero dans le shader
 	# et la plaque retombe exactement sur son dessin d'avant le 2026-08-17.
-	if relief:
-		mat.set_shader_parameter("bevel_px", BEVEL)
-		mat.set_shader_parameter("bevel_lift", BEVEL_LIFT)
-		mat.set_shader_parameter("bevel_drop", BEVEL_DROP)
-		mat.set_shader_parameter("face_split", FACET_SPLIT)
-		mat.set_shader_parameter("facet_lift", FACET_LIFT)
-		mat.set_shader_parameter("facet_drop", FACET_DROP)
-		mat.set_shader_parameter("shadow_px", PLATE_SHADOW)
-		mat.set_shader_parameter("shadow_color", VEIL)
+	if relief == RELIEF_FLAT:
+		return mat
+
+	var raised := relief == RELIEF_RAISED
+
+	mat.set_shader_parameter("bevel_px", BEVEL_RAISED if raised else BEVEL)
+	mat.set_shader_parameter("bevel_lift", BEVEL_LIFT_RAISED if raised else BEVEL_LIFT)
+	mat.set_shader_parameter("bevel_drop", BEVEL_DROP_RAISED if raised else BEVEL_DROP)
+	mat.set_shader_parameter("face_split", FACET_SPLIT)
+	mat.set_shader_parameter("facet_lift", FACET_LIFT_RAISED if raised else FACET_LIFT)
+	mat.set_shader_parameter("facet_drop", FACET_DROP_RAISED if raised else FACET_DROP)
+	mat.set_shader_parameter("wall_px", WALL_RAISED if raised else WALL)
+	mat.set_shader_parameter("wall_color", PLATE_WALL)
+	mat.set_shader_parameter("shadow_px", PLATE_SHADOW_RAISED if raised else PLATE_SHADOW)
+	mat.set_shader_parameter("shadow_color", VEIL)
+	mat.set_shader_parameter("relief_scale", 1.0)
 
 	return mat
+
+
+## CE QUE L'EPAISSEUR PREND AU CONTENU, en px, a droite et en bas.
+##
+## ⚠️ ELLE N'EST PAS GRATUITE, et c'est le piege que l'amplification du
+## 2026-08-20 a rendu voyant. Un Control ne peut pas peindre hors de son
+## rectangle : la tranche et l'ombre sont donc RETIREES de la plaque, pas
+## ajoutees autour. A 3 px d'ombre seule, personne ne l'avait remarque et le
+## contenu des cartons mordait dessus de 3 px ; a 11 px sur une carte de choix,
+## le texte passerait sous le cote de l'objet.
+##
+## Tout ce qui pose du contenu DANS une plaque en relief ajoute donc ce chiffre a
+## ses marges droite et basse, et a la taille de la plaque. Le contenu retrouve
+## alors exactement la boite qu'il avait avant le relief — ce qui compte plus
+## qu'ailleurs ici, parce qu'un `VBoxContainer` a court de place ECRASE ses
+## enfants sous leur `custom_minimum_size` sans rien dire (§9.9).
+static func relief_inset(relief: int) -> float:
+	match relief:
+		RELIEF_RAISED:
+			return WALL_RAISED + PLATE_SHADOW_RAISED
+		RELIEF_CARTON:
+			return WALL + PLATE_SHADOW
+		_:
+			return 0.0
+
+
+## La HAUTEUR d'une plaque deja construite, pour le survol et le clic a venir.
+##
+## Un seul nombre, pousse EN PAS (§9.3 regle 8) : au-dessus de 1,0 la plaque
+## monte — son cote s'epaissit et son ombre s'ecarte ; sous 1,0 elle s'ecrase.
+## Voir `relief_scale` dans `ui_frame.gdshader` pour la borne a ne pas depasser.
+static func set_relief_scale(plate: Control, scale: float) -> void:
+	var mat := plate.material as ShaderMaterial
+	if mat != null:
+		mat.set_shader_parameter("relief_scale", scale)
 
 
 ## Le ColorRect qui porte une plaque.
@@ -486,7 +626,7 @@ static func make_plate(
 	ink: Color = RULE,
 	tick: float = TICK,
 	border: float = BORDER,
-	relief: bool = false
+	relief: int = RELIEF_FLAT
 ) -> ColorRect:
 	var rect := ColorRect.new()
 	rect.color = Color(1, 1, 1, 1)

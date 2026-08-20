@@ -63,14 +63,27 @@ const CARD_POSES: Array[float] = [0.0, 0.34, 0.72, 1.0]
 ## que la carte etait trop petite. C'est exactement le piege de la piste d'XP
 ## (`custom_minimum_size` est un minimum, il ne garantit rien), vu par l'autre
 ## bout. Toute retouche de `CHOICE_SIZE` se REVERIFIE en capture.
-const CARD_SIZE := Vector2(560.0, 392.0)
-const GAME_OVER_SIZE := Vector2(440.0, 260.0)
-const SETTINGS_SIZE := Vector2(460.0, 250.0)
+##
+## ⚠️ +32 x +16 le 2026-08-20, ET PAS UN PIXEL DE PLUS QUE CE QUE L'EPAISSEUR
+## PREND. Les cartes ont gagne 8 px de cote et d'ombre chacune (§9.9 amplifie),
+## le carton 7 : sa boite interieure est donc EXACTEMENT celle d'avant, et rien
+## de ce qui est mesure au-dessus n'a a etre remesure. Interieur en largeur :
+## 592 - 2 x 16 - 7 = 553, pour 3 x 176 + 2 x 12 = 552.
+const CARD_SIZE := Vector2(592.0, 408.0)
+const GAME_OVER_SIZE := Vector2(448.0, 268.0)
+const SETTINGS_SIZE := Vector2(468.0, 266.0)
 ## +20 px le 2026-08-17 pour le marqueur de palier, puis +86 le meme jour pour le
 ## bandeau de type et la vignette. Compte tenu : bandeau 18 + marge 10 + fenetre
 ## 84 + trois blocs de texte et leurs separations.
-const CHOICE_SIZE := Vector2(168.0, 254.0)
-const LANGUAGE_SIZE := Vector2(150.0, 44.0)
+##
+## ⚠️ +8 px dans les deux axes le 2026-08-20 : `UiStyle.relief_inset()` pour une
+## plaque RAISED est passe de 3 a 11 px, et une plaque ne peut pas peindre son
+## epaisseur hors de son rectangle. La carte grandit donc de ce que sa tranche et
+## son ombre lui prennent — sa boite de contenu, elle, ne bouge pas d'un pixel.
+## C'est la seule facon de toucher au relief SANS retomber sur l'ecrasement muet
+## du VBoxContainer que l'avertissement ci-dessus decrit.
+const CHOICE_SIZE := Vector2(176.0, 262.0)
+const LANGUAGE_SIZE := Vector2(158.0, 52.0)
 
 ## Une carte du carton "quoi remplacer ?" — la meme carte de competence, SANS sa
 ## description.
@@ -80,7 +93,7 @@ const LANGUAGE_SIZE := Vector2(150.0, 44.0)
 ## fait. Ce qu'il ne sait pas d'un coup d'oeil, c'est a quel palier il l'a
 ## montee — et c'est justement ce qui decide du prix de l'abandon. Le marqueur
 ## de palier reste donc, la description part.
-const SACRIFICE_SIZE := Vector2(168.0, 210.0)
+const SACRIFICE_SIZE := Vector2(176.0, 218.0)
 
 ## Ce que le carton de remplacement mesure SANS sa grille : marges, titre,
 ## legende, separations et bouton de retour. La plaque entiere se calcule au
@@ -102,11 +115,16 @@ const SACRIFICE_SIZE := Vector2(168.0, 210.0)
 ## grille, invisibles.
 ##
 ## 🅿️ Mesure a connaitre : a six candidates (deux rangees de 3) le carton fait
-## 612 px de haut pour un viewport de 648. Ca tient, de justesse. La famille AUTO
-## ne peut pas saturer aujourd'hui — quatre competences pour six slots — mais le
-## jour ou elle le fera, c'est ce chiffre qu'il faudra reverifier en capture,
-## pas en le relisant ici.
-const REPLACE_CHROME := Vector2(404.0, 180.0)
+## 636 px de haut pour un viewport de 648 — 612 avant l'amplification du relief
+## du 2026-08-20, qui a coute 8 px par rangee de cartes et 8 au carton. Ca tient
+## encore, mais la marge est passee de 36 px a 12. La famille AUTO ne peut pas
+## saturer aujourd'hui — quatre competences pour six slots — mais le jour ou elle
+## le fera, c'est ce chiffre qu'il faudra reverifier en capture, pas en le
+## relisant ici.
+##
+## ⚠️ +8 px comme tout le reste, dont 7 pour l'epaisseur du carton : sans eux le
+## titre de 44 px reprendrait la marge de droite qu'on vient de lui rendre.
+const REPLACE_CHROME := Vector2(412.0, 188.0)
 ## Le nombre de cartes par rangee. Trois, comme le carton de niveau.
 const REPLACE_COLUMNS := 3
 
@@ -530,16 +548,25 @@ func _build_card(card_size: Vector2) -> Dictionary:
 	# volume met le contenant EN ARRIERE de son contenu, et le carton cesse d'etre
 	# ce qui prend l'ecran (§9.3 regle 2).
 	var plate := UiStyle.make_plate(
-		UiStyle.PLATE, UiStyle.RULE, UiStyle.TICK, UiStyle.BORDER, true
+		UiStyle.PLATE, UiStyle.RULE, UiStyle.TICK, UiStyle.BORDER,
+		UiStyle.RELIEF_CARTON
 	)
 	plate.set_anchors_preset(Control.PRESET_CENTER)
 	_size_plate(plate, card_size)
 	card.add_child(plate)
 
+	# ⚠️ LES MARGES BASSE ET DROITE PAIENT L'EPAISSEUR DU CARTON. Une plaque en
+	# relief peint sa tranche et son ombre DEDANS, pas autour — le contenu cale a
+	# `PAD` mordait donc sur elles. C'etait deja vrai des 3 px d'ombre du
+	# 2026-08-17, et personne ne l'avait vu ; a 7 px la grille de cartes serait
+	# passee sous le cote du carton.
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var inset := int(UiStyle.relief_inset(UiStyle.RELIEF_CARTON))
 	for side in ["left", "top", "right", "bottom"]:
 		margin.add_theme_constant_override("margin_" + side, int(UiStyle.PAD))
+	margin.add_theme_constant_override("margin_right", int(UiStyle.PAD) + inset)
+	margin.add_theme_constant_override("margin_bottom", int(UiStyle.PAD) + inset)
 	plate.add_child(margin)
 
 	var column := VBoxContainer.new()
@@ -645,10 +672,17 @@ func _make_skill_card(card_size: Vector2, with_desc: bool) -> Dictionary:
 	# fait ; et deux dessins pour un meme objet obligeraient a l'apprendre deux
 	# fois. Ce qui dit qu'on abandonne, c'est le TITRE DU CARTON, pas la carte.
 	var plate := UiStyle.make_plate(
-		UiStyle.PLATE_RAISED, UiStyle.RULE, UiStyle.TICK, 1.0, true
+		UiStyle.PLATE_RAISED, UiStyle.RULE, UiStyle.TICK, 1.0,
+		UiStyle.RELIEF_RAISED
 	)
 	plate.set_anchors_preset(Control.PRESET_FULL_RECT)
 	slot.add_child(plate)
+
+	# Ce que la tranche et l'ombre prennent au contenu, a droite et en bas. Tout
+	# ce qui se pose sur la carte s'y rentre — sinon le dessin passe sur le COTE
+	# de l'objet, ce qui est le seul endroit de la plaque a ne pas etre son
+	# dessus.
+	var inset := UiStyle.relief_inset(UiStyle.RELIEF_RAISED)
 
 	# ── L'onglet de type, en tete de carte ───────────────────────────────────
 	#
@@ -675,7 +709,7 @@ func _make_skill_card(card_size: Vector2, with_desc: bool) -> Dictionary:
 	band.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	band.offset_left = band_inset
 	band.offset_top = 1.0
-	band.offset_right = -(band_inset + UiStyle.PLATE_SHADOW)
+	band.offset_right = -(band_inset + inset)
 	band.offset_bottom = 1.0 + UiStyle.BAND_HEIGHT
 	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	slot.add_child(band)
@@ -694,6 +728,8 @@ func _make_skill_card(card_size: Vector2, with_desc: bool) -> Dictionary:
 	for side in ["left", "right", "bottom"]:
 		margin.add_theme_constant_override("margin_" + side, 10)
 	margin.add_theme_constant_override("margin_top", int(UiStyle.BAND_HEIGHT) + 10)
+	margin.add_theme_constant_override("margin_right", 10 + int(inset))
+	margin.add_theme_constant_override("margin_bottom", 10 + int(inset))
 	slot.add_child(margin)
 
 	var column := VBoxContainer.new()
@@ -779,9 +815,15 @@ func _make_skill_card(card_size: Vector2, with_desc: bool) -> Dictionary:
 		column.add_child(desc)
 		entry["desc"] = desc
 
+	# ⚠️ LE BOUTON S'ARRETE A LA FACE. Etendu au rectangle entier, il rendrait
+	# l'ombre portee cliquable — et surtout survolable : le filet passerait a
+	# l'ambre alors que le curseur est sur le vide a cote de la carte. A 3 px
+	# d'ombre ca ne se voyait pas ; a 11 px de tranche + ombre, si.
 	var button := Button.new()
 	button.flat = true
 	button.set_anchors_preset(Control.PRESET_FULL_RECT)
+	button.offset_right = -inset
+	button.offset_bottom = -inset
 	button.focus_mode = Control.FOCUS_NONE
 	slot.add_child(button)
 
@@ -1115,7 +1157,8 @@ func _make_language_slot(code: String) -> Control:
 	# En relief comme les cartes de choix : c'est le meme geste — un aplat sur
 	# lequel on clique. Les jauges du HUD restent plates, elles ne se cliquent pas.
 	var plate := UiStyle.make_plate(
-		UiStyle.PLATE_RAISED, UiStyle.RULE, UiStyle.TICK, 1.0, true
+		UiStyle.PLATE_RAISED, UiStyle.RULE, UiStyle.TICK, 1.0,
+		UiStyle.RELIEF_RAISED
 	)
 	plate.set_anchors_preset(Control.PRESET_FULL_RECT)
 	slot.add_child(plate)
@@ -1125,7 +1168,14 @@ func _make_language_slot(code: String) -> Control:
 		Locale.native_name(code), UiStyle.bold_font(), UiStyle.SIZE_BUTTON,
 		UiStyle.CREAM, UiStyle.TRACKING_LABEL, 0, false
 	)
+	# ⚠️ CENTRE SUR LA FACE, PAS SUR LE RECTANGLE. La tranche et l'ombre occupent
+	# les 11 px bas-droite de la pastille : un libelle centre sur le rectangle
+	# entier tomberait 5 px trop bas et trop a droite, et sur un objet de 158 x 52
+	# ca se voit — le mot ne serait plus pose au milieu de son dessus.
+	var inset := UiStyle.relief_inset(UiStyle.RELIEF_RAISED)
 	label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	label.offset_right = -inset
+	label.offset_bottom = -inset
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	slot.add_child(label)
@@ -1133,6 +1183,8 @@ func _make_language_slot(code: String) -> Control:
 	var button := Button.new()
 	button.flat = true
 	button.set_anchors_preset(Control.PRESET_FULL_RECT)
+	button.offset_right = -inset
+	button.offset_bottom = -inset
 	button.focus_mode = Control.FOCUS_NONE
 	slot.add_child(button)
 
