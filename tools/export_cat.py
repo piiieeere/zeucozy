@@ -29,6 +29,20 @@ et dedouble les sommets (coutures UV), mais il ne deplace jamais un sommet. La
 seule transformation est la conversion Y-up du glTF, Blender (x, y, z) ->
 glTF (x, z, -y). Le script verifie que 100 % des positions retrouvent leur
 sommet d'origine et echoue bruyamment sinon.
+
+IL Y A DEUX CHATS DEPUIS LE 2026-08-20, ET UN SEUL CHEMIN D'EXPORT
+------------------------------------------------------------------
+Le chat tuxedo de `tools/build_cat_tuxedo.py` s'exporte par ce script-ci, avec
+d'autres noms d'objets :
+
+    ... --python tools/export_cat.py -- \
+        --mesh=MSH_chat_tuxedo --out=player_cat_tuxedo.glb
+
+Les defauts restent ceux du chat de 2026-08-16 : une commande deja ecrite
+quelque part continue de faire exactement ce qu'elle faisait. Ce qui ne se
+duplique pas, c'est la reinjection de `COLOR_0` — le piege n°6 vaut pour tout
+maillage a plusieurs materiaux, et un second script d'export serait la
+deuxieme table de mesures que ce projet a deja paye cher.
 """
 
 import json
@@ -40,10 +54,23 @@ from pathlib import Path
 
 import bpy
 
-MESH_OBJECT = "MSH_cat"
-ARMATURE_OBJECT = "squelette"
+
+def option(prefix: str, default: str) -> str:
+    """Un argument de ligne de commande, apres le `--` que Blender exige."""
+    args = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
+
+    for arg in args:
+        if arg.startswith(prefix):
+            return arg[len(prefix):]
+
+    return default
+
+
+MESH_OBJECT = option("--mesh=", "MSH_cat")
+ARMATURE_OBJECT = option("--armature=", "squelette")
 ATTRIBUTE = "Attr_Style"
-OUTPUT = Path(__file__).resolve().parent.parent / "assets" / "models" / "player_cat.glb"
+OUTPUT = (Path(__file__).resolve().parent.parent / "assets" / "models"
+          / option("--out=", "player_cat.glb"))
 
 GLTF_JSON_CHUNK = 0x4E4F534A
 GLTF_BIN_CHUNK = 0x004E4942

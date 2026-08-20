@@ -29,6 +29,14 @@ Le projet **abandonne les sprites 2D** au profit de **modèles Blender 3D cel-sh
 - **Style arrêté :** variante **A** — 2 tons de cluster, contour épais (×1,75).
   Lisibilité maximale, très cartoon. Voir §2bis de `Visual Art Direction.md`.
 
+> ⚠️ **CE CHAPITRE PARLE DU CHAT DE 2026-08-16.** Le chat du jeu est le **chat tuxedo**
+> du 2026-08-20, reconstruit d'un script (`tools/build_cat_tuxedo.py`) d'après
+> `maquettes/CatTuxedo.png` — voir « LE CHAT A ETE REMODELISE » dans l'état actuel, et
+> [[Le chat — style, pelage, fluidité]] pour le détail. Les six pièges ci-dessous
+> **valent toujours** : ils portent sur le pont Blender → glTF → Godot, pas sur un modèle.
+> Seul le n°3 a été précisé — les poids ne sont plus rigides partout, et ce que la règle
+> protégeait est désormais **vérifié par le script** au lieu d'être tenu par convention.
+
 ### Pièges connus (appris à la dure, ne pas les reperdre)
 
 1. **Le contour ne survit pas à l'export glTF.** Dans Blender il est fait en *coque inversée*
@@ -118,6 +126,17 @@ n'en croiserait jamais un.
 Godot n'est **pas dans le `PATH`** — toujours l'appeler par son chemin complet.
 
 ```bash
+# ⭐ LE CHAT DU JEU — le chat tuxedo (2026-08-20), d'apres maquettes/CatTuxedo.png.
+#    Le .blend est REGENERE a chaque fois, jamais edite a la main : geometrie, rig,
+#    poids et Attr_Style ont la meme source. Les trois commandes vont ensemble et
+#    dans cet ordre — sans la 2e, le .glb sort sans animation.
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --factory-startup   --python tools/build_cat_tuxedo.py -- --save
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background   "C:/Users/tibo/Documents/zeucozy_3d/chat_tuxedo_v1.blend"   --python tools/build_animations.py -- --save
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background   "C:/Users/tibo/Documents/zeucozy_3d/chat_tuxedo_v1.blend"   --python tools/export_cat.py -- --mesh=MSH_chat_tuxedo --out=player_cat_tuxedo.glb
+# ⚠️ Puis --headless --import, ET VERIFIER `animation/fps=60` dans le .import : Godot
+#    y ecrit 30 par defaut, ce qui detruit la cadence en pas (piege n°4).
+#
+# ─── Le chat de 2026-08-16, garde dans le depot mais plus charge par le jeu ─────
 # Reconstruire idle/walk dans le .blend, puis exporter le chat
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background \
   "C:/Users/tibo/Documents/zeucozy_3d/chat_style_v3.blend" \
@@ -140,6 +159,10 @@ powershell -ExecutionPolicy Bypass -File tools/fetch_fonts.ps1
 "C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64.exe" --path . res://scenes/tests/cel_test.tscn
 # Banc de test — mode capture : 8 directions + sondes de skinning, puis quitte
 "C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64.exe" --path . res://scenes/tests/cel_test.tscn -- --capture
+#   --model=res://assets/models/player_cat.glb   l'autre chat, pour comparer
+#   --mouth-open=1     la GUEULE OUVERTE (rien ne l'anime encore)
+#   --pitch=26         camera dans l'axe du visage — le cadrage ou se juge le dessin
+#   --out=<dossier>    ou ecrire les PNG
 # Reconstruire puis exporter le canape (le .blend est REGENERE, jamais edite a la main)
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --factory-startup \
   --python tools/build_couch.py -- --save
@@ -390,7 +413,11 @@ zeucozy/
 │                     # cel_core + cel_floor (includes, fonctions pures)
 ├── tools/
 │   ├── setup_input_map.gd  # ⌨️ La carte d'entrées (WASD + clics), rejouable
-│   ├── export_cat.py       # ⚠️ LE SEUL chemin d'export du chat (voir piège n°6)
+│   ├── build_cat_tuxedo.py # ⭐ LE CHAT DU JEU (2026-08-20) — géométrie, rig, poids
+│   │                       #    et Attr_Style d'un bloc, d'après la maquette.
+│   │                       #    5 068 tris contre 13 028 au chat de 2026-08-16
+│   ├── export_cat.py       # ⚠️ LE SEUL chemin d'export des DEUX chats (piège n°6).
+│   │                       #    `--mesh=` / `--out=` ; les défauts = chat de 08-16
 │   ├── build_animations.py # Construit idle/walk posées en pas, dans le .blend
 │   ├── paint_tuxedo.py     # Pelage noir/blanc : matériau des extrémités + couleurs
 │   ├── build_outline.py    # Contour Blender : épaisseur × Attr_Style.R, 1 encre / surface
@@ -404,7 +431,9 @@ zeucozy/
 │   ├── fetch_fonts.ps1     # Récupère les polices d'UI en sous-ensembles (rejouable)
 │   └── dump_paws.gd        # Relève os porteurs + boîtes de repos — source des PAWS
 ├── assets/
-│   ├── models/       # player_cat.glb, prop_canape.glb, xp_croquette.glb,
+│   ├── models/       # player_cat_tuxedo.glb ⭐ (le chat du jeu), player_cat.glb
+│   │                 # (celui de 2026-08-16, gardé, plus chargé),
+│   │                 # prop_canape.glb, xp_croquette.glb,
 │   │                 # projectile_boule_poils.glb, enemy_souris.glb,
 │   │                 # enemy_chien.glb
 │   └── fonts/        # Dela Gothic One + Zen Kaku Gothic New, sous-ensembles + OFL
@@ -430,7 +459,8 @@ zeucozy/
 - Nombre d'ennemis par vague : 1 au début → 5 vers 140s
 
 ### Échelle du monde
-**1 mètre ≈ 20 px** de l'ancienne version 2D. Le chat mesure **1,74 unité**. L'arène fait
+**1 mètre ≈ 20 px** de l'ancienne version 2D. Le chat mesure **1,87 unité** (1,858 pour
+celui de 2026-08-16 — la hauteur a été tenue exprès, c'est l'échelle de tout le décor). L'arène fait
 **160 × 90 m**, le cadre en montre ~29 m de large et ~25 m de profondeur au sol (16 m
 devant le point visé, 9 m derrière) — soit un chat à ~11 % de la hauteur d'écran.
 Le réglage à bouger en premier si le chat paraît trop petit est `distance` dans
@@ -536,7 +566,7 @@ Le rig de caméra fait exception : il bouge dans `_process`, donc son interpolat
 
 ## Conventions d'assets
 
-- **Modèles 3D :** `assets/models/{catégorie}_{nom}.glb` ex. `player_cat.glb`
+- **Modèles 3D :** `assets/models/{catégorie}_{nom}.glb` ex. `player_cat_tuxedo.glb`
 - **Catégories valides :** `player`, `enemy`, `xp`, `projectile`, `boss`, `pickup`, `ui`, `fx`,
   `prop` *(ajoutée le 2026-08-16 avec le canapé — le mobilier n'entrait dans aucune)*
 - **Travail en cours :** hors dépôt, dans `C:\Users\tibo\Documents\zeucozy_3d\` (`.blend` versionnés `_v01`, `_v02`…)
@@ -712,6 +742,33 @@ les trois bandeaux de type sont devenus des pastilles **sombres** à lettrage cr
 tombait à 1,22:1), le texte de carte est passé en crème plein, et les plaques en relief ont
 leur filet à elles, `RULE_RAISED`, **sombre**. Le palier passe en **losanges dessinés**
 (`tier_pips.gd`). Détail et mesures dans [[L'interface — les deux refontes]].
+
+**LE CHAT A ETE REMODELISE LE 2026-08-20**, d'après `maquettes/CatTuxedo.png` (7 vues)
+et `maquettes/CatTuxedoWalk.png` (marche, 6 poses). Tout est dans
+[[Le chat — style, pelage, fluidité]]. Ce qu'il faut savoir avant d'y toucher :
+
+- ⭐ **Il se reconstruit d'un script**, `tools/build_cat_tuxedo.py` — géométrie, rig, poids
+  et `Attr_Style` d'un seul bloc, comme le canapé, la souris et le chien. Le `.blend`
+  (`chat_tuxedo_v1.blend`) est **régénéré, jamais édité à la main** ; le chat de
+  2026-08-16, lui, était un `.blend` source sans garde-fou, et il a coûté une passe de
+  pelage perdue.
+- **5 068 tris contre 13 028**, 5 surfaces contre 7, et une tête à 39 % de la hauteur au
+  lieu de 54 %. L'ancien `player_cat.glb` **reste dans le dépôt** : il se recharge au banc
+  par `--model=`, et `ANCHORS` dans `cel_model.gd` garde ses mesures à lui.
+- ⚠️ **Les poids ne sont plus rigides partout** (le corps est une coque continue). Ce que
+  le piège n°3 protégeait l'est toujours, et c'est **vérifié par le script** : `visage` et
+  `museau_peint` sont à poids 1 sur `tete`, sinon il refuse d'écrire le `.blend`.
+- ⚠️ **Une marque blanche est une COQUE**, pas une zone de matière — bavette, chaussettes,
+  bout de queue. C'est ce qui leur donne leur trait d'encre, et ce qui évite l'escalier
+  d'une frontière posée en biais sur la grille.
+- **Le visage est relevé trait pour trait sur la maquette** (yeux, truffe, lèvre,
+  moustaches, bavette), et la **gueule ouverte existe** — `mouth_open`, en place mais
+  **débranchée**, elle attend l'animation de visage. Se juge au banc :
+  `--mouth-open=1 --pitch=26`.
+- ⛔ **Trois choses ont été rendues puis JETÉES**, toutes pour la même raison — une zone
+  peinte sur une grille ne peut pas être plus fine qu'une face : l'accent du dos et du
+  crâne (canal B, à zéro partout désormais), la touffe blanche d'oreille, et une queue
+  crochue qui sortait en anneau.
 
 **Visuels :** le **chat est dans le jeu**, cel-shadé, contour, visage peint et **griffes
 dessinées** compris, et il se lit à taille de jeu — désormais en **tuxedo noir et blanc**,

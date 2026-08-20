@@ -142,6 +142,26 @@ func _setup_environment() -> void:
 
 func _setup_camera() -> void:
 	_pivot = Node3D.new()
+
+	# ⚠️ L'INTERPOLATION PHYSIQUE EST COUPEE SUR LE PIVOT, ET C'EST CE QUI REND
+	# LES CAPTURES REPRODUCTIBLES (2026-08-20).
+	#
+	# Mesure : deux tours de camera du MEME modele, lances a la suite, rendaient
+	# 36 825 pixels differents sur la vue a 45°, avec un ecart allant jusqu'a
+	# 208/255. Les sept autres vues etaient identiques au bit pres. La difference
+	# portait sur TOUTE la boite du chat, pas sur un membre : ce n'etait donc pas
+	# la pose, c'etait la camera.
+	#
+	# `common/physics_interpolation` est a true dans project.godot. Le banc
+	# tourne son pivot dans `_process`, entre deux ticks physiques : le
+	# transform REND est donc une interpolation entre l'angle precedent et le
+	# nouveau, et la fraction depend de l'instant ou la frame tombe. Selon le
+	# lancement, la vue a 45° sortait a 45° ou a un poil moins.
+	#
+	# C'est exactement la meme regle que `camera_rig.gd` applique dans le jeu, et
+	# le meme defaut que `--aim=` a corrige cote capture de jeu : une image de
+	# reference qui n'est pas reproductible ne peut rien prouver.
+	_pivot.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	add_child(_pivot)
 
 	_camera = Camera3D.new()
@@ -155,6 +175,14 @@ func _setup_camera() -> void:
 func _setup_model() -> void:
 	_model = CelModel.new()
 	_model.name = "CelModel"
+
+	# `--model=` : comparer deux chats d'affilee, comme `prop_test` compare deux
+	# meubles. Il y a deux `.glb` de chat depuis le 2026-08-20, et le banc est
+	# justement l'endroit ou on les met cote a cote.
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--model="):
+			_model.model_path = arg.trim_prefix("--model=")
+
 	add_child(_model)
 
 	if _model.mesh_instance != null:
@@ -449,7 +477,23 @@ func _capture_cadence() -> void:
 
 		var current := _skeleton.get_bone_pose_rotation(bone)
 
-		if frame == 0 or current.angle_to(previous) > 0.0005:
+		# ⚠️ COMPARAISON PAR COMPOSANTES, ET SURTOUT PAS `angle_to()`.
+		#
+		# La sonde a crie au loup le 2026-08-20 sur le chat tuxedo : elle
+		# annoncait des changements de pose aux frames 1 et 2, donc une cadence
+		# cassee, alors que le quaternion y etait IDENTIQUE AU BIT PRES (mesure,
+		# les trois frames impriment les memes quatre flottants).
+		#
+		# `angle_to()` passe par `acos(2 * dot^2 - 1)`. Pres de dot = 1, la
+		# derivee de l'arc cosinus est infinie : une erreur de 1e-7 sur le
+		# produit scalaire ressort en ~7e-4 rad. Le seuil de la sonde etait a
+		# 5e-4, donc SOUS le plancher de bruit de sa propre mesure. Il ne se
+		# declenchait pas sur le premier chat par chance d'arrondi — les memes
+		# poses, d'autres chiffres, un resultat exactement nul.
+		#
+		# Une piste en pas rend des valeurs reechantillonnees a l'identique :
+		# l'egalite approchee par composantes est donc exacte ici, et stable.
+		if frame == 0 or not current.is_equal_approx(previous):
 			poses.append(frame)
 			get_viewport().get_texture().get_image().save_png(
 				"%s/cel_walk_%02d.png" % [_capture_dir, frame]

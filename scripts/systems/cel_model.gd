@@ -30,12 +30,21 @@ const FACE_MATERIALS := ["visage", "museau_peint"]
 # Moustaches : (depart.xy, arrivee.xy) en espace facial, cote droit seulement
 # — le shader passe par |x| et dessine les deux cotes.
 # Godot n'accepte pas de valeur par defaut sur un tableau d'uniforms.
-# Portee volontairement limitee : au-dela de ~0,62 la moustache atteint le bord
-# du cone facial et se ferait couper net par face_front_min.
+#
+# RELEVEES SUR LA MAQUETTE le 2026-08-20, et elles ont bouge de beaucoup : elles
+# partaient du NEZ (y de -0,08 a -0,18), elles partent desormais du COUSSINET,
+# c'est-a-dire au niveau de la gueule (y de -0,24 a -0,52). C'est ce qui donne
+# l'eventail large de la maquette au lieu d'un trio de traits sous les yeux.
+#
+# ⚠️ ELLES SONT PLUS COURTES QUE SUR LA MAQUETTE, ET CA NE SE RATTRAPE PAS.
+# La maquette les fait sortir de la silhouette de la tete (jusqu'a 1,1 en uv) :
+# un dessin le peut, une surface non — ici tout est peint SUR le crane, et le
+# cone facial s'arrete a 0,89. Au-dela de ~0,76 la moustache se ferait trancher
+# net par `face_front_min`, ce qui se lirait comme un trait casse.
 const WHISKERS := [
-	Vector4(0.16, -0.08, 0.60, 0.06),
-	Vector4(0.17, -0.13, 0.63, -0.09),
-	Vector4(0.16, -0.18, 0.58, -0.24),
+	Vector4(0.25, -0.22, 0.78, -0.10),
+	Vector4(0.24, -0.34, 0.78, -0.30),
+	Vector4(0.22, -0.46, 0.71, -0.50),
 ]
 
 # LES GRIFFES (2026-08-16) — trois traits par patte, DESSINES.
@@ -50,32 +59,13 @@ const WHISKERS := [
 # 4.7.1 — donc on choisit la matrice PAR SOMMET d'apres son os porteur, au lieu
 # de la deviner d'apres un signe de coordonnee.
 #
-# Boites de repos relevees sur le .glb par tools/dump_paws.gd, jamais estimees.
-# Le bout de queue (`queue_3`) partage le materiau mais n'est pas dans la liste :
-# il n'a pas de griffes, et il sort du shader sans en recevoir.
+# Boites de repos MESUREES SUR LA SOURCE, jamais estimees — par
+# tools/dump_paws.gd pour le chat de 2026-08-16, par le rapport de
+# tools/build_cat_tuxedo.py pour celui de 2026-08-20 (voir ANCHORS).
+# Le bout de queue (`queue_3`) partage le materiau mais n'est dans aucune liste :
+# il n'a pas de griffes, et il sort du shader sans en recevoir. Le plastron du
+# chat tuxedo partage ce meme materiau, et pour la meme raison n'en recoit pas.
 const PAW_MATERIAL := "fourrure_blanche"
-const PAWS := [
-	{
-		"bone": "pattavant_L",
-		"center": Vector3(-0.255, 0.075, 0.373),
-		"radius": Vector3(0.087, 0.109, 0.106),
-	},
-	{
-		"bone": "pattavant_R",
-		"center": Vector3(0.255, 0.075, 0.373),
-		"radius": Vector3(0.087, 0.109, 0.106),
-	},
-	{
-		"bone": "piedar_L",
-		"center": Vector3(-0.285, 0.060, -0.415),
-		"radius": Vector3(0.081, 0.088, 0.117),
-	},
-	{
-		"bone": "piedar_R",
-		"center": Vector3(0.285, 0.060, -0.415),
-		"radius": Vector3(0.081, 0.088, 0.117),
-	},
-]
 
 # Trois griffes par patte : (depart.xy, arrivee.xy) en espace patte, comme
 # WHISKERS l'est en espace facial. Le repere est deja normalise par les
@@ -112,12 +102,108 @@ const CLAWS := [
 #
 # Repere : les yeux sont a y = 0,14 et descendent a -0,05 ; la ligne passe donc
 # sous eux partout, sauf la liste qui remonte entre les deux.
-const BIB := {
-	"line": -0.02,
-	"falloff": 0.55,
-	"blaze_height": 0.12,
-	"blaze_width": 0.14,
+
+# ─── LES ANCRES — CE QUI APPARTIENT AU MODELE, PAS AU STYLE (2026-08-20) ──────
+#
+# Tout le reste de ce fichier est du STYLE : il vaut pour n'importe quel chat.
+# Ces quatre mesures-la, non — elles decrivent une GEOMETRIE precise :
+#
+#   * `paws`        les boites qui normalisent l'espace des griffes ;
+#   * `face_center` / `face_radius` l'ellipsoide sur lequel `cel_face` projette
+#                   son dessin ;
+#   * `bib`         la frontiere de la bavette, en unites de cet espace-la.
+#
+# Il y a DEUX chats depuis le 2026-08-20 (le tuxedo modelise d'apres
+# `maquettes/CatTuxedo.png`, et celui de 2026-08-16 qui reste dans le depot).
+# Les ranger par fichier plutot que d'ecraser les uns par les autres coute
+# quinze lignes et evite le defaut que ce projet paie en boucle : une mesure
+# qui survit au modele qu'elle mesurait. Charger l'ancien `.glb` au banc le
+# rend exactement comme avant, griffes comprises.
+#
+# ⚠️ `face_center` / `face_radius` NE SE DEDUISENT PAS DU MODELE AU CHARGEMENT.
+# Elles etaient jusqu'ici laissees aux valeurs par defaut de
+# `cel_face.gdshader` — lesquelles etaient la tete du chat de 2026-08-16,
+# ecrites nulle part ailleurs. Muettes tant qu'un seul modele existait, fausses
+# a la seconde ou un deuxieme arrive : le visage se serait dessine sur
+# l'ellipsoide de l'autre chat. Elles se posent desormais explicitement.
+const ANCHORS := {
+	# LE CHAT TUXEDO — mesures sorties du rapport de tools/build_cat_tuxedo.py,
+	# qui les imprime depuis la source meme de la geometrie.
+	"player_cat_tuxedo.glb": {
+		"paws": [
+			{
+				"bone": "pattavant_L",
+				"center": Vector3(-0.200, 0.153, 0.421),
+				"radius": Vector3(0.089, 0.095, 0.106),
+			},
+			{
+				"bone": "pattavant_R",
+				"center": Vector3(0.200, 0.153, 0.421),
+				"radius": Vector3(0.089, 0.095, 0.106),
+			},
+			{
+				"bone": "piedar_L",
+				"center": Vector3(-0.225, 0.105, -0.210),
+				"radius": Vector3(0.085, 0.097, 0.102),
+			},
+			{
+				"bone": "piedar_R",
+				"center": Vector3(0.225, 0.105, -0.210),
+				"radius": Vector3(0.085, 0.097, 0.102),
+			},
+		],
+		"face_center": Vector3(0.0, 1.30, 0.80),
+		"face_radius": Vector3(0.360, 0.325, 0.340),
+		# Relevee sur la maquette, colonne par colonne : le haut du blanc y est
+		# a +0,04 au centre (la liste qui remonte entre les yeux), -0,07 a
+		# |x| = 0,14, -0,12 a 0,22, -0,175 a 0,36. Ces quatre points fixent les
+		# quatre reglages a moins de 0,02 pres.
+		"bib": {
+			"line": 0.015,
+			"falloff": 1.47,
+			"blaze_height": 0.115,
+			"blaze_width": 0.07,
+		},
+	},
+	# LE CHAT DE 2026-08-16 — boites relevees par tools/dump_paws.gd, ellipsoide
+	# de tete relevee sur la surface `visage` du .glb.
+	"player_cat.glb": {
+		"paws": [
+			{
+				"bone": "pattavant_L",
+				"center": Vector3(-0.255, 0.075, 0.373),
+				"radius": Vector3(0.087, 0.109, 0.106),
+			},
+			{
+				"bone": "pattavant_R",
+				"center": Vector3(0.255, 0.075, 0.373),
+				"radius": Vector3(0.087, 0.109, 0.106),
+			},
+			{
+				"bone": "piedar_L",
+				"center": Vector3(-0.285, 0.060, -0.415),
+				"radius": Vector3(0.081, 0.088, 0.117),
+			},
+			{
+				"bone": "piedar_R",
+				"center": Vector3(0.285, 0.060, -0.415),
+				"radius": Vector3(0.081, 0.088, 0.117),
+			},
+		],
+		"face_center": Vector3(0.0, 1.100, 0.640),
+		"face_radius": Vector3(0.5016, 0.4651, 0.4560),
+		"bib": {
+			"line": -0.02,
+			"falloff": 0.55,
+			"blaze_height": 0.12,
+			"blaze_width": 0.14,
+		},
+	},
 }
+
+# Le modele dont les ancres servent de repli sur un `.glb` inconnu. Il evite un
+# plantage, rien de plus — c'est l'avertissement qui est fait pour etre lu.
+const DEFAULT_MODEL := "player_cat_tuxedo.glb"
 
 # Palette par materiau — tiree de "Visual Art Direction" §4.
 # Les materiaux du glTF ne transportent pas le look Blender (nodes custom),
@@ -147,11 +233,20 @@ const PALETTE := {
 	"museau_peint": BLANC,
 	# Bouts de patte et bout de queue. Surface creee dans Blender par
 	# tools/paint_tuxedo.py — voir ce script pour pourquoi un masque en shader
-	# ne pouvait pas s'en charger.
+	# ne pouvait pas s'en charger. Sur le chat tuxedo de 2026-08-20 elle porte
+	# en plus le PLASTRON, pour la meme raison : une marque blanche est une
+	# coque, donc une matiere.
 	"fourrure_blanche": BLANC,
 	# L'oreille n'est pas rose en entier : couleur pelage dehors, rose PEINT
 	# dedans (voir PAINTED). Un chat n'a de rose que l'interieur du pavillon.
 	"oreille_peinte": NOIR,
+	# ⚠️ ET SUR LE CHAT TUXEDO, LE ROSE N'EST PLUS PEINT DU TOUT — c'est une
+	# MATIERE, posee sur la coque de l'oreille par tools/build_cat_tuxedo.py.
+	# La calotte projetee ci-dessus ne connaissait pas la frontiere de
+	# l'oreille : le tour de camera du 2026-08-16 montre ce qu'elle donnait, un
+	# noeud papillon rose en travers du crane. Une matiere s'arrete ou la
+	# geometrie s'arrete, par construction.
+	"oreille_rose": Color("#E8B8A8"),
 }
 const FALLBACK_COLOR := NOIR
 
@@ -168,14 +263,19 @@ const INKS := {
 	"oreille_peinte": INK_SOMBRE,
 }
 
-# Surfaces blanches. Elles partagent un travers que le chat roux n'avait pas :
+# Surfaces CLAIRES. Elles partagent un travers que le chat roux n'avait pas :
 # le trait colore de §5.4 melange 20 % vers la couleur locale, et ce melange se
 # fait en LINEAIRE. Vers un creme a 0,93 de luminance lineaire, 20 % suffisent
 # a remonter le trait a ~#82796F — un gris delave, plus une encre. On garde
 # donc la teinte, mais a la dose qui rend le meme ecart PERCU.
+#
+# Le rose d'oreille les a rejointes le 2026-08-20 : a 0,79 de luminance
+# lineaire il tombe du meme cote du calcul que le creme, et le nom de la
+# constante a suivi — elle ne parle pas de blanc, elle parle de ce qui est trop
+# clair pour supporter les 20 %.
 const OUTLINE_TINT := 0.2
 const OUTLINE_TINT_CLAIR := 0.06
-const MATERIAUX_BLANCS := ["ventre", "museau_peint", "fourrure_blanche"]
+const MATERIAUX_CLAIRS := ["ventre", "museau_peint", "fourrure_blanche", "oreille_rose"]
 
 # Details peints par calotte procedurale — la methode des yeux, appliquee ici
 # a l'interieur d'oreille. Voir "Visual Art Direction" §2bis.
@@ -247,7 +347,10 @@ const ANIM_WALK := &"walk"
 # Voir _smooth_root_translation().
 const ROOT_BONE := &"racine"
 
-@export_file("*.glb") var model_path: String = "res://assets/models/player_cat.glb"
+## ⚠️ CHANGER CE CHEMIN NE SUFFIT PAS : les mesures du modele vivent dans
+## ANCHORS, et un `.glb` qui n'y figure pas se rendrait avec l'ellipsoide de
+## visage et les boites de griffes d'un autre chat.
+@export_file("*.glb") var model_path: String = "res://assets/models/player_cat_tuxedo.glb"
 
 ## Le chat regarde +Z apres la conversion Y-up du glTF, alors que l'avant de
 ## Godot est -Z ("Pipeline 3D", ecart n°3). Le jeu met 180 pour le remettre
@@ -294,6 +397,9 @@ const ROOT_BONE := &"racine"
 ## `--root-step`, comme les autres reglages comparables.
 @export var smooth_root: bool = true
 
+## Ouverture de la gueule, 0 a 1. Voir set_mouth_open().
+var mouth_open: float = 0.0
+
 var mesh_instance: MeshInstance3D
 var skeleton: Skeleton3D
 var animation_player: AnimationPlayer
@@ -310,6 +416,16 @@ var paw_material: ShaderMaterial
 # ShaderMaterial -> [nom d'os gauche/unique, nom d'os droit ou ""]
 var _skinned_paint := {}
 
+# L'entree d'ANCHORS du modele charge, resolue une fois dans _ready.
+var _anchors := {}
+
+
+## Les boites de griffes du modele charge. Une seule ligne, mais elle passe par
+## ici et non par une constante : c'est ce qui permet aux deux chats de garder
+## chacun ses mesures.
+func _paws() -> Array:
+	return _anchors["paws"]
+
 
 func _ready() -> void:
 	# La bascule du visage est indissociable de la plongee de la camera : la
@@ -320,6 +436,18 @@ func _ready() -> void:
 			face_pitch_deg = float(arg.trim_prefix("--face-pitch="))
 		elif arg == "--root-step":
 			smooth_root = false
+		elif arg.begins_with("--mouth-open="):
+			# La gueule se juge au banc avant d'etre animee — meme raison que
+			# `--face-pitch=` : un reglage de dessin se compare en image.
+			mouth_open = clampf(float(arg.trim_prefix("--mouth-open=")), 0.0, 1.0)
+
+	# Les ancres AVANT tout le reste : _apply_cel_materials les lit.
+	_anchors = ANCHORS.get(model_path.get_file(), {})
+
+	if _anchors.is_empty():
+		push_warning("cel_model : aucune ancre pour %s — voir ANCHORS"
+				% model_path.get_file())
+		_anchors = ANCHORS[DEFAULT_MODEL]
 
 	mesh_instance = _spawn_model()
 
@@ -400,7 +528,7 @@ func _apply_cel_materials() -> void:
 			color,
 			outline_thickness,
 			INKS.get(mat_name, CelStyle.INK),
-			OUTLINE_TINT_CLAIR if mat_name in MATERIAUX_BLANCS else OUTLINE_TINT,
+			OUTLINE_TINT_CLAIR if mat_name in MATERIAUX_CLAIRS else OUTLINE_TINT,
 		)
 		var caps := 0
 
@@ -418,10 +546,17 @@ func _apply_cel_materials() -> void:
 			toon_mat.set_shader_parameter("whiskers", PackedVector4Array(WHISKERS))
 			toon_mat.set_shader_parameter("face_pitch_deg", face_pitch_deg)
 			toon_mat.set_shader_parameter("bib_color", BLANC)
-			toon_mat.set_shader_parameter("bib_line", BIB["line"])
-			toon_mat.set_shader_parameter("bib_falloff", BIB["falloff"])
-			toon_mat.set_shader_parameter("bib_blaze_height", BIB["blaze_height"])
-			toon_mat.set_shader_parameter("bib_blaze_width", BIB["blaze_width"])
+			var bib: Dictionary = _anchors["bib"]
+			toon_mat.set_shader_parameter("bib_line", bib["line"])
+			toon_mat.set_shader_parameter("bib_falloff", bib["falloff"])
+			toon_mat.set_shader_parameter("bib_blaze_height", bib["blaze_height"])
+			toon_mat.set_shader_parameter("bib_blaze_width", bib["blaze_width"])
+			# L'ellipsoide sur lequel tout le visage se projette. Pose
+			# explicitement depuis ANCHORS : le defaut du shader etait la tete
+			# d'un chat en particulier, et rien ne le disait.
+			toon_mat.set_shader_parameter("face_center", _anchors["face_center"])
+			toon_mat.set_shader_parameter("face_radius", _anchors["face_radius"])
+			toon_mat.set_shader_parameter("mouth_open", mouth_open)
 			face_materials.append(toon_mat)
 		else:
 			caps = _apply_painted_caps(toon_mat, mat_name)
@@ -620,7 +755,7 @@ func _setup_claws() -> void:
 
 	var ids := PackedInt32Array()
 
-	for paw in PAWS:
+	for paw in _paws():
 		var id := skeleton.find_bone(paw["bone"])
 
 		if id == -1:
@@ -663,7 +798,7 @@ func _update_paws() -> void:
 
 	var matrices := []
 
-	for paw in PAWS:
+	for paw in _paws():
 		var r: Vector3 = paw["radius"]
 		var into_paw := Transform3D(
 			Basis.from_scale(Vector3(1.0 / r.x, 1.0 / r.y, 1.0 / r.z)), Vector3.ZERO
@@ -831,6 +966,24 @@ func _on_step_grid(time: float) -> bool:
 	return absf(frame - roundf(frame / 3.0) * 3.0) < 0.02
 
 
+## ⭐ LA GUEULE — 0 fermee, 1 grande ouverte.
+##
+## La maquette porte les deux (`CatTuxedo.png` la dessine ouverte, les profils
+## la dessinent fermee), et `cel_face.gdshader` sait dessiner les deux : la
+## cavite, la langue et les crocs sont bornes par l'arc de levre, donc rien ne
+## peut deborder du trait.
+##
+## ⛔ RIEN NE L'APPELLE ENCORE, ET C'EST VOULU. Elle attend l'animation de
+## visage — un miaulement sur la griffure, un baillement dans l'idle. La poser
+## maintenant coute deux lignes ; la deviner plus tard aurait coute une passe de
+## mesures sur la maquette.
+func set_mouth_open(value: float) -> void:
+	mouth_open = clampf(value, 0.0, 1.0)
+
+	for mat in face_materials:
+		mat.set_shader_parameter("mouth_open", mouth_open)
+
+
 func set_face_pitch(value: float) -> void:
 	face_pitch_deg = clampf(value, 0.0, 60.0)
 
@@ -857,4 +1010,4 @@ func set_paint_enabled(enabled: bool) -> void:
 	# doit les emporter, sinon on croit comparer une silhouette nue alors qu'il
 	# reste du dessin dessus.
 	if paw_material != null:
-		paw_material.set_shader_parameter("claw_paws", PAWS.size() if enabled else 0)
+		paw_material.set_shader_parameter("claw_paws", _paws().size() if enabled else 0)
