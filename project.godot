@@ -79,3 +79,13 @@ common/physics_interpolation=true
 
 rendering_device/driver.windows="d3d12"
 anti_aliasing/quality/msaa_3d=2
+
+; ⛔ FILTRAGE D'OMBRE A ZERO — "Visual Art Direction" §6bis, consequence n°2.
+; La carte d'ombre rend l'attenuation CONTINUE, et une penombre est un degrade,
+; soit le 3e ton que la variante A refuse. Le shader la requantifie au `step()`
+; (cel_sun.gdshaderinc), mais un bord deja etale sur quatre texels ne redevient
+; pas franc : il redevient franc au mauvais endroit, et il bave d'un pixel a
+; l'autre quand la camera bouge.
+rendering/lights_and_shadows/directional_shadow/soft_shadow_filter_quality=0
+rendering/lights_and_shadows/directional_shadow/soft_shadow_filter_quality.mobile=0
+rendering/lights_and_shadows/directional_shadow/size=4096

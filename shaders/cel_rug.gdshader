@@ -19,7 +19,7 @@
 // CelStyle.make_flat).
 
 shader_type spatial;
-render_mode unshaded, cull_back, shadows_disabled, specular_disabled, depth_draw_opaque;
+render_mode cull_back, ambient_light_disabled, specular_disabled, depth_draw_opaque;
 
 group_uniforms tapis;
 uniform vec4 base_color : source_color = vec4(0.784, 0.894, 0.722, 1.0);
@@ -46,6 +46,7 @@ uniform float ink_variation : hint_range(0.0, 1.0) = 0.5;
 varying vec3 v_world;
 
 #include "res://shaders/cel_floor.gdshaderinc"
+#include "res://shaders/cel_sun.gdshaderinc"
 
 // Distance signee a un rectangle arrondi. Negatif dedans.
 float sd_rect(vec2 p, vec2 half_size, float radius) {
@@ -88,4 +89,7 @@ void fragment() {
 	col = mix(col, mix(ink_color.rgb, col, ink_tint), ink);
 
 	ALBEDO = col;
+	// L'aplat peint part en EMISSION : c'est lui qui survit a la coupure
+	// du soleil, au pixel pres. Voir le bandeau de cel_sun.gdshaderinc.
+	EMISSION = ALBEDO;
 }

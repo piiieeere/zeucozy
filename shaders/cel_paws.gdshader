@@ -34,7 +34,7 @@
 // ne porte pas de griffes. C'est voulu, pas un oubli.
 
 shader_type spatial;
-render_mode unshaded, cull_back, shadows_disabled, specular_disabled;
+render_mode cull_back, ambient_light_disabled, specular_disabled;
 
 group_uniforms couleur;
 uniform vec4 base_color : source_color = vec4(0.969, 0.937, 0.878, 1.0);
@@ -95,6 +95,7 @@ varying vec3 v_paw_pos;
 varying flat int v_paw;
 
 #include "res://shaders/cel_core.gdshaderinc"
+#include "res://shaders/cel_sun.gdshaderinc"
 
 // Pose un aplat franc si la distance signee passe sous zero. Meme fonction que
 // dans cel_face : un detail peint est un APLAT, jamais un degrade (§2bis).
@@ -183,4 +184,7 @@ void fragment() {
 	}
 
 	ALBEDO = col;
+	// L'aplat peint part en EMISSION : c'est lui qui survit a la coupure
+	// du soleil, au pixel pres. Voir le bandeau de cel_sun.gdshaderinc.
+	EMISSION = ALBEDO;
 }

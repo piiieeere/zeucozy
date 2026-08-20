@@ -178,6 +178,13 @@ powershell -ExecutionPolicy Bypass -File tools/fetch_fonts.ps1
 #    physique donne un cap au chat, et les deux images ne sont pas comparables.
 "C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --path . \
   --write-movie <dossier>/game.png --fixed-fps 30 --quit-after 200 -- --aim=135
+# Le MUR A BAIES et son SOLEIL — le chat colle au mur, sinon on ne voit rien
+"C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --path .   --write-movie <dossier>/g.png --fixed-fps 30 --quit-after 60 -- --aim=160 --spawn=0,-40
+#   --spawn=x,z      ou le chat commence — le mur n'entre au cadre qu'a la bordure
+#   --sun=off        LE TEST D'ACCEPTATION de §6bis : lampe coupee = le jeu d'avant
+#   --sun-elev=18    hauteur du soleil — c'est elle qui decide si le rai entre au cadre
+#   --sun-yaw=200    azimut ; 180 = le soleil traverse le mur du fond
+#   --sun-distance=  portee de la carte d'ombre (defaut 80 m — PAS ce que voit la camera)
 # Comparer l'ANTIALIASING de la silhouette, sans editer project.godot
 "C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --path . \
   --write-movie <dossier>/g.png --fixed-fps 60 --quit-after 40 -- --aim=135 --msaa=0
@@ -245,6 +252,7 @@ documentation.
 | [[Les modèles — le décor]] | Le canapé procédural, la première collision du jeu, le trait du décor à 50 %. |
 | [[Les modèles — ramassables et projectile]] | Croquette et boule de poils. ⚠️ **C'est l'encre qui borne la forme** sur un petit modèle, pas le budget de triangles. |
 | [[Les modèles — les ennemis]] | Souris et chien, et le **visage peint** qui a annulé leur entorse commune à §2bis. |
+| [[Le mur — les baies et le soleil réel]] | Les baies percées et la **1ʳᵉ `Light3D` du projet**. ⚠️ Godot multiplie `DIFFUSE_LIGHT` par `ALBEDO` **après** `light()` — c'est là. |
 
 ```bash
 # Chercher dans tout le journal (le dossier a des espaces : garder les guillemets)
@@ -312,7 +320,7 @@ zeucozy/
 │   ├── claw_slash.gd # ⚔️ Griffure : 6 poses + dégâts sur les 3 premières
 │   ├── projectile.gd # 🌀 La boule de poils en vol : direction, roulis, portée
 │   ├── xp_orb.gd     # Croquette d'XP (magnétisme, collecte)
-│   ├── arena.gd      # Décor : sol, tapis, mobilier, mur de bordure
+│   ├── arena.gd      # Décor : sol, tapis, mobilier, MUR À BAIES + le soleil
 │   ├── camera_rig.gd # Vue plongeante 45°, suit le joueur, bornée à l'arène
 │   ├── skills/       # ⭐ LES COMPÉTENCES — une par fichier, toutes au même contrat
 │   │   ├── skill.gd         # Le contrat : setup / set_tier / tick. Aucune n'a de _process
@@ -332,6 +340,8 @@ zeucozy/
 │   │   ├── cel_model.gd            # ⭐ Le style du chat — partagé jeu ↔ banc de test
 │   │   ├── cel_prop.gd             # ⭐ Le style des .glb sans squelette — 2 familles :
 │   │   │                           #    meuble (trait a 50 %) · pickup (trait plein)
+│   │   ├── sun_rig.gd              # ☀️ LE SOLEIL — la 1ʳᵉ Light3D du projet. Posé par
+│   │   │                           #    l'arène ET par le banc, jamais recopié (§6bis)
 │   │   ├── fx_cadence.gd           # ⭐ Les 3 durées de pose des FX (§7) — source unique
 │   │   ├── render_quality.gd       # 🪞 L'AA de la 3D — MSAA 4×, + `--msaa=` / `--ssaa=`
 │   │   ├── driven_fx.gd            # ⭐ `class_name DrivenFx` — les FX dont l'horloge vient
@@ -360,6 +370,9 @@ zeucozy/
 │       ├── motion_probe.gd # ⏱️ Fluidité : temps de frame + battement sur 3 frames
 │       └── pause_probe.gd  # ⏸️ Pause : 18 verdicts sur `get_tree().paused` + process_mode
 ├── shaders/          # cel_toon, cel_outline, cel_face, cel_paws, retro_post
+│                     # cel_wall (le mur d'arène : 2 tons + cimaise, encre à 50 %)
+│                     # cel_sun (include) — ⭐ L'OMBRE PORTÉE, et la fonction light()
+│                     #           du projet. Une seule définition, six shaders
 │                     # ui_frame (plaque grise, angles droits, repères d'angle,
 │                     #           + le RELIEF : biseau, facette, TRANCHE, ombre dure.
 │                     #           ⚠️ ses px sont ceux du LAYOUT depuis le 08-20)
@@ -422,6 +435,9 @@ zeucozy/
 devant le point visé, 9 m derrière) — soit un chat à ~11 % de la hauteur d'écran.
 Le réglage à bouger en premier si le chat paraît trop petit est `distance` dans
 `camera_rig.gd` (38 m), pas le FOV.
+⚠️ `arena_margin` vaut **(14, 13)** depuis le 2026-08-20, pas (17, 16) : c'est ce qui fait
+entrer le mur et ses baies dans la bande haute du cadre. Hauteur du mur et marge ne se
+décident pas séparément.
 
 ### Joueur — stats de base
 
@@ -571,42 +587,30 @@ Un uniform **`relief_scale`** est en place pour le survol et le clic, qui resten
 > locaux). ⚠️ **Les captures d'UI d'avant le 2026-08-20 ne sont plus comparables** : filets,
 > repères d'angle et biseaux y sont 2,5× plus fins.
 
-> 🎯 **CHANTIER OUVERT LE 2026-08-20 — LA LUMIÈRE RÉELLE REVIENT, ET ELLE RENVERSE UNE
-> DÉCISION.** Les murs vont recevoir des **fenêtres modélisées**, et une
-> `DirectionalLight3D` devra passer au travers pour poser une vraie **ombre portée** sur le
-> sol, le mobilier et les personnages. L'examen du 2026-08-18 avait **fermé** lumières,
-> brouillard et post-process ; c'est rouvert, sur demande, et noté avec sa date en
-> `Visual Art Direction` **§6bis** — le prompt de maquette est en
-> `Prompts de Génération` §4.7, le chantier dans `Todo`.
->
-> ⭐ **La règle qui borne tout : la lumière réelle S'AJOUTE, elle ne REMPLACE rien.** Les
-> ombres et accents **dessinés** sur les objets — cluster 2 tons, ombre peinte au canal G,
-> brillance au canal B, contour d'encre — restent en place tels quels : ils *sont* le style.
-> ✅ **Test binaire : lampe coupée, le jeu doit être exactement celui d'aujourd'hui.**
->
-> - **L'ombre PROPRE reste peinte, l'ombre PORTÉE devient réelle.** C'est la frontière du
->   cellulo lui-même : l'anime dessine des ombres portées en aplat, il ne calcule jamais
->   l'auto-ombrage d'un visage.
-> - **`unshaded` tombe sur les surfaces qui reçoivent, et sur elles seules** — `cel_toon`,
->   `cel_face`, `cel_paws`, `cel_creature_face`, `cel_ground`, `cel_rug`. **Jamais**
->   `cel_outline` (une encre éclairée n'est plus de l'encre), jamais les sept FX en
->   billboard, jamais l'UI.
-> - ⛔ **`ATTENUATION` doit repasser par un `step()`** — le filtrage de la carte d'ombre la
->   rend continue, et c'est exactement le 3ᵉ ton que la variante A refuse.
-> - ⛔ **RISQUE N°1, à prouver avant d'écrire quoi que ce soit d'autre :** le contour est un
->   `next_pass` sur la **même instance** que la surface, or `cast_shadow` est un réglage
->   d'instance. Si le `next_pass` est rendu en passe d'ombre, chaque objet projette l'ombre
->   d'une version **enflée de 0,036 m** de lui-même, et il faut sortir le contour dans son
->   propre `MeshInstance3D` — soit une refonte de `cel_model` et de `cel_prop`.
-> - ⚠️ **Le rig de soleil doit être PARTAGÉ jeu ↔ banc.** `unshaded` était ce qui rendait le
->   rendu déterministe des deux côtés ; une lampe dans `main.tscn` seule ferait diverger
->   `cel_test.tscn` exactement comme Blender et Godot ont divergé.
-> - ⛔ **Le rai de soleil au sol est déjà tombé une fois** (retiré le 2026-08-17), et le
->   rendre **réel ne l'évite pas** : ce qui l'a tué est son **ancrage au monde**, donc son
->   défilement permanent sous une caméra qui suit le chat. La différence n'est pas
->   *peint / calculé*, elle est **unique / répété** — deux molettes : le **pas des travées**
->   et le **contraste**. Et le contraste a une borne de gameplay : le sol à l'ombre doit
->   rester **plus clair que les ennemis qui marchent dedans** (§15).
+**Le mur porte des BAIES et le soleil les traverse — le 2026-08-20.** C'est la
+**première `Light3D` du projet** : la fermeture du 2026-08-18 sur les lumières est
+renversée, avec sa date, en §6bis de la DA. Le mur passe de quatre boîtes nues de 1,2 m à
+quatre parois de **travées de 8 m** (2,6 m de haut, 0,6 m d'épaisseur), chacune percée d'un
+**vrai trou** de 3,6 m à 2 meneaux et 1 traverse — et une `DirectionalLight3D` à 26° pose
+un rai sur le sol, sur le mobilier et sur ce qui passe dedans. Tout est dans
+[[Le mur — les baies et le soleil réel]]. Les trois choses à savoir avant d'y toucher :
+
+- ⭐ **La lumière S'AJOUTE, elle ne REMPLACE rien.** L'aplat peint part en `EMISSION`,
+  `light()` ne fait que **retrancher** un pas d'ombre chaude là où une ombre **portée**
+  tombe. Ombre propre, accents, contour : inchangés. ✅ **Test d'acceptation vérifié en
+  capture : `--sun=off` rend 0 pixel de différence avec le dépôt d'avant le chantier.**
+- ⚠️ **Godot multiplie `DIFFUSE_LIGHT` par `ALBEDO` APRÈS `light()`**, et le manuel ne le
+  dit qu'en creux. Un `painted` de trop dans la formule et l'ombre sort en
+  `painted − painted²` : elle s'affaiblit sur les surfaces sombres, vire au bleu, et la
+  molette de contraste ment. Muet et plausible — une demi-journée.
+- ⛔ **Ce qui BOUGE reçoit le soleil et ne le PROJETTE pas** (chat, ennemis, ramassables).
+  Un corps qui entre dans sa propre carte d'ombre se ré-ombre tout seul : au banc, une
+  oreille posait une bande dure en travers du crâne. Le mobilier, lui, caste.
+
+`camera_rig.arena_margin` a suivi — **(17, 16) → (14, 13)**, et **dans le sens inverse de
+celui qu'annonçait §4.7** : à 16, le pied du mur affleurait déjà le bord haut, donc le mur
+n'était **jamais** dans l'image. Le mur ne bloque toujours pas — c'est `clamp_to_arena()`
+qui tient la limite.
 
 **La silhouette est antialiasée depuis le 2026-08-19** — MSAA 4× dans `project.godot`,
 voir « L'antialiasing de la SILHOUETTE ». Le trait est une coque inversée, donc un bord de

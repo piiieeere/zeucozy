@@ -39,7 +39,7 @@
 // 0,26, ombre TSV (teinte −0,02 · saturation 1,10 · valeur 0,88).
 
 shader_type spatial;
-render_mode unshaded, cull_back, shadows_disabled, specular_disabled;
+render_mode cull_back, ambient_light_disabled, specular_disabled;
 
 group_uniforms lames;
 // Longueur x largeur d'une lame, en metres. Calibre pour le cadre de jeu :
@@ -86,6 +86,7 @@ uniform float joint_overshoot : hint_range(0.0, 0.5) = 0.24;
 varying vec3 v_world;
 
 #include "res://shaders/cel_floor.gdshaderinc"
+#include "res://shaders/cel_sun.gdshaderinc"
 
 // Decalage horizontal d'une rangee. Pose a l'anglaise : deux rangees voisines
 // ne doivent jamais aligner leurs joints de tete.
@@ -171,4 +172,7 @@ void fragment() {
 	col_out = mix(col_out, mix(ink_color.rgb, col_out, ink_tint), clamp(ink, 0.0, 1.0));
 
 	ALBEDO = col_out;
+	// L'aplat peint part en EMISSION : c'est lui qui survit a la coupure
+	// du soleil, au pixel pres. Voir le bandeau de cel_sun.gdshaderinc.
+	EMISSION = ALBEDO;
 }

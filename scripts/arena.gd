@@ -31,8 +31,89 @@ const INK := Color("#2A2A3A")
 ## de bordure, et il ne doit jamais y avoir de vide a l'ecran.
 const FLOOR_OVERSHOOT := 60.0
 
-const WALL_HEIGHT := 1.2
-const WALL_THICKNESS := 1.0
+## ─── LE MUR ET SES BAIES (2026-08-20) ───────────────────────────────────────
+##
+## Le mur etait quatre boites de 1,2 m de haut, nues. Il porte desormais des
+## fenetres — de VRAIS trous dans la geometrie — et une DirectionalLight3D
+## passe dedans. Le pourquoi et les interdits sont dans "Visual Art Direction"
+## §6bis ; la composition, dans "Prompts de Generation" §4.7. Ce qui suit n'en
+## est que la mise en nombres, et chaque nombre a une raison.
+##
+## ⚠️ LE MUR SE DIMENSIONNE EN METRES, JAMAIS EN FRACTION D'ARENE — meme regle
+## que le mobilier, et pour la meme raison. L'arene fait 160 x 90 m : ce n'est
+## pas un salon, c'est un plan de jeu. Un mur unique « d'un bout a l'autre »
+## n'a aucun sens a cette echelle, et une fenetre etiree a sa mesure serait une
+## baie de 40 m. Le mur est donc une TRAVEE REPETABLE.
+
+## 2,6 m — un vrai mur d'appartement, contre 1,2 m avant, qui etait la hauteur
+## d'une barriere. Le changement n'est pas decoratif : sous 1,2 m il n'y a
+## simplement pas la place d'ouvrir une baie au-dessus d'un chat de 1,86.
+const WALL_HEIGHT := 2.6
+
+## 0,6 m — l'embrasure, et c'est elle qui taille le rai, pas la baie.
+##
+## ⚠️ Descendue de 1,0 m, et ce n'est pas un arrondi. Le trou est un TUNNEL :
+## a 26° de soleil, chaque metre d'epaisseur rogne 0,49 m de hauteur utile a
+## l'ouverture. A 1,0 m d'epaisseur le rai tombait a moins d'un metre de
+## profondeur — une frange collee au pied du mur, invisible au cadrage de jeu.
+## Le mur ne collisionne rien (c'est `main.clamp_to_arena()` qui tient la
+## limite), donc son epaisseur ne coute que du dessin.
+const WALL_THICKNESS := 0.6
+
+## Le PAS DE REPETITION des travees — la premiere des deux seules molettes de
+## §6bis, celle qui decide si l'ombre des baies est un motif ou un accident.
+##
+## ⚠️ C'est le piege le mieux mesure du projet, et le rendre reel ne l'evite
+## pas : le rai de soleil PEINT a ete retire le 2026-08-17 parce qu'une grande
+## forme claire ancree au monde DEFILE a l'ecran des que le chat marche. Une
+## ombre calculee est ancree pareil et defile pareil. Ce qui sauve celle-ci
+## n'est pas son mode de calcul, c'est qu'elle se REPETE : le parquet defile
+## aussi et ne gene personne. A 8 m, le cadre (~29 m) en montre trois et demie,
+## soit une dizaine de panneaux de lumiere — un rythme, pas une bande.
+const BAY_LENGTH := 8.0
+
+const OPENING_WIDTH := 3.6
+## Sous 1,4 m de trumeau le mur cesse de se lire comme un mur perce et devient
+## une claire-voie. Borne l'ouverture quand un mur court doit resserrer ses
+## travees.
+const MIN_PIER := 1.4
+
+## Appui et linteau — LES BANDES HORIZONTALES de §4.7. Sous une camera a 45°
+## une surface verticale est ecrasee : un mur de 2,6 m ne rend qu'~1,8 m de
+## hauteur apparente. Ce qui doit se lire se pose donc a plat ; les montants ne
+## portent rien. Et rien d'important ne descend dans le tiers bas, qui
+## n'atteint jamais l'ecran.
+const SILL_HEIGHT := 0.95
+const HEAD_HEIGHT := 2.25
+
+## Les meneaux DECOUPENT LE RAI en une grille lisible, et c'est tout leur
+## interet : sans eux la baie pose un rectangle de lumiere muet. Ils sont donc
+## de la geometrie, pas un dessin — un meneau peint n'arrete aucun photon.
+const MULLION_COUNT := 2
+const MULLION_WIDTH := 0.16
+const TRANSOM_HEIGHT := 0.14
+const TRANSOM_AT := 0.62
+## Profondeur de la menuiserie, posee au nu INTERIEUR : c'est le seul plan ou
+## le joueur la voit. Le rai, lui, est taille par l'embrasure de toute facon.
+const FRAME_DEPTH := 0.14
+
+## Le couvre-mur — la seule piece a porter le trait PLEIN.
+##
+## ⚠️ C'est LA reponse aux deux poids d'encre de §4.7, et elle est geometrique
+## plutot que shader. Le mur doit garder l'arete qui dit « ici on ne passe
+## plus » — une limite qu'on ne voit pas est une limite qu'on decouvre en s'y
+## cognant — sans qu'un quadrillage de baies a l'encre pleine, sur la plus
+## grande surface de l'image, ne ramene le regard sur le decor. Une piece
+## pleine en haut, tout le reste a la moitie.
+const CREST_HEIGHT := 0.16
+const CREST_OVERHANG := 0.07
+
+const WALL_INK := 0.05
+const WALL_INK_INNER := 0.025
+
+## L'aplat vu derriere les baies. Un seul ton, aucun paysage (§4.7).
+const SKY_COLOR := Color("#A0C8D8")
+const SKY_GAP := 0.5
 
 ## Motif du decor. Repete sur toute l'arene, avec un decalage aleatoire par
 ## cellule pour que ca ne se lise pas comme du papier peint.
@@ -168,6 +249,9 @@ func _build_ground(rect: Rect2) -> void:
 	node.mesh = mesh
 	node.position = Vector3(area.get_center().x, 0.0, area.get_center().y)
 	node.material_override = CelStyle.make_ground()
+	# ⚠️ Le sol RECOIT l'ombre, il n'en jette pas. Un plan a y = 0 qui caste sur
+	# lui-meme ne produit que de l'acne de carte d'ombre.
+	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(node)
 
 
@@ -257,6 +341,9 @@ func _add_rug(area: Rect2, color: Color, y: float) -> void:
 	node.mesh = mesh
 	node.position = Vector3(area.get_center().x, y, area.get_center().y)
 	node.material_override = CelStyle.make_rug(color, area.size, mesh.size)
+	# Meme raison que le sol, a 12 mm pres : un tapis pose a plat ne jetterait
+	# son ombre que sur le parquet qu'il touche.
+	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(node)
 
 
@@ -365,24 +452,188 @@ func _model_bounds(node: Node) -> AABB:
 
 
 ## Mur de bordure — marque la limite de jeu, la meme que clamp_to_arena().
+##
+## Quatre travees de baies, plus le soleil qui passe dedans. Voir le bandeau
+## des constantes plus haut ; ici, seulement l'assemblage.
+##
+## ⚠️ Les quatre murs sont batis, y compris le PLUS PROCHE — celui entre la
+## camera et le chat, dont §4.7 dit qu'il n'entre jamais dans l'image. Il n'y
+## entre pas et il n'occulte rien (a 45° la ligne camera→chat passe 16 m
+## au-dessus de son couvre-mur), mais il ferme la piece pour le soleil : sans
+## lui, un mur sur deux serait une paroi qui commence nulle part.
 func _build_walls(rect: Rect2) -> void:
 	var half := WALL_THICKNESS * 0.5
-	var spans := [
-		Rect2(rect.position.x - half, rect.position.y - half, rect.size.x + WALL_THICKNESS, WALL_THICKNESS),
-		Rect2(rect.position.x - half, rect.end.y - half, rect.size.x + WALL_THICKNESS, WALL_THICKNESS),
-		Rect2(rect.position.x - half, rect.position.y - half, WALL_THICKNESS, rect.size.y + WALL_THICKNESS),
-		Rect2(rect.end.x - half, rect.position.y - half, WALL_THICKNESS, rect.size.y + WALL_THICKNESS),
-	]
 
-	for span: Rect2 in spans:
-		var mesh := BoxMesh.new()
-		mesh.size = Vector3(span.size.x, WALL_HEIGHT, span.size.y)
+	# Les murs en X portent les angles ; ceux en Z s'arretent au nu interieur.
+	# Deux boites qui se croisent produisent un trait parasite a leur
+	# intersection (piege n°2 du pivot) — au coin d'un mur c'est un joint, on
+	# l'evite quand meme : il ne coute qu'un decalage de l'emprise.
+	_build_wall_run(
+		Vector3(rect.position.x - half, 0.0, rect.position.y), Vector3(1.0, 0.0, 0.0),
+		rect.size.x + WALL_THICKNESS, 1.0
+	)
+	_build_wall_run(
+		Vector3(rect.position.x - half, 0.0, rect.end.y), Vector3(1.0, 0.0, 0.0),
+		rect.size.x + WALL_THICKNESS, -1.0
+	)
+	_build_wall_run(
+		Vector3(rect.position.x, 0.0, rect.position.y + half), Vector3(0.0, 0.0, 1.0),
+		rect.size.y - WALL_THICKNESS, 1.0
+	)
+	_build_wall_run(
+		Vector3(rect.end.x, 0.0, rect.position.y + half), Vector3(0.0, 0.0, 1.0),
+		rect.size.y - WALL_THICKNESS, -1.0
+	)
 
-		var node := MeshInstance3D.new()
-		node.mesh = mesh
-		node.position = Vector3(span.get_center().x, WALL_HEIGHT * 0.5, span.get_center().y)
-		CelStyle.apply_outlined(node, INK, 0.05)
-		add_child(node)
+	_build_sun()
+
+
+## Une paroi complete, de `origin` sur `length` metres le long de `axis`.
+##
+## `inward` dit de quel cote est la piece (+1 ou -1 sur l'axe transverse) : il
+## place la menuiserie au nu interieur, le ciel au nu exterieur, et il est le
+## seul nombre qui change d'un des quatre murs a l'autre.
+##
+## Le decoupage en travees n'est pas `length / BAY_LENGTH` tronque : le pas est
+## AJUSTE pour tomber juste. Une derniere travee de 2 m serait le seul accident
+## d'un rythme regulier, donc la seule chose que l'œil verrait.
+func _build_wall_run(origin: Vector3, axis: Vector3, length: float, inward: float) -> void:
+	if length <= 0.0:
+		return
+
+	var across := Vector3(axis.z, 0.0, axis.x) * inward
+	var bays := maxi(1, int(round(length / BAY_LENGTH)))
+	var bay := length / float(bays)
+	var opening := minf(OPENING_WIDTH, bay - 2.0 * MIN_PIER)
+
+	# Deux materiaux, deux poids d'encre, et c'est tout ce qui les separe (§4.7).
+	var body := CelStyle.make_wall(WALL_INK_INNER)
+	var crest := CelStyle.make_wall(WALL_INK)
+
+	if opening <= 0.0:
+		# Mur trop court pour une baie : il reste plein, et c'est une paroi
+		# valide. Aucun garde ailleurs n'a besoin de le savoir.
+		_add_wall_box(origin, axis, across, 0.0, length, 0.0, WALL_HEIGHT, WALL_THICKNESS, 0.0, body)
+		return
+
+	var pier := (bay - opening) * 0.5
+
+	# 1 — l'allege, d'un bout a l'autre. Une seule piece, pas une par travee :
+	#     deux boites bout a bout dessineraient un joint d'encre a chaque
+	#     travee, soit le quadrillage que §4.7 refuse.
+	_add_wall_box(origin, axis, across, 0.0, length, 0.0, SILL_HEIGHT, WALL_THICKNESS, 0.0, body)
+	# 2 — le linteau, meme raison.
+	_add_wall_box(
+		origin, axis, across, 0.0, length,
+		HEAD_HEIGHT, WALL_HEIGHT - HEAD_HEIGHT, WALL_THICKNESS, 0.0, body
+	)
+
+	# 3 — les trumeaux. Ceux de deux travees voisines sont FUSIONNES en une
+	#     piece : accoles, ils se liraient comme deux poteaux jumeaux.
+	for index in bays + 1:
+		var start := maxf(float(index) * bay - pier, 0.0)
+		var stop := minf(float(index) * bay + pier, length)
+		_add_wall_box(
+			origin, axis, across, start, stop - start,
+			SILL_HEIGHT, HEAD_HEIGHT - SILL_HEIGHT, WALL_THICKNESS, 0.0, body
+		)
+
+	# 4 et 5 — la menuiserie dans le trou, au nu interieur.
+	var frame_offset := (WALL_THICKNESS - FRAME_DEPTH) * 0.5
+	for index in bays:
+		var opening_start := float(index) * bay + pier
+
+		for pane in MULLION_COUNT:
+			var at := opening_start + opening * float(pane + 1) / float(MULLION_COUNT + 1)
+			_add_wall_box(
+				origin, axis, across, at - MULLION_WIDTH * 0.5, MULLION_WIDTH,
+				SILL_HEIGHT, HEAD_HEIGHT - SILL_HEIGHT, FRAME_DEPTH, frame_offset, body
+			)
+
+		_add_wall_box(
+			origin, axis, across, opening_start, opening,
+			SILL_HEIGHT + (HEAD_HEIGHT - SILL_HEIGHT) * TRANSOM_AT - TRANSOM_HEIGHT * 0.5,
+			TRANSOM_HEIGHT, FRAME_DEPTH, frame_offset, body
+		)
+
+	# 6 — le couvre-mur : la seule piece a l'encre pleine.
+	_add_wall_box(
+		origin, axis, across, 0.0, length, WALL_HEIGHT, CREST_HEIGHT,
+		WALL_THICKNESS + 2.0 * CREST_OVERHANG, 0.0, crest
+	)
+
+	_add_sky_plate(origin, axis, across, length)
+
+
+## Une piece du mur, en coordonnees de PAROI plutot que de monde.
+##
+##   `along` / `run`     position et longueur le long du mur
+##   `bottom` / `height` en metres au-dessus du sol
+##   `depth` / `shift`   epaisseur en travers, et son decalage vers l'interieur
+func _add_wall_box(
+	origin: Vector3, axis: Vector3, across: Vector3,
+	along: float, run: float, bottom: float, height: float,
+	depth: float, shift: float, material: Material
+) -> void:
+	if run <= 0.0 or height <= 0.0:
+		return
+
+	var mesh := BoxMesh.new()
+	mesh.size = Vector3(
+		absf(axis.x) * run + absf(across.x) * depth,
+		height,
+		absf(axis.z) * run + absf(across.z) * depth
+	)
+
+	var node := MeshInstance3D.new()
+	node.mesh = mesh
+	node.position = (
+		origin
+		+ axis * (along + run * 0.5)
+		+ across * shift
+		+ Vector3(0.0, bottom + height * 0.5, 0.0)
+	)
+	node.material_override = material
+	add_child(node)
+
+
+## L'aplat derriere les baies. Un plan par paroi, pose juste dehors.
+##
+## ⚠️ IL EST PLACE A 0,5 m DU NU EXTERIEUR, ET C'EST LA TOUTE LA QUESTION. La
+## camera plonge a 45° : par une fenetre on ne regarde pas le ciel, on regarde
+## le SOL du dehors. Un plan pose loin laisserait voir le parquet deborder par
+## le trou ; a 0,5 m, la ligne de visee la plus basse le rencontre avant
+## d'atteindre quoi que ce soit. Il descend sous le sol pour la meme raison.
+func _add_sky_plate(origin: Vector3, axis: Vector3, across: Vector3, length: float) -> void:
+	var mesh := PlaneMesh.new()
+	mesh.size = Vector2(length + 2.0, WALL_HEIGHT + 1.5)
+	mesh.orientation = PlaneMesh.FACE_Z
+
+	var node := MeshInstance3D.new()
+	node.mesh = mesh
+	node.position = (
+		origin
+		+ axis * (length * 0.5)
+		- across * (WALL_THICKNESS * 0.5 + SKY_GAP)
+		+ Vector3(0.0, WALL_HEIGHT * 0.5 - 0.5, 0.0)
+	)
+	node.rotation.y = atan2(across.x, across.z)
+	node.material_override = CelStyle.make_sky(SKY_COLOR)
+	# ⛔ Pose entre le soleil et la baie, un ciel casteur bouche exactement le
+	# rai qu'on vient de construire. Le defaut serait muet : un mur perce dont
+	# aucune fenetre n'eclaire rien.
+	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(node)
+
+
+## Le soleil. Voir `sun_rig.gd` — il ne se regle pas ici.
+func _build_sun() -> void:
+	if not SunRig.wanted():
+		return
+
+	var sun := SunRig.new()
+	sun.name = "Sun"
+	add_child(sun)
 
 
 # ------------------------------------------------------------------------ outils

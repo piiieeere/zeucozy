@@ -13,6 +13,7 @@ const TOON_SHADER := preload("res://shaders/cel_toon.gdshader")
 const OUTLINE_SHADER := preload("res://shaders/cel_outline.gdshader")
 const GROUND_SHADER := preload("res://shaders/cel_ground.gdshader")
 const RUG_SHADER := preload("res://shaders/cel_rug.gdshader")
+const WALL_SHADER := preload("res://shaders/cel_wall.gdshader")
 
 ## Trait principal — brun chaud. Jamais de noir pur, meme sur un contour (§4).
 const INK := Color("#3D2B1A")
@@ -61,8 +62,17 @@ static func make_flat(color: Color) -> ShaderMaterial:
 static func make_outlined(
 	color: Color, thickness: float, ink: Color = INK, tint: float = 0.2
 ) -> ShaderMaterial:
-	var mat := make_flat(color)
+	return with_outline(make_flat(color), color, thickness, ink, tint)
 
+
+## Pose le contour en coque inversee sur un materiau DEJA construit.
+##
+## Sorti de `make_outlined` le 2026-08-20, quand le mur est arrive avec son
+## propre shader d'aplat : c'est la meme coque, les memes trois reglages, et
+## deux copies auraient diverge a la premiere correction d'epaisseur.
+static func with_outline(
+	mat: ShaderMaterial, color: Color, thickness: float, ink: Color = INK, tint: float = 0.2
+) -> ShaderMaterial:
 	if thickness <= 0.0:
 		return mat
 
@@ -75,6 +85,53 @@ static func make_outlined(
 	outline.set_shader_parameter("thickness", thickness)
 
 	mat.next_pass = outline
+	return mat
+
+
+## Le mur d'arene. `color` sert au teintage du trait, pas a l'aplat : la valeur
+## du mur est arretee dans `cel_wall.gdshader`, ou vit le raisonnement qui l'a
+## choisie contre le parquet.
+##
+## `thickness` porte les DEUX poids d'encre que "Prompts de Generation" §4.7
+## tranche sur le meme objet : plein pour l'arete qui dit « ici on ne passe
+## plus », moitie pour tout ce qui est dessine a l'interieur.
+static func make_wall(thickness: float) -> ShaderMaterial:
+	var mat := ShaderMaterial.new()
+	mat.shader = WALL_SHADER
+	# La couleur est LUE dans le shader, jamais recopiee ici : `cel_wall` est
+	# la seule a la porter, et le contour doit tirer vers elle (§5.4).
+	#
+	# ⚠️ Et elle rend `null` en `--headless` : sans serveur de rendu, il n'y a
+	# pas de shader compile a interroger. `pause_probe` construit une arene
+	# entiere dans ce mode — sans le garde, il tombe sur une affectation de Nil
+	# et 18 verdicts partent avec. Le repli n'a aucun effet visible : sans
+	# rendu, il n'y a pas de trait a teinter.
+	var default: Variant = RenderingServer.shader_get_parameter_default(
+		mat.shader.get_rid(), "base_color"
+	)
+	var color: Color = default if default is Color else INK
+	return with_outline(mat, color, thickness)
+
+
+## L'aplat vu DERRIERE une baie. Un seul ton, aucun paysage, aucun nuage.
+##
+## Le seul materiau du monde qui reste `unshaded`, avec le contour et les FX, et
+## pour la meme raison qu'eux : il n'est pas dans la piece. Laisser le mur lui
+## jeter son ombre reviendrait a peindre un ciel assombri par le batiment qu'il
+## eclaire.
+##
+## ⚠️ Il ne CASTE pas non plus — c'est `arena` qui l'eteint, et ce n'est pas un
+## detail : pose entre le soleil et la baie, un ciel casteur bouche exactement
+## le rai qu'on est en train de construire.
+##
+## ⚠️ ET IL NE DOIT PAS DEVENIR LE POINT LE PLUS CLAIR DU CADRE (§4.7) : le
+## chat doit garder l'œil. #A0C8D8 a une luma de 0,76, sous le parquet (0,83) —
+## c'est un trou plus sombre que le sol, pas une lampe.
+static func make_sky(color: Color) -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = color
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 	return mat
 
 

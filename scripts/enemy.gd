@@ -87,6 +87,9 @@ func _ready() -> void:
 
 	if model_path.is_empty():
 		CelStyle.apply_outlined(body, body_color, outline_thickness)
+		# Meme regle que les ennemis modelises, qui la tiennent de `CelProp` :
+		# ce qui bouge recoit le soleil et ne le projette pas (2026-08-20).
+		body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	else:
 		# `dress` et non `spawn` : le noeud `Body` existe deja dans la scene, et
 		# une vague en pose jusqu'a cinq d'un coup. Instancier la PackedScene du

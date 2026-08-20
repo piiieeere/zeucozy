@@ -474,6 +474,22 @@ static func find_mesh(node: Node) -> MeshInstance3D:
 	return null
 
 
+## ⚠️ CE QUI BOUGE RECOIT LE SOLEIL, MAIS NE LE PROJETTE PAS (2026-08-20).
+##
+## Le mobilier caste ; les creatures et les ramassables, non. Trois raisons, et
+## la premiere est une regle, pas un gout :
+##
+##   * "Visual Art Direction" §6bis garde l'ombre PROPRE peinte. Un corps qui
+##     entre dans sa propre carte d'ombre se re-ombre tout seul — au banc, une
+##     oreille du chat posait une bande dure en travers du crane, exactement le
+##     calcul qui prend la place du dessin que le test d'acceptation traque ;
+##   * §15. A 26° de soleil, un chat de 1,86 traine une ombre de 3,8 m qui le
+##     suit partout et passe sur les ennemis qu'il doit lire ;
+##   * l'ombre de contact dit deja ou un personnage TOUCHE le sol, et §4.7
+##     rappelle qu'elle ne se supprime pas sous pretexte qu'une vraie ombre
+##     arrive. C'est elle qui pose le personnage, pas la carte d'ombre.
+##
+## Le decor, lui, est immobile : son ombre fait partie de la piece.
 static func _apply(
 	mesh_instance: MeshInstance3D, model_path: String, variant: String,
 	family: String, outline_scale: float
@@ -482,6 +498,11 @@ static func _apply(
 
 	for i in materials.size():
 		mesh_instance.set_surface_override_material(i, materials[i])
+
+	mesh_instance.cast_shadow = (
+		GeometryInstance3D.SHADOW_CASTING_SETTING_ON if family == MEUBLE
+		else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	)
 
 
 static func _materials(

@@ -38,7 +38,7 @@
 // aucun modele du dossier.
 
 shader_type spatial;
-render_mode unshaded, cull_back, shadows_disabled, specular_disabled;
+render_mode cull_back, ambient_light_disabled, specular_disabled;
 
 group_uniforms couleur;
 uniform vec4 base_color : source_color = vec4(0.541, 0.353, 0.220, 1.0);
@@ -111,6 +111,7 @@ varying vec3 v_style;
 varying vec3 v_object_pos;
 
 #include "res://shaders/cel_core.gdshaderinc"
+#include "res://shaders/cel_sun.gdshaderinc"
 
 // Pose un aplat franc si la distance signee passe sous zero.
 // `aa` est une DEMI-BANDE en unites d'espace facial, mesuree a l'ecran par
@@ -193,4 +194,7 @@ void fragment() {
 	}
 
 	ALBEDO = col;
+	// L'aplat peint part en EMISSION : c'est lui qui survit a la coupure
+	// du soleil, au pixel pres. Voir le bandeau de cel_sun.gdshaderinc.
+	EMISSION = ALBEDO;
 }

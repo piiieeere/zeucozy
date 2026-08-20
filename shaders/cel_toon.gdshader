@@ -10,7 +10,7 @@
 // A utiliser avec cel_outline.gdshader en next_pass.
 
 shader_type spatial;
-render_mode unshaded, cull_back, shadows_disabled, specular_disabled;
+render_mode cull_back, ambient_light_disabled, specular_disabled;
 
 group_uniforms couleur;
 uniform vec4 base_color : source_color = vec4(0.847, 0.604, 0.333, 1.0);
@@ -92,6 +92,7 @@ varying vec3 v_style;
 varying vec3 v_object_pos;
 
 #include "res://shaders/cel_core.gdshaderinc"
+#include "res://shaders/cel_sun.gdshaderinc"
 
 void vertex() {
 	v_style = COLOR.rgb;
@@ -166,4 +167,7 @@ void fragment() {
 	}
 
 	ALBEDO = col;
+	// L'aplat peint part en EMISSION : c'est lui qui survit a la coupure
+	// du soleil, au pixel pres. Voir le bandeau de cel_sun.gdshaderinc.
+	EMISSION = ALBEDO;
 }

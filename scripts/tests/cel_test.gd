@@ -124,6 +124,21 @@ func _setup_environment() -> void:
 	world_env.environment = env
 	add_child(world_env)
 
+	# ⚠️ LE MEME SOLEIL QUE LE JEU, et c'est une regle, pas un confort
+	# ("Visual Art Direction" §6bis, consequence n°5). `unshaded` etait aussi
+	# ce qui rendait le rendu independant de l'environnement : le jour ou le
+	# jeu a une lampe et pas le banc, les deux divergent exactement comme
+	# Blender et Godot ont diverge, et le banc cesse d'etre l'endroit ou l'on
+	# JUGE le chat. Le nœud est le meme, ses reglages vivent dans `sun_rig.gd`.
+	#
+	# Le banc n'a ni mur ni sol : le soleil n'y projette donc rien, et le chat
+	# doit y paraitre EXACTEMENT ce qu'il etait avant le 2026-08-20. C'est
+	# accessoirement le test d'acceptation de §6bis, joue en permanence.
+	if SunRig.wanted():
+		var sun := SunRig.new()
+		sun.name = "Sun"
+		add_child(sun)
+
 
 func _setup_camera() -> void:
 	_pivot = Node3D.new()

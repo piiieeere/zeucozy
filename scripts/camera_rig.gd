@@ -46,7 +46,22 @@ extends Node3D
 ## Le Z depend de la plongee : a 60° le cadre montrait 11 m devant le point
 ## vise, a 45° il en montre 16. Garder 11 laisserait le mur du fond entrer
 ## dans l'image avant que la camera ne s'arrete.
-@export var arena_margin: Vector2 = Vector2(17.0, 16.0)
+##
+## ⚠️ DESCENDUE DE (17, 16) A (14, 13) LE 2026-08-20, AVEC LES BAIES — et dans
+## le sens inverse de celui qu'annoncait §4.7, qui prevoyait qu'un mur plus
+## haut devrait faire MONTER la marge. La geometrie dit le contraire, et c'est
+## verifiable sur les nombres du rig : le cadre montre 16,1 m devant le point
+## vise, donc a 16 de marge le PIED du mur affleure deja le bord haut et toute
+## sa hauteur est au-dessus du cadre. Ce n'est pas « le mur reste au bord »,
+## c'est « le mur n'est jamais dans l'image » — vrai a 1,2 m, sans consequence
+## tant qu'il n'y avait rien dessus.
+##
+## A 13, le pied du mur tombe a ~34° sous l'horizon pour un cadre qui va de 32°
+## a 56° : le mur occupe la bande haute, coupe par le haut, et les rais de ses
+## baies (1,95 a 4,0 m du mur) tombent en pleine image. C'est le seul reglage
+## qui rend les fenetres visibles, et il ne se compense pas ailleurs — la
+## hauteur du mur et cette marge ne peuvent pas etre decidees separement.
+@export var arena_margin: Vector2 = Vector2(14.0, 13.0)
 
 @onready var camera: Camera3D = $Camera3D
 

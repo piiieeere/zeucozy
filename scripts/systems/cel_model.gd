@@ -328,6 +328,12 @@ func _ready() -> void:
 		set_process(false)
 		return
 
+	# ⚠️ Le chat RECOIT le soleil et ne le PROJETTE pas — meme regle que les
+	# creatures, meme raisons, ecrites en tete de `cel_prop._apply()`. Ici elle
+	# se voit au banc : sans ca, une oreille pose une bande dure en travers du
+	# crane, et c'est l'ombre PROPRE que §6bis garde peinte.
+	mesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
 	skeleton = mesh_instance.get_parent() as Skeleton3D
 	_apply_cel_materials()
 	_setup_claws()

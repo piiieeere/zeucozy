@@ -109,7 +109,7 @@ func _ready() -> void:
 	camera_rig.setup(self)
 
 	arena.build(arena_rect)
-	player.global_position = Vector3(arena_rect.get_center().x, 0.0, arena_rect.get_center().y)
+	player.global_position = _spawn_point()
 	player.reset_physics_interpolation()
 	# Le rectangle de jeu n'existe qu'ici : la camera ne pouvait pas se cadrer
 	# toute seule dans son propre _ready.
@@ -328,6 +328,33 @@ func _process(delta: float) -> void:
 
 
 ## Rectangle de jeu dans le plan XZ : x -> x, y -> z.
+## Ou le chat commence la run — le centre de l'arene, sauf demande contraire.
+##
+##     ... -- --spawn=0,-42        colle au mur du fond
+##
+## ⚠️ Cet argument existe pour §16, qui interdit de trancher un reglage de
+## rendu en raisonnant. Le mur d'arene et ses baies ne sont visibles QUE quand
+## le chat colle a la bordure (§4.7) ; sans lui, une capture du jeu ne montre
+## jamais ce qu'on est en train de juger, et la seule facon d'en voir une
+## serait de jouer — donc de ne pas pouvoir comparer deux images.
+##
+## Meme convention que `--aim=`, `--pitch=` et `--msaa=`, et meme portee : il
+## ne change que le point de depart, jamais une regle de jeu.
+func _spawn_point() -> Vector3:
+	var center := Vector3(arena_rect.get_center().x, 0.0, arena_rect.get_center().y)
+
+	for argument in OS.get_cmdline_user_args():
+		if not argument.begins_with("--spawn="):
+			continue
+
+		var parts := argument.trim_prefix("--spawn=").split(",")
+
+		if parts.size() == 2:
+			return clamp_to_arena(Vector3(float(parts[0]), 0.0, float(parts[1])))
+
+	return center
+
+
 func get_arena_rect() -> Rect2:
 	return arena_rect
 
