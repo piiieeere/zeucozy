@@ -564,6 +564,43 @@ Un uniform **`relief_scale`** est en place pour le survol et le clic, qui resten
 > locaux). ⚠️ **Les captures d'UI d'avant le 2026-08-20 ne sont plus comparables** : filets,
 > repères d'angle et biseaux y sont 2,5× plus fins.
 
+> 🎯 **CHANTIER OUVERT LE 2026-08-20 — LA LUMIÈRE RÉELLE REVIENT, ET ELLE RENVERSE UNE
+> DÉCISION.** Les murs vont recevoir des **fenêtres modélisées**, et une
+> `DirectionalLight3D` devra passer au travers pour poser une vraie **ombre portée** sur le
+> sol, le mobilier et les personnages. L'examen du 2026-08-18 avait **fermé** lumières,
+> brouillard et post-process ; c'est rouvert, sur demande, et noté avec sa date en
+> `Visual Art Direction` **§6bis** — le prompt de maquette est en
+> `Prompts de Génération` §4.7, le chantier dans `Todo`.
+>
+> ⭐ **La règle qui borne tout : la lumière réelle S'AJOUTE, elle ne REMPLACE rien.** Les
+> ombres et accents **dessinés** sur les objets — cluster 2 tons, ombre peinte au canal G,
+> brillance au canal B, contour d'encre — restent en place tels quels : ils *sont* le style.
+> ✅ **Test binaire : lampe coupée, le jeu doit être exactement celui d'aujourd'hui.**
+>
+> - **L'ombre PROPRE reste peinte, l'ombre PORTÉE devient réelle.** C'est la frontière du
+>   cellulo lui-même : l'anime dessine des ombres portées en aplat, il ne calcule jamais
+>   l'auto-ombrage d'un visage.
+> - **`unshaded` tombe sur les surfaces qui reçoivent, et sur elles seules** — `cel_toon`,
+>   `cel_face`, `cel_paws`, `cel_creature_face`, `cel_ground`, `cel_rug`. **Jamais**
+>   `cel_outline` (une encre éclairée n'est plus de l'encre), jamais les sept FX en
+>   billboard, jamais l'UI.
+> - ⛔ **`ATTENUATION` doit repasser par un `step()`** — le filtrage de la carte d'ombre la
+>   rend continue, et c'est exactement le 3ᵉ ton que la variante A refuse.
+> - ⛔ **RISQUE N°1, à prouver avant d'écrire quoi que ce soit d'autre :** le contour est un
+>   `next_pass` sur la **même instance** que la surface, or `cast_shadow` est un réglage
+>   d'instance. Si le `next_pass` est rendu en passe d'ombre, chaque objet projette l'ombre
+>   d'une version **enflée de 0,036 m** de lui-même, et il faut sortir le contour dans son
+>   propre `MeshInstance3D` — soit une refonte de `cel_model` et de `cel_prop`.
+> - ⚠️ **Le rig de soleil doit être PARTAGÉ jeu ↔ banc.** `unshaded` était ce qui rendait le
+>   rendu déterministe des deux côtés ; une lampe dans `main.tscn` seule ferait diverger
+>   `cel_test.tscn` exactement comme Blender et Godot ont divergé.
+> - ⛔ **Le rai de soleil au sol est déjà tombé une fois** (retiré le 2026-08-17), et le
+>   rendre **réel ne l'évite pas** : ce qui l'a tué est son **ancrage au monde**, donc son
+>   défilement permanent sous une caméra qui suit le chat. La différence n'est pas
+>   *peint / calculé*, elle est **unique / répété** — deux molettes : le **pas des travées**
+>   et le **contraste**. Et le contraste a une borne de gameplay : le sol à l'ombre doit
+>   rester **plus clair que les ennemis qui marchent dedans** (§15).
+
 **La silhouette est antialiasée depuis le 2026-08-19** — MSAA 4× dans `project.godot`,
 voir « L'antialiasing de la SILHOUETTE ». Le trait est une coque inversée, donc un bord de
 géométrie : c'était la dernière famille de bords à n'être traitée par rien. L'erreur au
