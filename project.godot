@@ -60,12 +60,6 @@ skill_slot_2={
 
 [layer_names]
 
-; Les neuf couches etaient toutes anonymes, ce contre quoi le manuel met en
-; garde ("Physics introduction / Collision layers and masks" : suivre l'usage
-; de chaque couche devient vite difficile). Elles sont nommees ici, et le bit 3
-; — le mobilier — est le premier a etre pose en sachant ce qu'il porte.
-;
-; Le decoupage : les CORPS occupent 1-3, les zones de degat 4-7, l'XP 8-9.
 3d_physics/layer_1="corps_chat"
 3d_physics/layer_2="corps_ennemi"
 3d_physics/layer_3="decor_bloquant"
@@ -83,24 +77,5 @@ common/physics_interpolation=true
 
 [rendering]
 
-; MSAA 4x sur la 3D — l'AA de la SILHOUETTE, pose le 2026-08-19.
-;
-; Le trait du chat et des meubles est une coque inversee : un vrai bord de
-; GEOMETRIE, que le lissage par `fwidth` des shaders de FX, du sol, du visage
-; et des pattes ne peut pas atteindre — celui-la est du fragment. C'etait la
-; derniere famille de bords du jeu a etre restee brute.
-;
-; 4x et pas 8x : mesure sur la silhouette du chat a taille de jeu, l'erreur au
-; bord contre une reference supersamplee tombe de 14,9/255 a 4,9 en 4x et a
-; 3,4 en 8x — 4x reprend les deux tiers du chemin, 8x le dernier dixieme. Le
-; manuel tranche pareil : "sticking to 2x or 4x MSAA is highly recommended as
-; 8x MSAA is usually too demanding".
-;
-; ⛔ Ni TAA (il accumule sur plusieurs frames, alors que la cadence en pas
-; existe pour changer de pose d'un coup toutes les 3 frames), ni FXAA/SMAA
-; (ecran-espace, ils floutent le trait d'encre — contre le "bord franc" de §6).
-;
-; MSAA 2D reste a 0 : l'interface est faite d'aplats a angles droits (DA §9),
-; il n'y a pas une diagonale a lisser.
-anti_aliasing/quality/msaa_3d=2
 rendering_device/driver.windows="d3d12"
+anti_aliasing/quality/msaa_3d=2
