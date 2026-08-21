@@ -627,18 +627,46 @@ Un uniform **`relief_scale`** est en place pour le survol et le clic, qui resten
 > locaux). ⚠️ **Les captures d'UI d'avant le 2026-08-20 ne sont plus comparables** : filets,
 > repères d'angle et biseaux y sont 2,5× plus fins.
 
-**LE DÉCOR SE PEINT ET SE PROJETTE — décidé le 2026-08-21, RIEN N'EST CONSTRUIT.** Les
-grandes masses de décor cessent d'être modelées volume par volume : un **volume grossier de
-5 à 15 faces porte une illustration 2D projetée**. Le maillage donne la position,
-l'occultation, la collision et une surface pour l'ombre portée ; l'image donne le dessin.
-Tout est en §2quater de la DA (et §9.11 pour l'UI), le transit dans `Pipeline 3D.md`, les
-gestes dans `Convention Blender.md` §12, le prompt dans `Prompts de Génération.md` §4.8.
-Les six choses à savoir avant d'y toucher :
+**LE JEU SE PEINT ET SE PROJETTE — décidé le 2026-08-21, RIEN N'EST CONSTRUIT.** Les
+volumes cessent d'être modelés détail par détail : un **volume grossier porte une
+illustration 2D projetée**. Le maillage donne la position, l'occultation, la collision et
+une surface pour l'ombre portée ; l'image donne le dessin. Tout est en **§2quater** de la DA
+(le décor, 1 vue) et **§2quinquies** (ce qui pivote, 9 vues) — §9.11 pour l'UI ; le transit
+dans `Pipeline 3D.md` §1→§7, les gestes dans `Convention Blender.md` §12.1→§12.8, les
+prompts dans `Prompts de Génération.md` **§4.8** (objet posé) et **§4.9** (objet pivotant).
+Les dix choses à savoir avant d'y toucher :
 
-- ⭐ **La règle de partage tient en une question : *est-ce que ça tourne ?*** Le chat, les
-  ennemis, les ramassables, le projectile et tous les FX **ne sont pas concernés** — ils
-  pivotent, une illustration projetée depuis un axe fixe se verrait de flanc en une
-  demi-seconde. Ce qui est posé une fois et regardé de loin peut porter un dessin cuit.
+- ⭐ **La règle de partage n'est PAS « est-ce que ça tourne ? », c'est « est-ce que ça sort
+  du CÔNE ? »** *(élargi le 2026-08-21, le jour même)*. Rien ne tourne autrement qu'en
+  lacet dans tout le jeu (`rotation.y` partout — `player.gd:869`, `enemy.gd:198`,
+  `xp_orb.gd:69`, `arena.gd:385`), et la caméra garde une plongée constante : l'ensemble
+  des regards possibles est donc un **cône** à 44,02°, qui se pave avec **9 vues** — les
+  8 lacets que les bancs capturent déjà, plus le nadir. **Le chat, les ennemis et les
+  ramassables sont donc peignables**, à 9 vues au lieu d'1. ⛔ Seule exception :
+  **la boule de poils** (`projectile.gd:90`, `rotate_z` — roulis libre, elle sort du cône)
+  et les **FX**, qui n'ont pas de volume à peindre.
+- ⛔ **Une UV cuite ne glisse JAMAIS — ce n'est pas ça, le problème d'un objet qui tourne.**
+  Le problème est qu'**un axe unique ne peint qu'une partie des faces**, et que la rotation
+  amène les autres au premier plan. D'où les 9 vues, et d'où la seule vraie contrainte :
+  les **coutures**. Une couture est invisible sur une arête vive, une frontière de matériau
+  ou une coque distincte ; visible partout ailleurs. ⭐ **Un objet peint et pivotant se
+  dessine donc AUTOUR de ses coutures** — d'où la **section octogonale** (facettes calées
+  sur les 8 lacets : une facette par vue, coutures sur les 8 arêtes, étirement à son
+  minimum de 1,39×). Silhouette polygonale à **1,1 px** près à taille de jeu.
+- ✅ **Et le peint SUPPRIME le piège n°5.** Godot ne transforme que `VERTEX` et `NORMAL` au
+  skinning, jamais `UV` : un dessin porté par UV est immunisé, et **`rest_undo` disparaît**
+  avec les deux matrices des oreilles et le choix par `BONE_INDICES` des griffes.
+  ⚠️ L'UV se calcule en **pose de repos**.
+- ⛔ **LE CHAT EN DERNIER, et pas avant qu'une souris peinte ait tourné correctement.** Son
+  visage est le travail le plus abouti du projet (deux relevés, une erreur de 29 % trouvée
+  au 3ᵉ passage, §15 arbitré). Le peindre échange un dessin **paramétré** contre un dessin
+  **dessiné** — plus expressif, et **non re-mesurable**. Ordre : un meuble (1 vue) → la
+  souris (9 vues) → le chien → le chat.
+- ⭐ **Le blockout n'est plus dessiné, il est RENDU** *(§4.9 des prompts)*. Le volume existe
+  d'abord, on le capture au banc sur les 9 vues, et l'illustration se peint **par-dessus**.
+  La compatibilité illustration ↔ modèle cesse d'être un vœu : c'est la donnée d'entrée.
+  🅿️ Il manque un **`--ortho`** aux bancs, qui rendent en perspective (FOV 24°), et
+  `--pitch=44.02` (leur défaut est 45).
 - ⛔ **L'axe fait 44,02°, PAS 45°.** `look_height` de 0,9 m décale l'axe optique réel :
   `atan2(38·sin45° − 0,9 ; 38·cos45°)`. Projeter à 45° décalerait tout le décor du **même**
   cran — donc de façon cohérente, donc invisible en comparaison, et fausse partout. ⚠️ Le
@@ -658,17 +686,20 @@ Les six choses à savoir avant d'y toucher :
   **`Detect 3D → Compress To = Disabled`** *avant*, ou **`Compress → Mode = Lossless`**
   après. ⚠️ **Ne pas désactiver `Detect 3D`** — le manuel le déconseille explicitement, on
   perdrait les mipmaps avec.
-- ⛔ **Les flancs (normale ±X) sont perdus.** Le lacet de la caméra étant nul, ces faces sont
-  à 90° de l'axe, donc à étirement infini. Îlot d'UV séparé, aplat uni, jamais de détail
-  dessus. À l'inverse, **45° est le meilleur angle possible** pour cette technique : c'est
-  le seul qui égalise l'étirement des faces horizontales et verticales, à 1,41×.
+- ⛔ **À UNE vue, les flancs (normale ±X) sont perdus** — à 90° de l'axe, donc à étirement
+  infini. Îlot d'UV séparé, aplat uni, jamais de détail dessus. ⚠️ **À NEUF vues c'est le
+  DESSOUS qui est perdu, pas les flancs** : chaque flanc a sa propre vue, mais une normale
+  vers le bas n'est front-facing depuis aucun point du cône. Même geste, autre cible — et
+  tout ce qui dépasse **2× d'étirement** y va aussi. À l'inverse, **45° est le meilleur
+  angle possible** pour cette technique : c'est le seul qui égalise l'étirement des faces
+  horizontales et verticales, à 1,41×.
 
 ⚠️ **Et ça plie une doctrine du projet, une seule fois et d'un cran :** une image entre dans
 `assets/`. La raison d'origine reste vraie — *une image générée n'est ni rejouable ni
 corrigeable* — d'où les deux garde-fous : le **volume reste un script** (`build_*.py` produit
 géométrie, UV et `Attr_Style`), et la **source pleine résolution** reste dans `maquettes/`.
 Densité à peindre : **80–100 px/m** (le jeu n'en affiche que 40,1). Une planche de mobilier
-entière tient en 1024 px.
+entière tient en 1024 px ; l'atlas 3 × 3 d'un chat, en **600 × 600**.
 
 **Le mur porte des BAIES et le soleil les traverse — le 2026-08-20.** C'est la
 **première `Light3D` du projet** : la fermeture du 2026-08-18 sur les lumières est
