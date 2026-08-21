@@ -77,6 +77,13 @@ func _ready() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--pitch="):
 			_pitch = float(arg.trim_prefix("--pitch="))
+		elif arg.begins_with("--distance="):
+			# Le cadrage de reference est cale sur une plongee de 60°. A plat
+			# (`--pitch=0`) le chat se presente en long et SORT DU CADRE : la
+			# tete etait coupee net, c'est-a-dire justement la chose qu'on
+			# venait juger. Recul explicite plutot que cadrage automatique —
+			# deux captures ne se comparent que si elles ont le meme cadre.
+			_distance = float(arg.trim_prefix("--distance="))
 		elif arg.begins_with("--out="):
 			_capture_dir = arg.trim_prefix("--out=")
 

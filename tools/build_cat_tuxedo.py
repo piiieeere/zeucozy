@@ -248,37 +248,67 @@ HEAD_CENTER = Vector((0.0, -0.80, 1.30))
 # pesait la meme masse qu'une SOURIS — meme valeur sombre, meme empreinte au
 # sol — et dans un survivor le joueur doit retrouver son chat sans le chercher.
 # §3 le disait deja autrement : "tete legerement surdimensionnee".
-HEAD_R = Vector((0.360, 0.340, 0.325))
+#
+# ⚠️ ELARGIE DE 17 % LE 2026-08-21, ET C'EST UNE DETTE QUI SE SOLDE. La tete
+# etait a (0,360 ; 0,340 ; 0,325), soit 1,11 de large pour 1,00 de haut, quand
+# les DEUX planches en donnent 1,30 — 336 px de large pour 259 de haut, mesures
+# separement sur `CatTuxedoFace.png` et `CatTuxedoFaceProfil.png`, qui tombent
+# a 1 px l'une de l'autre sur la hauteur. Le releve du visage avait du gonfler
+# les trois largeurs de l'oeil de 17,7 % pour rattraper l'ecart, avec une note
+# disant que la vraie correction etait ici. Elle y est : le facteur a disparu
+# du shader, les uv de l'oeil sont a nouveau des mesures brutes de la planche.
+#
+# ⚠️ Profondeur 0,344 pour hauteur 0,325, soit 1,058 : c'est l'ellipse relevee
+# de profil (demi-axes 136,8 x 128,5 px, erreur MOYENNE 0,7 px sur 90 points).
+# Un crane de chat est presque rond de profil — c'est le museau qui allonge la
+# tete, pas le crane.
+HEAD_R = Vector((0.420, 0.344, 0.325))
 MUZZLE_AXIS = Vector((0.0, -0.961, 0.276)).normalized()
 
-# Le museau : un renflement radial gaussien autour de l'axe polaire. Le rayon
-# vaut R x (1 + bump x exp(-(phi/sigma)^2)).
+# ─── LE MUSEAU ET LE MENTON : UNE MASSE POSEE SUR UNE BOULE (2026-08-21) ──────
 #
-# ⚠️ Un renflement, pas un cone. §3 : "formes simples et rondes, pas d'angles
-# vifs" — et un museau conique attrape une arete franche sur la silhouette de
-# profil, exactement ce que la croupe de la souris avait paye.
-MUZZLE_BUMP = 0.22
-MUZZLE_SIGMA = math.radians(28.0)
+# Relevee sur `maquettes/CatTuxedoFaceProfil.png`, et cette planche a renverse
+# le modele d'avant. De profil, le crane est une ELLIPSE quasi parfaite, et le
+# museau une MASSE POSEE DESSUS : un plateau de +25 % de rayon, a BORD FRANC EN
+# HAUT et fondu en bas. En rayon mesure / rayon de l'ellipse, par angle depuis
+# l'axe de la masse (+ = vers le haut) :
+#
+#     +21°  +19°  +17°  +15°  +12°   0°   -17°  -24°  -30°
+#     1,00  1,02  1,09  1,20  1,23  1,25  1,22  1,17  1,13
+#     \____ LE PAS, en 9° ____/            \___ le fondu, sur 30° ___/
+#
+# ⭐ LE PAS EST "LE CREUX AU NIVEAU DU NEZ ET DES YEUX". Il ne se dessine pas et
+# ne se creuse pas : il se lit parce que la surface JUSTE AU-DESSUS de lui est
+# le crane nu. C'est exactement ce que le modele d'avant n'avait pas — une
+# gaussienne de 28° centree sur la truffe, qui gonflait l'oeil autant que le
+# museau. Sans pas, plus de creux ; sans creux, la tete sort en coin de renard
+# au lieu d'une boule avec un museau dessus, ce qui creve les yeux de profil.
+#
+# ⚠️ LE PLATEAU EST LE MEME OBJET QUE L'ANCIEN COUPLE MUSEAU + MENTON, et c'est
+# la maquette qui le dit : le rayon ne redescend pas entre les deux. Deux bosses
+# separees ne pouvaient rendre ni le pas (elles se recouvrent en pente douce) ni
+# le plat (elles font deux sommets).
+MUZZLE_MASS = 0.25
+# La masse est centree 11,5° SOUS l'axe du museau, donc sous la truffe peinte :
+# sur la maquette le nez est a la POINTE HAUTE de la masse, pas a son centre.
+MUZZLE_MASS_DROP_DEG = 11.5
+# Demi-angle du plateau et largeur de sa transition, vers le haut et vers le
+# bas. L'ASYMETRIE EST LE SUJET : c'est elle, et rien d'autre, qui fait le pas.
+MUZZLE_HALF_UP = 16.8
+MUZZLE_SOFT_UP = 5.0
+MUZZLE_HALF_DOWN = 31.0
+MUZZLE_SOFT_DOWN = 25.0
 
-# ─── LA JOUE ET LE MENTON (2026-08-20) ────────────────────────────────────────
+# ─── LA JOUE (2026-08-20) ─────────────────────────────────────────────────────
 #
-# Un ellipsoide nu ne fait pas cette tete-la. Deux corrections, relevees sur la
-# maquette :
+# VUE DE FACE, la tete est PLUS LARGE EN BAS qu'en haut — le crane se resserre
+# au-dessus des yeux, les joues (les coussinets a moustaches) sont la partie la
+# plus large. C'est le contraire d'un ellipsoide, qui est le plus large a
+# mi-hauteur et se resserre symetriquement.
 #
-#   * VUE DE FACE, la tete est PLUS LARGE EN BAS qu'en haut — le crane se
-#     resserre au-dessus des yeux, les joues (les coussinets a moustaches) sont
-#     la partie la plus large. C'est le contraire d'un ellipsoide, qui est le
-#     plus large a mi-hauteur et se resserre symetriquement.
-#   * DE PROFIL, le museau et le menton forment UNE MASSE qui descend en avant.
-#     Le nez est a la pointe haute de cette masse, pas a son centre : sous le
-#     nez, le dessin continue vers le bas-avant jusqu'au menton.
-#
-# Les deux sont des modulations DOUCES du rayon — §3 n'admet aucun angle vif, et
-# la coque inversee transformerait le moindre pli en tache d'encre.
+# Modulation DOUCE du rayon : §3 n'admet aucun angle vif, et la coque inversee
+# transformerait le moindre pli en tache d'encre.
 CHEEK_FLARE = 0.16
-CHIN_AXIS = Vector((0.0, -0.72, -0.69)).normalized()
-CHIN_BUMP = 0.10
-CHIN_SIGMA = math.radians(34.0)
 
 # Les deux calottes, en angle polaire depuis l'axe du museau.
 #   * `visage` doit couvrir LARGEMENT le cone de `face_front_min` (0,46, soit
@@ -291,7 +321,11 @@ FACE_CAP_DEG = 78.0
 MUZZLE_CAP_DEG = 21.0
 
 HEAD_N_U = 24
-HEAD_N_V = 13
+# ⚠️ 13 -> 20 LE 2026-08-21, ET C'EST LE PAS QUI L'IMPOSE. Sa transition fait 9°
+# ; a 13 paralleles une rangee de quads couvre 12,9°, donc le pas tombait
+# ENTIER dans une seule rangee et sortait en arete de facette au lieu d'un pli.
+# +336 tris sur la tete, ce que le budget du modele encaisse sans discuter.
+HEAD_N_V = 20
 
 # ─── LES OREILLES ─────────────────────────────────────────────────────────────
 #
@@ -305,7 +339,11 @@ HEAD_N_V = 13
 # ⚠️ LA BASE EST ENFOUIE DANS LE CRANE. Posee dessus, elle laisserait voir son
 # disque de fermeture des que la tete tourne — et la coque inversee de l'oreille
 # cernerait ce disque, ce qui se lit comme une entaille.
-EAR_BASE = Vector((0.158, -0.83, 1.49))
+# ⚠️ Le x SUIT LA LARGEUR DU CRANE (0,158 -> 0,184 le 2026-08-21, soit le
+# meme x 1,167 que HEAD_R.x). Une oreille laissee en place sur une tete
+# elargie ne reste pas ou elle etait : elle glisse vers le sommet, les deux
+# se rapprochent, et le chat prend un air pince.
+EAR_BASE = Vector((0.184, -0.83, 1.49))
 EAR_AXIS = Vector((0.362, -0.121, 0.925)).normalized()
 # La normale de l'oreille — la direction que regarde sa face rose.
 #
@@ -545,6 +583,15 @@ def warm_shadow(rgb: tuple) -> tuple:
 
 
 # --------------------------------------------------------------------- courbes
+
+def smoothstep(lo: float, hi: float, t: float) -> float:
+	"""Celui de GLSL — 0 sous `lo`, 1 au-dessus de `hi`, tangentes plates."""
+	if hi <= lo:
+		return 0.0 if t < lo else 1.0
+	u = max(0.0, min(1.0, (t - lo) / (hi - lo)))
+
+	return u * u * (3.0 - 2.0 * u)
+
 
 def spline(keys, t: float) -> float:
 	"""Catmull-Rom NON UNIFORME sur une liste de (t, valeur).
@@ -836,6 +883,37 @@ def build_body(b: Builder) -> None:
 
 # -------------------------------------------------------------------- la tete
 
+def muzzle_mass_frame():
+	"""L'axe de la masse museau/menton, et sa verticale."""
+	u, up, n = head_frame()
+	drop = math.radians(MUZZLE_MASS_DROP_DEG)
+	axis = (n * math.cos(drop) - up * math.sin(drop)).normalized()
+
+	return axis, axis.cross(u).normalized()
+
+
+def muzzle_mass(dir: Vector) -> float:
+	"""1 dans la masse museau/menton, 0 sur le crane nu, le pas entre les deux.
+
+	Le demi-angle du plateau et la douceur de son bord varient avec la position
+	AUTOUR de l'axe : francs vers le haut (le pas), larges et fondus vers le bas
+	(le menton). C'est le releve de profil, pas un reglage a l'oeil.
+	"""
+	axis, up = muzzle_mass_frame()
+	cosine = max(-1.0, min(1.0, dir.dot(axis)))
+	angle = math.degrees(math.acos(cosine))
+
+	# `k` = +1 droit au-dessus de l'axe, -1 droit dessous, 0 plein cote.
+	perp = dir - axis * cosine
+	k = 0.0 if perp.length < 1e-9 else max(-1.0, min(1.0, perp.normalized().dot(up)))
+	t = (k + 1.0) * 0.5
+
+	half = MUZZLE_HALF_DOWN + (MUZZLE_HALF_UP - MUZZLE_HALF_DOWN) * t
+	soft = MUZZLE_SOFT_DOWN + (MUZZLE_SOFT_UP - MUZZLE_SOFT_DOWN) * t
+
+	return 1.0 - smoothstep(half - soft, half + soft, angle)
+
+
 def head_point(phi: float, theta: float) -> Vector:
 	"""Un point de la tete. `phi` = angle polaire depuis l'axe du museau."""
 	u, v, n = head_frame()
@@ -843,13 +921,7 @@ def head_point(phi: float, theta: float) -> Vector:
 			+ u * (math.sin(phi) * math.cos(theta))
 			+ v * (math.sin(phi) * math.sin(theta)))
 
-	bump = 1.0 + MUZZLE_BUMP * math.exp(-(phi / MUZZLE_SIGMA) ** 2)
-
-	# Le menton : une seconde bosse, vers l'avant-bas. Elle prolonge le museau
-	# au lieu de l'elargir — les deux gaussiennes se recouvrent, et c'est ce
-	# recouvrement qui fait la masse museau/menton d'un seul tenant.
-	chin_angle = math.acos(max(-1.0, min(1.0, dir.dot(CHIN_AXIS))))
-	bump += CHIN_BUMP * math.exp(-(chin_angle / CHIN_SIGMA) ** 2)
+	bump = 1.0 + MUZZLE_MASS * muzzle_mass(dir)
 
 	offset = Vector((dir.x * HEAD_R.x, dir.y * HEAD_R.y, dir.z * HEAD_R.z)) * bump
 

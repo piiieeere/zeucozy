@@ -162,7 +162,7 @@ const ANCHORS := {
 			},
 		],
 		"face_center": Vector3(0.0, 1.30, 0.80),
-		"face_radius": Vector3(0.360, 0.325, 0.340),
+		"face_radius": Vector3(0.420, 0.325, 0.344),
 		# Relevee sur `maquettes/CatTuxedoFace.png` colonne par colonne, yeux
 		# masques, en COORDONNEES DE MAQUETTE (le shader retranche le cadrage) :
 		# le haut du blanc est a -0,166 au centre, -0,355 a |x| = 0,12, -0,463 a

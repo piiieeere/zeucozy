@@ -111,26 +111,38 @@ uniform vec4 line_color : source_color = vec4(0.239, 0.169, 0.102, 1.0);
 // font qu'un oeil se lit comme un oeil a taille de jeu, et les deux etaient
 // sortis trop petits.
 //
-// ⚠️ ET LES TROIS LARGEURS SONT ELARGIES DE 17 %, PAS RELEVEES. Les fractions
-// de tete se transposent exactement — l'oeil rendu occupe 13,2 % de la largeur
-// et 29,8 % de la hauteur, contre 13,4 % et 29,0 % sur la planche — mais LA
-// TETE DU MODELE N'A PAS L'ALLONGEMENT DE CELLE DU DESSIN : projetee, elle fait
-// 258 x 235 px (rapport 1,10) quand la planche en fait 335 x 259 (rapport 1,29).
-// Une amande juste en fractions sort donc trop etroite en FORME : 2,06 de haut
-// pour 1 de large contre 1,67 sur la planche. Le facteur 1,29 / 1,10 = 1,177
-// rattrape la difference sur les trois formes de l'oeil — et sur elles seules,
-// parce que c'est le seul detail du visage qu'on lise vraiment a taille de jeu.
+// ✅ ET LES TROIS LARGEURS SONT REDEVENUES DES MESURES LE 2026-08-21. Elles ont
+// ete gonflees de 17,7 % pendant une journee, avec une note disant que la vraie
+// correction etait ailleurs : la tete du modele faisait 1,11 de large pour 1,00
+// de haut quand la planche en donne 1,30, donc une amande juste en FRACTIONS de
+// tete sortait juste en fractions et fausse en FORME — 2,06 de haut pour 1 de
+// large contre 1,67 sur la planche.
 //
-// La vraie correction serait d'elargir la TETE, pas l'oeil. Elle est en
-// geometrie (`HEAD_R` dans tools/build_cat_tuxedo.py), elle deplace les
-// oreilles, la boite de griffes et l'ellipsoide d'ANCHORS, et elle n'a pas ete
-// faite ici : ce chantier-ci porte sur le dessin.
+// La tete a ete elargie (`HEAD_R` dans tools/build_cat_tuxedo.py, 0,360 ->
+// 0,420) et le facteur a disparu d'ici. Un correctif de dessin qui compense une
+// erreur de geometrie tient tant que personne ne touche a la geometrie ; celui
+// qui l'aurait fait aurait vu l'oeil s'elargir sans comprendre pourquoi.
+//
+// ⭐ ET L'OEIL N'EST PAS L'IRIS — releve le 2026-08-21, sur la meme planche.
+// L'OUVERTURE est une amande PLUS LARGE que l'iris (71 x 81 px contre 45 x 75),
+// et l'iris n'y est pas centre : il est pousse VERS LE NEZ, tangent au bord
+// interne et au bord haut. Ce qui reste en blanc est un croissant de sclere du
+// cote de l'oreille, large de 24 px — un quart de l'oeil.
+//
+// C'est ce croissant qui fait le regard : c'est lui qui dit ou l'oeil pointe.
+// Un iris qui remplit son cerne ne regarde nulle part, il est juste rond — et
+// c'est ce que le chat avait depuis le premier releve.
+uniform vec2 sclera_pos = vec2(0.463, -0.209);
+uniform vec2 sclera_size = vec2(0.212, 0.313);
 uniform vec2 eye_pos = vec2(0.394, -0.197);
-uniform vec2 eye_size = vec2(0.157, 0.286);
+uniform vec2 eye_size = vec2(0.134, 0.286);
 uniform float eye_border : hint_range(0.0, 0.1) = 0.028;
-uniform vec2 pupil_size = vec2(0.067, 0.160);
+// Le cerne PROPRE de l'iris, plus fin que celui de l'ouverture. Il ne se voit
+// que du cote de la sclere : partout ailleurs les deux se confondent.
+uniform float iris_border : hint_range(0.0, 0.06) = 0.018;
+uniform vec2 pupil_size = vec2(0.057, 0.160);
 uniform vec2 glint_offset = vec2(0.028, 0.158);
-uniform vec2 glint_size = vec2(0.060, 0.077);
+uniform vec2 glint_size = vec2(0.051, 0.077);
 
 group_uniforms nez_bouche;
 uniform vec4 nose_color : source_color = vec4(0.909, 0.722, 0.659, 1.0);
@@ -151,7 +163,12 @@ uniform float nose_squash : hint_range(0.5, 3.0) = 1.48;
 // converti depuis un rayon en pixels — lequel n'existe pas ici.
 uniform vec2 mouth_center = vec2(0.1015, -0.686);
 uniform float mouth_radius : hint_range(0.0, 0.3) = 0.1035;
-uniform float mouth_weight : hint_range(0.0, 0.05) = 0.010;
+// ⚠️ 0,010 -> 0,016 LE 2026-08-21, ET C'EST UNE ENTORSE ASSUMEE AU RELEVE. La
+// levre de la planche fait 2 a 3 px, soit tout juste 0,010 d'epaisseur en uv —
+// la valeur d'avant etait donc JUSTE. Mais la planche est un portrait de
+// 260 px de tete et le jeu en montre une de 30 : le trait y tombait sous le
+// pixel et la bouche disparaissait. §15 tranche, comme pour les griffes.
+uniform float mouth_weight : hint_range(0.0, 0.05) = 0.016;
 // ⚠️ ET ELLE S'ARRETE. Sans cette borne, la moitie basse du cercle est dessinee
 // EN ENTIER : le trait continuait jusqu'a |x| = 0,30 et remontait vers les
 // joues — un sourire qui barrait tout le visage. Sur la maquette les deux arcs
@@ -184,10 +201,15 @@ uniform vec4 tongue_color : source_color = vec4(0.929, 0.522, 0.518, 1.0);
 //
 // La cause est geometrique et vaut pour tout ce qui descend bas sur le visage :
 // `dir` se normalise par l'ELLIPSOIDE, mais la surface, elle, BOMBE sous le
-// museau et le menton (`MUZZLE_BUMP` et `CHIN_BUMP` dans build_cat_tuxedo.py).
-// Un meme ecart d'uv couvre donc plus d'ecran en bas du visage qu'au milieu, et
-// la gueule est ce qu'il y a de plus bas. Ni la planche ni le shader ne peuvent
-// le savoir : c'est la forme de la tete qui l'impose.
+// museau et le menton (`MUZZLE_MASS` dans build_cat_tuxedo.py). Un meme ecart
+// d'uv couvre donc plus d'ecran en bas du visage qu'au milieu, et la gueule est
+// ce qu'il y a de plus bas. Ni la planche ni le shader ne peuvent le savoir :
+// c'est la forme de la tete qui l'impose.
+//
+// ⚠️ ET DONC CETTE VALEUR SUIT LA GEOMETRIE. Elle a ete refaite le 2026-08-21
+// quand la masse museau/menton est passee de deux gaussiennes a un plateau a
+// bord franc : c'est le seul chiffre du visage qu'un changement de tete oblige
+// a remesurer.
 //
 // ⚠️ Et ca ne se corrige PAS d'un facteur, parce que le rapport n'est pas
 // constant : les quatre demi-hauteurs essayees rendent 15, 27, 33 puis 43 px
@@ -198,15 +220,18 @@ uniform vec4 tongue_color : source_color = vec4(0.929, 0.522, 0.518, 1.0);
 // ⚠️ Le HAUT de l'ellipse doit rester AU-DESSUS de la pointe de la levre
 // (-0,706), sinon un liseré de museau reste coince entre le trait et la cavite.
 // C'est ce qui fixe le centre : centre + demi-hauteur = -0,608, toujours.
-uniform vec2 maw_center = vec2(0.0, -0.843);
-uniform vec2 maw_size = vec2(0.146, 0.235);
-uniform vec2 tongue_offset = vec2(0.0, -0.060);
-uniform vec2 tongue_size = vec2(0.132, 0.170);
+uniform vec2 maw_center = vec2(0.0, -0.832);
+uniform vec2 maw_size = vec2(0.100, 0.224);
+// La langue remplit la cavite d'un bord a l'autre — elle a MEME LARGEUR que
+// la gueule et se fait couper par elle. Ce qui reste de gencives est la bande
+// du haut, et c'est tout ce que la planche en montre : 12 px sur 45.
+uniform vec2 tongue_offset = vec2(0.0, -0.045);
+uniform vec2 tongue_size = vec2(0.100, 0.170);
 // Les crocs : deux petits triangles creme accroches sous la levre, aux coins de
 // la gueule. Ils font 2 px sur la maquette — c'est le detail le plus fin du
 // visage, et il ne se verra qu'en gros plan (comme les griffes, §2bis).
 uniform vec4 fang_color : source_color = vec4(0.969, 0.937, 0.878, 1.0);
-uniform vec2 fang_pos = vec2(0.125, -0.792);
+uniform vec2 fang_pos = vec2(0.078, -0.792);
 uniform float fang_size : hint_range(0.0, 0.06) = 0.014;
 
 group_uniforms bavette;
@@ -404,7 +429,7 @@ void fragment() {
 			float tongue = max(
 					sd_ellipse(uv - center - tongue_offset * mouth_open,
 							tongue_size * mouth_open),
-					under_lip);
+					maw);
 			col = paint(col, tongue, aa, tongue_color.rgb);
 
 			// Les crocs sont poses A CHEVAL sur la levre et c'est la coupe qui
@@ -436,14 +461,25 @@ void fragment() {
 				nose_size), aa, nose_color.rgb);
 
 		// --- LES YEUX ---------------------------------------------------
-		// Du plus large au plus petit : cerne, iris en deux verts, pupille,
-		// reflet. L'iris est le seul aplat du jeu a porter deux tons SANS
-		// lumiere — c'est un dessin, pas un cluster (voir iris_shadow_color).
+		// Du plus large au plus petit : cerne, sclere, cerne d'iris, iris en
+		// deux verts, pupille, reflet. L'iris est le seul aplat du jeu a porter
+		// deux tons SANS lumiere — c'est un dessin, pas un cluster (voir
+		// iris_shadow_color).
+		float lid = sd_ellipse(uv - sclera_pos, sclera_size);
+		col = paint(col, lid - eye_border, aa, line_color.rgb);
+		// La sclere reprend le blanc du reflet : c'est le meme blanc d'oeil, et
+		// la palette du visage n'a pas a en porter deux.
+		col = paint(col, lid, aa, glint_color.rgb);
+
+		// L'iris, DANS l'ouverture — d'ou le max(.., lid) sur les deux formes
+		// qui pourraient en sortir. Il la touche en haut et du cote du nez ;
+		// sans la coupe, son cerne mordrait celui de l'ouverture.
 		vec2 eo = uv - eye_pos;
 		float eye = sd_ellipse(eo, eye_size);
-		col = paint(col, eye - eye_border, aa, line_color.rgb);
-		col = paint(col, eye, aa, iris_color.rgb);
-		col = paint(col, max(eye, iris_split - eo.y), aa, iris_shadow_color.rgb);
+		col = paint(col, max(eye - iris_border, lid), aa, line_color.rgb);
+		col = paint(col, max(eye, lid), aa, iris_color.rgb);
+		col = paint(col, max(max(eye, lid), iris_split - eo.y), aa,
+				iris_shadow_color.rgb);
 		col = paint(col, sd_ellipse(eo, pupil_size), aa, pupil_color.rgb);
 		col = paint(col, sd_ellipse(eo - glint_offset, glint_size), aa,
 				glint_color.rgb);

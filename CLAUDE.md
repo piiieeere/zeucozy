@@ -162,6 +162,8 @@ powershell -ExecutionPolicy Bypass -File tools/fetch_fonts.ps1
 #   --model=res://assets/models/player_cat.glb   l'autre chat, pour comparer
 #   --mouth-open=1     la GUEULE OUVERTE (rien ne l'anime encore)
 #   --pitch=26         camera dans l'axe du visage — le cadrage ou se juge le dessin
+#   --pitch=0          PLEIN PROFIL — le cadrage ou se juge la TETE (le museau)
+#   --distance=10.5    recul ; a plat le chat se presente en long et SORT DU CADRE
 #   --out=<dossier>    ou ecrire les PNG
 # Reconstruire puis exporter le canape (le .blend est REGENERE, jamais edite a la main)
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --factory-startup \
@@ -744,7 +746,8 @@ leur filet à elles, `RULE_RAISED`, **sombre**. Le palier passe en **losanges de
 (`tier_pips.gd`). Détail et mesures dans [[L'interface — les deux refontes]].
 
 **LE CHAT A ETE REMODELISE LE 2026-08-20**, d'après `maquettes/CatTuxedo.png` (7 vues),
-`maquettes/CatTuxedoFace.png` (le visage de face, gueule fermée et ouverte) et
+`maquettes/CatTuxedoFace.png` (le visage de face, gueule fermée et ouverte),
+`maquettes/CatTuxedoFaceProfil.png` (**la tête de profil**, droite et gauche) et
 `maquettes/CatTuxedoWalk.png` (marche, 6 poses). Tout est dans
 [[Le chat — style, pelage, fluidité]]. Ce qu'il faut savoir avant d'y toucher :
 
@@ -753,9 +756,10 @@ leur filet à elles, `RULE_RAISED`, **sombre**. Le palier passe en **losanges de
   (`chat_tuxedo_v1.blend`) est **régénéré, jamais édité à la main** ; le chat de
   2026-08-16, lui, était un `.blend` source sans garde-fou, et il a coûté une passe de
   pelage perdue.
-- **5 068 tris contre 13 028**, 5 surfaces contre 7, et une tête à 39 % de la hauteur au
-  lieu de 54 %. L'ancien `player_cat.glb` **reste dans le dépôt** : il se recharge au banc
-  par `--model=`, et `ANCHORS` dans `cel_model.gd` garde ses mesures à lui.
+- **5 404 tris contre 13 028** (5 068 avant la passe de tête du 2026-08-21), 5 surfaces
+  contre 7, et une tête à 39 % de la hauteur au lieu de 54 %. L'ancien `player_cat.glb`
+  **reste dans le dépôt** : il se recharge au banc par `--model=`, et `ANCHORS` dans
+  `cel_model.gd` garde ses mesures à lui.
 - ⚠️ **Les poids ne sont plus rigides partout** (le corps est une coque continue). Ce que
   le piège n°3 protégeait l'est toujours, et c'est **vérifié par le script** : `visage` et
   `museau_peint` sont à poids 1 sur `tete`, sinon il refuse d'écrire le `.blend`.
@@ -783,6 +787,38 @@ leur filet à elles, `RULE_RAISED`, **sombre**. Le palier passe en **losanges de
   peinte sur une grille ne peut pas être plus fine qu'une face : l'accent du dos et du
   crâne (canal B, à zéro partout désormais), la touffe blanche d'oreille, et une queue
   crochue qui sortait en anneau.
+
+**PUIS LA TÊTE ELLE-MÊME, LE 2026-08-21**, d'après `maquettes/CatTuxedoFaceProfil.png` —
+la vue qui manquait. Les trois choses à savoir :
+
+- ⭐ **Le museau est une MASSE POSÉE SUR UNE BOULE, à bord franc.** De profil, le crâne de
+  la planche est une **ellipse** (erreur moyenne 0,7 px sur 90 points) et le museau un
+  **plateau de +25 % de rayon**, dont le bord du haut se ferme en 9°. Le modèle d'avant
+  posait une gaussienne de 28° centrée sur la truffe : elle gonflait **l'œil autant que le
+  museau**, il n'y avait donc aucun pas — et sans pas, pas de **« creux au niveau du nez et
+  des yeux »**. La tête sortait en coin de renard au lieu d'une boule avec un museau
+  dessus. Le pas ne se creuse pas : il se lit parce que la surface juste au-dessus est le
+  **crâne nu**. Écart au relevé après changement : **0,007 en moyenne**.
+- ⚠️ **La tête est élargie de 17 %** (`HEAD_R.x` 0,360 → 0,420) — elle faisait 1,11 de
+  large pour 1,00 de haut quand **les deux planches** en donnent 1,30, mesurées séparément
+  et concordantes à 1 px sur la hauteur. C'est la dette que le relevé du visage payait en
+  gonflant les largeurs d'œil de 17,7 % ; **le facteur a disparu du shader**, les uv de
+  l'œil sont à nouveau des mesures brutes. `EAR_BASE.x` suit du même facteur, et
+  `face_radius` dans `ANCHORS` aussi.
+- ⚠️ **`HEAD_N_V` passe de 13 à 20 paralleles, et c'est le pas qui l'impose** : sa
+  transition fait 9° quand une rangée de quads en couvrait 12,9 — le pas tombait entier
+  dans une rangée et sortait en **arête de facette**.
+- ⭐ **Et l'œil n'est pas l'iris** — relevé le même jour. L'**ouverture** est une amande
+  plus large que l'iris (71 × 81 px contre 45 × 75), et l'iris n'y est pas centré : il est
+  poussé **vers le nez**, tangent au bord interne et au bord haut. Ce qui reste en blanc
+  est un croissant de **sclère** du côté de l'oreille. C'est lui qui dit où l'œil pointe ;
+  un iris qui remplit son cerne ne regarde nulle part.
+- ⚠️ **`mouth_weight` 0,010 → 0,016, à rebours du relevé.** La lèvre de la planche fait
+  2 à 3 px, donc 0,010 était juste — mais la planche est un portrait de 260 px de tête et
+  le jeu en montre une de 30. §15 tranche.
+- ⚠️ **La cavité de la gueule a dû être remesurée** (0,146 × 0,235 → **0,100 × 0,224**) :
+  c'est le seul chiffre du visage qu'un changement de géométrie oblige à refaire, parce
+  qu'il est réglé au rendu et non relevé.
 
 **Visuels :** le **chat est dans le jeu**, cel-shadé, contour, visage peint et **griffes
 dessinées** compris, et il se lit à taille de jeu — désormais en **tuxedo noir et blanc**,
