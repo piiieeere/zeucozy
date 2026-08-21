@@ -743,8 +743,9 @@ tombait à 1,22:1), le texte de carte est passé en crème plein, et les plaques
 leur filet à elles, `RULE_RAISED`, **sombre**. Le palier passe en **losanges dessinés**
 (`tier_pips.gd`). Détail et mesures dans [[L'interface — les deux refontes]].
 
-**LE CHAT A ETE REMODELISE LE 2026-08-20**, d'après `maquettes/CatTuxedo.png` (7 vues)
-et `maquettes/CatTuxedoWalk.png` (marche, 6 poses). Tout est dans
+**LE CHAT A ETE REMODELISE LE 2026-08-20**, d'après `maquettes/CatTuxedo.png` (7 vues),
+`maquettes/CatTuxedoFace.png` (le visage de face, gueule fermée et ouverte) et
+`maquettes/CatTuxedoWalk.png` (marche, 6 poses). Tout est dans
 [[Le chat — style, pelage, fluidité]]. Ce qu'il faut savoir avant d'y toucher :
 
 - ⭐ **Il se reconstruit d'un script**, `tools/build_cat_tuxedo.py` — géométrie, rig, poids
@@ -761,10 +762,23 @@ et `maquettes/CatTuxedoWalk.png` (marche, 6 poses). Tout est dans
 - ⚠️ **Une marque blanche est une COQUE**, pas une zone de matière — bavette, chaussettes,
   bout de queue. C'est ce qui leur donne leur trait d'encre, et ce qui évite l'escalier
   d'une frontière posée en biais sur la grille.
-- **Le visage est relevé trait pour trait sur la maquette** (yeux, truffe, lèvre,
-  moustaches, bavette), et la **gueule ouverte existe** — `mouth_open`, en place mais
-  **débranchée**, elle attend l'animation de visage. Se juge au banc :
+- **Le visage est relevé trait pour trait sur `CatTuxedoFace.png`** (yeux, truffe,
+  lèvre, moustaches, bavette), et la **gueule ouverte existe** — `mouth_open`, en place
+  mais **débranchée**, elle attend l'animation de visage. Se juge au banc :
   `--mouth-open=1 --pitch=26`.
+- ⛔ **ET LE PREMIER RELEVÉ ÉTAIT FAUX SUR TOUTES SES HAUTEURS** — refait le 2026-08-20,
+  troisième passage. `uv.x` se normalise par la demi-**largeur** de la tête, `uv.y` par sa
+  demi-**hauteur** ; sur ce chat elles valent 167,5 et 129,5 px, soit **1,29 d'écart**. Le
+  relevé avait divisé les deux axes par la demi-largeur, donc **toutes** les hauteurs du
+  visage sortaient 29 % trop courtes — de façon cohérente, donc invisible : le visage
+  restait plausible, il était juste écrasé, et les yeux paraissaient petits. ⚠️ Le ✅ qui
+  l'accompagnait ne valait rien : il mesurait des deux côtés avec la convention fautive.
+- ⭐ **`face_lift` (0,33) porte le cadrage, et lui seul.** Il se retranche de `uv.y` une
+  fois, juste avant le dessin : **toutes** les valeurs de `cel_face.gdshader` sont donc des
+  mesures brutes de la planche, lisibles à côté d'elle. Avant, la compensation de plongée
+  était ajoutée à la main dans chaque chiffre — une mesure et un choix de cadrage mélangés
+  sans que rien ne le dise. ⚠️ Contrepartie : `bib.line` du chat de 2026-08-16 passe à
+  −0,35 dans `ANCHORS`, et son masque ne bouge pas d'un pixel.
 - ⛔ **Trois choses ont été rendues puis JETÉES**, toutes pour la même raison — une zone
   peinte sur une grille ne peut pas être plus fine qu'une face : l'accent du dos et du
   crâne (canal B, à zéro partout désormais), la touffe blanche d'oreille, et une queue

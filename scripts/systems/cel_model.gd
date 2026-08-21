@@ -31,20 +31,29 @@ const FACE_MATERIALS := ["visage", "museau_peint"]
 # — le shader passe par |x| et dessine les deux cotes.
 # Godot n'accepte pas de valeur par defaut sur un tableau d'uniforms.
 #
-# RELEVEES SUR LA MAQUETTE le 2026-08-20, et elles ont bouge de beaucoup : elles
-# partaient du NEZ (y de -0,08 a -0,18), elles partent desormais du COUSSINET,
-# c'est-a-dire au niveau de la gueule (y de -0,24 a -0,52). C'est ce qui donne
-# l'eventail large de la maquette au lieu d'un trio de traits sous les yeux.
+# ⚠️ EN COORDONNEES DE MAQUETTE, comme tout le reste du visage depuis que
+# `face_lift` existe (voir l'en-tete de cel_face.gdshader) : le shader retranche
+# le cadrage lui-meme. Les trois y sont donc franchement negatifs, et c'est
+# normal — sur la planche, les moustaches sont sous la ligne des yeux.
+#
+# RELEVEES SUR `maquettes/CatTuxedoFace.png` en suivant chaque trait colonne par
+# colonne, la ou il passe sur du blanc (le masque noir de la joue le cache au
+# milieu). Les trois pentes sont mesurees, pas choisies : la haute MONTE vers
+# l'exterieur, la mediane est presque plate, la basse DESCEND. C'est cet
+# eventail-la qui fait lire un coussinet ; trois traits paralleles feraient une
+# fourchette, exactement le defaut evite sur les griffes.
 #
 # ⚠️ ELLES SONT PLUS COURTES QUE SUR LA MAQUETTE, ET CA NE SE RATTRAPE PAS.
-# La maquette les fait sortir de la silhouette de la tete (jusqu'a 1,1 en uv) :
-# un dessin le peut, une surface non — ici tout est peint SUR le crane, et le
-# cone facial s'arrete a 0,89. Au-dela de ~0,76 la moustache se ferait trancher
-# net par `face_front_min`, ce qui se lirait comme un trait casse.
+# La maquette les fait sortir de la silhouette de la tete (jusqu'a 1,17 en uv,
+# et leurs racines sont deja a 0,33-0,45) : un dessin le peut, une surface non —
+# ici tout est peint SUR le crane, et le cone facial s'arrete a 0,89. Chaque
+# bout ci-dessous est pose au plus loin que le cone accepte UNE FOIS LE CADRAGE
+# APPLIQUE, ce qui donne trois longueurs differentes : la basse plonge, donc
+# elle atteint le bord du cone plus tot.
 const WHISKERS := [
-	Vector4(0.25, -0.22, 0.78, -0.10),
-	Vector4(0.24, -0.34, 0.78, -0.30),
-	Vector4(0.22, -0.46, 0.71, -0.50),
+	Vector4(0.33, -0.50, 0.85, -0.45),
+	Vector4(0.42, -0.66, 0.80, -0.69),
+	Vector4(0.45, -0.71, 0.74, -0.81),
 ]
 
 # LES GRIFFES (2026-08-16) — trois traits par patte, DESSINES.
@@ -154,15 +163,24 @@ const ANCHORS := {
 		],
 		"face_center": Vector3(0.0, 1.30, 0.80),
 		"face_radius": Vector3(0.360, 0.325, 0.340),
-		# Relevee sur la maquette, colonne par colonne : le haut du blanc y est
-		# a +0,04 au centre (la liste qui remonte entre les yeux), -0,07 a
-		# |x| = 0,14, -0,12 a 0,22, -0,175 a 0,36. Ces quatre points fixent les
-		# quatre reglages a moins de 0,02 pres.
+		# Relevee sur `maquettes/CatTuxedoFace.png` colonne par colonne, yeux
+		# masques, en COORDONNEES DE MAQUETTE (le shader retranche le cadrage) :
+		# le haut du blanc est a -0,166 au centre, -0,355 a |x| = 0,12, -0,463 a
+		# 0,24, -0,550 a 0,55, -0,680 a 0,72. Les quatre reglages sont ajustes
+		# aux moindres carres sur ces huit points, a 0,018 pres en moyenne.
+		#
+		# ⭐ CE QUE CE MASQUE-LA FAIT ET QUE L'ANCIEN NE FAISAIT PAS : il passe
+		# SOUS les yeux partout. A hauteur d'oeil (|x| = 0,394) la frontiere est
+		# a -0,500, le bas de l'iris a -0,483 — l'oeil est donc entierement
+		# cerne de noir, comme sur la planche. L'ancien masque montait autour des
+		# yeux et les posait sur du blanc : chacun devenait une petite tache
+		# verte sur un grand museau, au lieu d'un oeil encadre.
 		"bib": {
-			"line": 0.015,
-			"falloff": 1.47,
-			"blaze_height": 0.115,
-			"blaze_width": 0.07,
+			"line": -0.445,
+			"falloff": 0.312,
+			"falloff4": 0.260,
+			"blaze_height": 0.266,
+			"blaze_width": 0.110,
 		},
 	},
 	# LE CHAT DE 2026-08-16 — boites relevees par tools/dump_paws.gd, ellipsoide
@@ -192,9 +210,15 @@ const ANCHORS := {
 		],
 		"face_center": Vector3(0.0, 1.100, 0.640),
 		"face_radius": Vector3(0.5016, 0.4651, 0.4560),
+		# ⚠️ `line` a ete DECALE DE -0,33 le 2026-08-20, et le masque n'a pas
+		# bouge d'un pixel pour autant : c'est la contrepartie de `face_lift`,
+		# qui retranche desormais le cadrage avant le dessin. Seule la constante
+		# se decale — la liste et les deux freins sont des FORMES, invariantes
+		# par translation verticale. Valeur d'origine : -0,02.
 		"bib": {
-			"line": -0.02,
+			"line": -0.35,
 			"falloff": 0.55,
+			"falloff4": -1.25,
 			"blaze_height": 0.12,
 			"blaze_width": 0.14,
 		},
@@ -549,6 +573,9 @@ func _apply_cel_materials() -> void:
 			var bib: Dictionary = _anchors["bib"]
 			toon_mat.set_shader_parameter("bib_line", bib["line"])
 			toon_mat.set_shader_parameter("bib_falloff", bib["falloff"])
+			# Le terme d'ordre 4 etait le seul des cinq a rester au defaut du
+			# shader — donc le seul que charger l'autre chat ne corrigeait pas.
+			toon_mat.set_shader_parameter("bib_falloff4", bib["falloff4"])
 			toon_mat.set_shader_parameter("bib_blaze_height", bib["blaze_height"])
 			toon_mat.set_shader_parameter("bib_blaze_width", bib["blaze_width"])
 			# L'ellipsoide sur lequel tout le visage se projette. Pose

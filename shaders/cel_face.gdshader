@@ -48,22 +48,47 @@ uniform float face_front_min : hint_range(-1.0, 1.0) = 0.46;
 // releve donc le masque pour qu'il regarde la camera — c'est du cadrage, pas
 // de l'anatomie, et c'est le reglage habituel des jeux en vue plongeante.
 uniform float face_pitch_deg : hint_range(0.0, 80.0) = 26.0;
+// ⭐ LE CADRAGE, et lui seul. Retranche des hauteurs du visage juste avant le
+// dessin, donc TOUTES les valeurs qui suivent sont des mesures brutes de la
+// maquette, lisibles telles quelles a cote de la planche.
+//
+// Il existe parce que la maquette regarde droit devant et que la camera du jeu
+// plonge de 45° (§11) : poser le visage a sa hauteur de maquette le mettrait
+// sous l'horizon du crane, la ou la camera ne voit plus que le front.
+//
+// ⚠️ Il ne touche PAS le cone facial (`in_face`) : le cone decrit la geometrie
+// de la tete, pas la mise en page du dessin.
+uniform float face_lift : hint_range(-0.5, 0.8) = 0.33;
 
 // ─── LE VISAGE EST RELEVE SUR LA MAQUETTE, PAS COMPOSE A L'OEIL ──────────────
 //
-// Toutes les valeurs ci-dessous sont MESUREES sur `maquettes/CatTuxedo.png`
-// (2026-08-20), et la mesure est directe : sur une vue de face orthographique,
+// Toutes les valeurs ci-dessous sont MESUREES sur `maquettes/CatTuxedoFace.png`
+// (2026-08-20), la planche de visage de face — gueule fermee a droite, gueule
+// ouverte a gauche. La mesure est directe : sur une vue de face orthographique,
 // un point de la surface a l'angle theta de l'axe tombe a `sin(theta) x R` de
-// l'ecran — c'est exactement l'espace facial de ce shader. Un relevé en pixels,
-// divisé par le rayon de la tete dessinee (97 px, centre (133,5 ; 165)), donne
-// donc des uv sans conversion.
+// l'ecran, ce qui est exactement l'espace facial de ce shader. Un releve en
+// pixels divise par le rayon de la tete dessinee donne donc des uv SANS
+// conversion.
 //
-// ⚠️ CE QUI N'A PAS ETE TRANSPOSE : la hauteur ABSOLUE du groupe. Le repere est
-// bascule de `face_pitch_deg` = 26° vers le haut parce que la camera plonge de
-// 45° (§11) ; transposer la maquette telle quelle poserait le visage 26° plus
-// bas sur le crane, la ou la camera de jeu ne voit plus que le front. Ce sont
-// les ECARTS entre traits qui viennent de la maquette (oeil -> nez -> gueule),
-// pas leur ancrage.
+// ⛔ ET C'EST LA QUE LE PREMIER RELEVE S'EST TROMPE — le visage est passe par ce
+// shader une premiere fois le 2026-08-20 au matin, et il en est sorti avec des
+// yeux trop petits. La cause tient en une ligne : `R` N'EST PAS UN NOMBRE, C'EN
+// EST DEUX. `uv.x` se normalise par la demi-LARGEUR de la tete, `uv.y` par sa
+// demi-HAUTEUR, et sur ce chat la tete est plus large que haute — 167,5 px
+// contre 129,5, soit un rapport de 1,29. Le premier releve a divise les DEUX
+// axes par la demi-largeur : toutes les hauteurs sont sorties 29 % trop
+// courtes, d'un seul coup et de facon coherente. C'est exactement le genre
+// d'erreur qui ne se voit pas — le visage restait plausible, il etait juste
+// ecrase. Mesure : demi-hauteur d'iris 0,216 rendue contre 0,290 relevee.
+//
+// Repere de la planche : axe du visage x = 1014, centre de tete y = 325,5,
+// demi-axes (167,5 ; 129,5).
+//
+// ⚠️ LA HAUTEUR ABSOLUE DU GROUPE NE VIENT PAS DE LA MAQUETTE, et elle a
+// desormais son propre uniform (`face_lift`). Avant, elle etait AJOUTEE A LA
+// MAIN dans chaque valeur, ce qui melangeait sans le dire une mesure et un
+// choix de cadrage : impossible de recaler le visage sans refaire le releve, et
+// impossible de savoir, devant un chiffre, lequel des deux on lisait.
 
 group_uniforms yeux;
 uniform vec4 iris_color : source_color = vec4(0.533, 0.722, 0.533, 1.0);
@@ -72,42 +97,71 @@ uniform vec4 iris_color : source_color = vec4(0.533, 0.722, 0.533, 1.0);
 // l'oeil — sauf qu'il est DESSINE, pas subi : §2bis veut que l'oeil reste un
 // aplat franc quelle que soit la lumiere.
 uniform vec4 iris_shadow_color : source_color = vec4(0.259, 0.478, 0.243, 1.0);
-uniform float iris_split : hint_range(-0.3, 0.3) = 0.0;
+uniform float iris_split : hint_range(-0.3, 0.3) = -0.039;
 uniform vec4 pupil_color : source_color = vec4(0.239, 0.169, 0.102, 1.0);
 uniform vec4 glint_color : source_color = vec4(0.961, 0.925, 0.847, 1.0);
 uniform vec4 line_color : source_color = vec4(0.239, 0.169, 0.102, 1.0);
 // "Grands yeux expressifs avec reflets lumineux" — §3.
-// Releve : iris de demi-axes (0,119 ; 0,201) centre a 0,397 de l'axe. L'oeil de
-// la maquette est donc plus ETROIT, plus HAUT et plus ECARTE que celui d'avant
-// (0,155 ; 0,19) a 0,30 — c'est ce qui lui donne son amande.
-uniform vec2 eye_pos = vec2(0.397, 0.095);
-uniform vec2 eye_size = vec2(0.128, 0.216);
-uniform float eye_border : hint_range(0.0, 0.1) = 0.036;
-uniform vec2 pupil_size = vec2(0.063, 0.133);
-uniform vec2 glint_offset = vec2(0.0, 0.123);
-uniform vec2 glint_size = vec2(0.045, 0.062);
+//
+// Releve sur la planche : iris de 45 x 75 px, centres a 66 px de l'axe, soit
+// des demi-axes (0,134 ; 0,286) a 0,394. C'est un oeil DEUX FOIS PLUS HAUT QUE
+// LARGE — l'amande de la maquette — et il occupe 29 % de la hauteur de tete a
+// lui seul. La pupille est une fente verticale (19 x 39 px) et le reflet un
+// ovale FRANC pose en haut, du cote exterieur : ce sont les deux details qui
+// font qu'un oeil se lit comme un oeil a taille de jeu, et les deux etaient
+// sortis trop petits.
+//
+// ⚠️ ET LES TROIS LARGEURS SONT ELARGIES DE 17 %, PAS RELEVEES. Les fractions
+// de tete se transposent exactement — l'oeil rendu occupe 13,2 % de la largeur
+// et 29,8 % de la hauteur, contre 13,4 % et 29,0 % sur la planche — mais LA
+// TETE DU MODELE N'A PAS L'ALLONGEMENT DE CELLE DU DESSIN : projetee, elle fait
+// 258 x 235 px (rapport 1,10) quand la planche en fait 335 x 259 (rapport 1,29).
+// Une amande juste en fractions sort donc trop etroite en FORME : 2,06 de haut
+// pour 1 de large contre 1,67 sur la planche. Le facteur 1,29 / 1,10 = 1,177
+// rattrape la difference sur les trois formes de l'oeil — et sur elles seules,
+// parce que c'est le seul detail du visage qu'on lise vraiment a taille de jeu.
+//
+// La vraie correction serait d'elargir la TETE, pas l'oeil. Elle est en
+// geometrie (`HEAD_R` dans tools/build_cat_tuxedo.py), elle deplace les
+// oreilles, la boite de griffes et l'ellipsoide d'ANCHORS, et elle n'a pas ete
+// faite ici : ce chantier-ci porte sur le dessin.
+uniform vec2 eye_pos = vec2(0.394, -0.197);
+uniform vec2 eye_size = vec2(0.157, 0.286);
+uniform float eye_border : hint_range(0.0, 0.1) = 0.028;
+uniform vec2 pupil_size = vec2(0.067, 0.160);
+uniform vec2 glint_offset = vec2(0.028, 0.158);
+uniform vec2 glint_size = vec2(0.060, 0.077);
 
 group_uniforms nez_bouche;
 uniform vec4 nose_color : source_color = vec4(0.909, 0.722, 0.659, 1.0);
-uniform vec2 nose_pos = vec2(0.0, -0.095);
-uniform float nose_size : hint_range(0.0, 0.2) = 0.063;
+uniform vec2 nose_pos = vec2(0.0, -0.494);
+uniform float nose_size : hint_range(0.0, 0.2) = 0.0346;
 // ⚠️ LE NEZ DE LA MAQUETTE EST PLUS LARGE QUE HAUT (14 px sur 8), et
 // `sd_nose()` dessine un triangle plus haut que large (3 x size de haut pour
 // 1,73 x size de demi-largeur). On ecrase donc son repere avant de l'evaluer,
 // au lieu de reduire sa taille — reduire aurait rendu un nez juste petit.
-uniform float nose_squash : hint_range(0.5, 3.0) = 1.45;
-// La levre en omega. Releve : le creux de chaque arc tombe a |x| = 0,12 et la
-// pointe centrale remonte a -0,284 ; d'ou un cercle de rayon 0,179 centre a
-// (0,12 ; -0,151). L'arc d'avant (rayon 0,085) etait deux fois plus serre et
-// se lisait comme une petite bouche pincee.
-uniform vec2 mouth_center = vec2(0.12, -0.091);
-uniform float mouth_radius : hint_range(0.0, 0.3) = 0.179;
-uniform float mouth_weight : hint_range(0.0, 0.05) = 0.016;
+uniform float nose_squash : hint_range(0.5, 3.0) = 1.48;
+// La levre en omega. Trois points releves par arc — la pointe centrale
+// (0 ; -0,706), le creux (0,119 ; -0,788), le coin (0,203 ; -0,706) — et le
+// cercle qui passe par les trois : rayon 0,1035 centre a (0,1015 ; -0,686).
+//
+// ⚠️ UN CERCLE DE LA PLANCHE N'EST PAS UN CERCLE EN UV : les deux axes ne se
+// normalisent pas par le meme nombre (voir l'en-tete). Le cercle ci-dessus est
+// donc ajuste dans l'espace uv directement, sur les trois points, et non
+// converti depuis un rayon en pixels — lequel n'existe pas ici.
+uniform vec2 mouth_center = vec2(0.1015, -0.686);
+uniform float mouth_radius : hint_range(0.0, 0.3) = 0.1035;
+uniform float mouth_weight : hint_range(0.0, 0.05) = 0.010;
 // ⚠️ ET ELLE S'ARRETE. Sans cette borne, la moitie basse du cercle est dessinee
 // EN ENTIER : le trait continuait jusqu'a |x| = 0,30 et remontait vers les
 // joues — un sourire qui barrait tout le visage. Sur la maquette les deux arcs
 // s'arretent au coin de la gueule, a 0,21.
-uniform float mouth_reach : hint_range(0.05, 0.5) = 0.21;
+uniform float mouth_reach : hint_range(0.05, 0.5) = 0.203;
+// ⚠️ LE PHILTRUM NE REJOINT PAS LA LEVRE, et il ne le fait pas sur la maquette :
+// sous le nez il n'y a qu'un TALON de 4 px, la pointe du trait de nez qui
+// descend un peu. Le trait plein qui reliait le nez a la levre etait une
+// invention, et il fermait le museau comme une couture.
+uniform float philtrum_drop : hint_range(0.0, 0.4) = 0.055;
 
 group_uniforms gueule;
 // ⭐ LA GUEULE OUVERTE (2026-08-20) — la seconde bouche de la maquette.
@@ -123,16 +177,37 @@ group_uniforms gueule;
 uniform float mouth_open : hint_range(0.0, 1.0) = 0.0;
 uniform vec4 maw_color : source_color = vec4(0.741, 0.337, 0.325, 1.0);
 uniform vec4 tongue_color : source_color = vec4(0.929, 0.522, 0.518, 1.0);
-uniform vec2 maw_center = vec2(0.0, -0.355);
-uniform vec2 maw_size = vec2(0.125, 0.140);
-uniform vec2 tongue_offset = vec2(0.0, -0.070);
-uniform vec2 tongue_size = vec2(0.085, 0.072);
+//
+// ⛔ LA CAVITE EST LE SEUL DETAIL DU VISAGE REGLE A L'ARRIVEE, ET NON RELEVE.
+// Ses uv de planche (demi-axes 0,146 x 0,174) rendaient 43 px de large sur 71
+// de haut — une BOULE — quand la planche donne 49 x 45.
+//
+// La cause est geometrique et vaut pour tout ce qui descend bas sur le visage :
+// `dir` se normalise par l'ELLIPSOIDE, mais la surface, elle, BOMBE sous le
+// museau et le menton (`MUZZLE_BUMP` et `CHIN_BUMP` dans build_cat_tuxedo.py).
+// Un meme ecart d'uv couvre donc plus d'ecran en bas du visage qu'au milieu, et
+// la gueule est ce qu'il y a de plus bas. Ni la planche ni le shader ne peuvent
+// le savoir : c'est la forme de la tete qui l'impose.
+//
+// ⚠️ Et ca ne se corrige PAS d'un facteur, parce que le rapport n'est pas
+// constant : les quatre demi-hauteurs essayees rendent 15, 27, 33 puis 43 px
+// (0,098 / 0,170 / 0,200 / 0,235). Le pas s'ouvre a mesure qu'on descend sur le
+// bombe. La valeur retenue est celle qui rend le RAPPORT de la planche —
+// 43 x 43 px, soit 1,00 contre 1,09 mesure. La largeur, elle, est intacte.
+//
+// ⚠️ Le HAUT de l'ellipse doit rester AU-DESSUS de la pointe de la levre
+// (-0,706), sinon un liseré de museau reste coince entre le trait et la cavite.
+// C'est ce qui fixe le centre : centre + demi-hauteur = -0,608, toujours.
+uniform vec2 maw_center = vec2(0.0, -0.843);
+uniform vec2 maw_size = vec2(0.146, 0.235);
+uniform vec2 tongue_offset = vec2(0.0, -0.060);
+uniform vec2 tongue_size = vec2(0.132, 0.170);
 // Les crocs : deux petits triangles creme accroches sous la levre, aux coins de
 // la gueule. Ils font 2 px sur la maquette — c'est le detail le plus fin du
 // visage, et il ne se verra qu'en gros plan (comme les griffes, §2bis).
 uniform vec4 fang_color : source_color = vec4(0.969, 0.937, 0.878, 1.0);
-uniform vec2 fang_pos = vec2(0.13, -0.245);
-uniform float fang_size : hint_range(0.0, 0.06) = 0.019;
+uniform vec2 fang_pos = vec2(0.125, -0.792);
+uniform float fang_size : hint_range(0.0, 0.06) = 0.014;
 
 group_uniforms bavette;
 // Le blanc du bas de visage, chez un chat tuxedo. Applique a la couleur
@@ -144,8 +219,8 @@ uniform float bib_strength : hint_range(0.0, 1.0) = 1.0;
 // Hauteur de la frontiere en espace facial, et ses deux corrections :
 // la liste qui remonte au centre, le blanc qui redescend sur les cotes.
 // Reglages et justification : BIB dans cel_model.gd.
-uniform float bib_line : hint_range(-0.6, 0.4) = -0.02;
-uniform float bib_falloff : hint_range(0.0, 2.0) = 0.55;
+uniform float bib_line : hint_range(-0.6, 0.4) = -0.445;
+uniform float bib_falloff : hint_range(0.0, 2.0) = 0.312;
 // ⚠️ UNE SEULE PARABOLE NE PEUT PAS FAIRE LES DEUX, et c'est tout l'objet de ce
 // second terme.
 //
@@ -159,9 +234,9 @@ uniform float bib_falloff : hint_range(0.0, 2.0) = 0.55;
 // Le terme d'ordre 4 est donc NEGATIF : il freine la parabole loin de l'axe.
 // Les trois points mesures pres du centre restent tenus a 0,02 pres, et le
 // blanc atteint |x| = 0,70 a hauteur de menton.
-uniform float bib_falloff4 : hint_range(-4.0, 12.0) = -1.25;
-uniform float bib_blaze_height : hint_range(0.0, 0.4) = 0.12;
-uniform float bib_blaze_width : hint_range(0.02, 0.5) = 0.14;
+uniform float bib_falloff4 : hint_range(-4.0, 12.0) = 0.26;
+uniform float bib_blaze_height : hint_range(0.0, 0.4) = 0.266;
+uniform float bib_blaze_width : hint_range(0.02, 0.5) = 0.110;
 
 group_uniforms moustaches;
 // Trait secondaire brun moyen (§4) — plus fin que le contour principal.
@@ -171,7 +246,7 @@ uniform vec4 whisker_color : source_color = vec4(0.353, 0.243, 0.157, 1.0);
 // justement la frontiere de la bavette — elles changent donc de couleur en
 // cours de trait, exactement comme sur un vrai chat bicolore.
 uniform vec4 whisker_color_dark : source_color = vec4(0.906, 0.855, 0.749, 1.0);
-uniform float whisker_weight : hint_range(0.0, 0.03) = 0.008;
+uniform float whisker_weight : hint_range(0.0, 0.03) = 0.007;
 // Un segment par moustache : (depart.xy, arrivee.xy) en espace facial miroir.
 // Godot refuse les valeurs par defaut sur les tableaux d'uniforms : les
 // valeurs viennent du script (WHISKERS dans cel_test.gd).
@@ -240,8 +315,11 @@ void fragment() {
 
 	bool in_face = dot(dir, f_fwd) > face_front_min;
 	vec2 uv_signed = vec2(dot(dir, f_right), dot(dir, f_up));
-	// |x| : les deux cotes d'un coup
-	vec2 uv = vec2(abs(uv_signed.x), uv_signed.y);
+	// |x| : les deux cotes d'un coup.
+	// Et `face_lift` se retranche ICI, UNE fois : en dessous, tout est en
+	// coordonnees de maquette. `in_face` a deja ete decide au-dessus, sur la
+	// geometrie — le cadrage ne doit ni elargir ni retrecir le cone.
+	vec2 uv = vec2(abs(uv_signed.x), uv_signed.y - face_lift);
 
 	// UN PIXEL, EN UNITES D'ESPACE FACIAL. Meme geste que les six shaders de
 	// FX (`ps` dans hit_burst, bite, claw_slash...) : un pixel de lissage, et
@@ -296,7 +374,21 @@ void fragment() {
 		// L'ordre compte : la cavite se pose AVANT la levre, pour que le trait
 		// de levre la borde au lieu d'etre recouvert.
 		vec2 mo = uv - mouth_center;
-		float below_lip = mouth_radius - length(mo);   // < 0 sous l'arc
+
+		// ⛔ LA COUPE SE FAIT SOUS LA COURBE, PAS HORS DU CERCLE. La version
+		// d'avant ecrivait `mouth_radius - length(mo)`, donc "en dehors du
+		// disque de levre" — ce qui n'a jamais ete la meme chose, et ne se
+		// voyait pas tant que le disque etait grand et pose HAUT sur le visage :
+		// son bord bas passait alors juste au-dessus de la cavite et faisait
+		// bien office de levre. Avec l'arc releve sur la planche (rayon 0,104
+		// au lieu de 0,179, et pose sur la gueule), le disque est devenu un
+		// petit rond au coin des levres : il ne rabotait plus la cavite, il y
+		// perforait un TROU, et il effacait les crocs en entier — ils sont
+		// dedans. Ici on compare a l'ORDONNEE de l'arc, colonne par colonne.
+		float lip_dx = uv.x - mouth_center.x;
+		float lip_y = mouth_center.y - sqrt(max(0.0,
+				mouth_radius * mouth_radius - lip_dx * lip_dx));
+		float under_lip = uv.y - lip_y;   // < 0 sous la levre, donc DANS la gueule
 
 		if (mouth_open > 0.001) {
 			// La cavite : une ellipse, rabotee par le dessous de l'arc de
@@ -305,18 +397,25 @@ void fragment() {
 			vec2 size = vec2(maw_size.x, maw_size.y * mouth_open);
 			vec2 center = vec2(maw_center.x,
 					mouth_center.y - (mouth_center.y - maw_center.y) * mouth_open);
-			float maw = max(sd_ellipse(uv - center, size), below_lip);
+			float maw = max(sd_ellipse(uv - center, size), under_lip);
 			col = paint(col, maw, aa, maw_color.rgb);
 
 			// La langue, au fond, et les crocs accroches sous la levre.
 			float tongue = max(
 					sd_ellipse(uv - center - tongue_offset * mouth_open,
 							tongue_size * mouth_open),
-					below_lip);
+					under_lip);
 			col = paint(col, tongue, aa, tongue_color.rgb);
 
-			float fang = sd_nose((uv - fang_pos) / vec2(1.0, 1.0), fang_size);
-			col = paint(col, max(fang, below_lip), aa, fang_color.rgb);
+			// Les crocs sont poses A CHEVAL sur la levre et c'est la coupe qui
+			// leur donne leur forme : le triangle deborde vers le haut, la
+			// levre lui tranche le sommet, il ne reste que la pointe qui pend.
+			// Coupes par `maw` et non par `under_lip` : sous la levre il y a
+			// encore du museau de chaque cote de la gueule, et un croc qui
+			// depasse par le bas s'y poserait comme un eclat creme sur le
+			// menton. La cavite est la seule surface ou un croc a un sens.
+			float fang = sd_nose(uv - fang_pos, fang_size);
+			col = paint(col, max(fang, maw), aa, fang_color.rgb);
 		}
 
 		// La levre en omega : un arc de cercle par cote, moitie basse seulement.
@@ -325,11 +424,11 @@ void fragment() {
 		col = paint(col, max(max(ring, -lower), uv.x - mouth_reach), aa,
 				line_color.rgb);
 
-		// Philtrum : le petit trait vertical entre le nez et la levre.
-		float lip_top = mouth_center.y - sqrt(max(0.0,
-				mouth_radius * mouth_radius - mouth_center.x * mouth_center.x));
-		float philtrum = sd_segment(uv, vec2(0.0, nose_pos.y - nose_size),
-				vec2(0.0, lip_top)) - mouth_weight * 0.8;
+		// Philtrum : le TALON sous le nez. Il s'arrete a `philtrum_drop` et ne
+		// rejoint pas la levre — voir l'uniform.
+		float nose_bottom = nose_pos.y - 2.0 * nose_size / nose_squash;
+		float philtrum = sd_segment(uv, vec2(0.0, nose_bottom),
+				vec2(0.0, nose_bottom - philtrum_drop)) - mouth_weight * 0.8;
 		col = paint(col, philtrum, aa, line_color.rgb);
 
 		// Nez — repere ecrase : la maquette le veut plus large que haut.
