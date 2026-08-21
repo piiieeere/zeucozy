@@ -143,19 +143,17 @@ static func make_ground() -> ShaderMaterial:
 	return mat
 
 
-## Un tapis. `size` est son emprise nominale en metres, `plane_size` celle du
-## plan qui le porte — plus grande, pour laisser la silhouette onduler hors du
-## rectangle sans etre tranchee. Le shader a besoin des deux : la premiere pour
-## sa forme, la seconde pour convertir son UV en metres.
-static func make_rug(color: Color, size: Vector2, plane_size: Vector2) -> ShaderMaterial:
+## Un tapis PEINT (2026-08-21). Il ne prend plus qu'une chose : sa planche.
+##
+## Forme, bord ondule, trait d'encre, liseré et couleur etaient sept reglages
+## calcules ici et dans `cel_rug.gdshader` ; ils sont desormais DESSINES, donc
+## dans l'image. Il n'y a plus rien a accorder entre le materiau et le plan qui
+## le porte — l'UV du `PlaneMesh` va d'un bord a l'autre de la planche, et
+## `arena.gd` taille le plan au rapport de celle-ci.
+static func make_rug(art: Texture2D) -> ShaderMaterial:
 	var mat := ShaderMaterial.new()
 	mat.shader = RUG_SHADER
-	mat.set_shader_parameter("base_color", color)
-	mat.set_shader_parameter("rug_size", size)
-	mat.set_shader_parameter("plane_size", plane_size)
-	# Le liseré interieur suit la taille du tapis, sinon un petit tapis se
-	# retrouve entierement mange par son propre liseré.
-	mat.set_shader_parameter("band_inset", clampf(minf(size.x, size.y) * 0.09, 0.25, 1.1))
+	mat.set_shader_parameter("rug_art", art)
 	return mat
 
 

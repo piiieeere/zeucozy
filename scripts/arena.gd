@@ -28,6 +28,15 @@ const CANAPE := "res://assets/models/prop_canape.glb"
 ## c'est `CelProp.PEINT` qui change tout, pas ce qui l'entoure.
 const TABLE_BASSE := "res://assets/models/prop_table_basse.glb"
 
+## ⭐ LES TAPIS PEINTS — 2026-08-21. Quatre planches peintes a la main, cuites
+## par `tools/bake_rugs.py`. C'est la branche la plus simple du PEINT de
+## §2quater : un tapis est plat et pose au sol, donc son illustration vue de
+## dessus EST sa texture, sans UV cuite ni projection (voir `cel_rug.gdshader`).
+const RUG_BLUE := preload("res://assets/textures/rug_blue.png")
+const RUG_GREEN := preload("res://assets/textures/rug_green.png")
+const RUG_PINK := preload("res://assets/textures/rug_pink.png")
+const RUG_VIOLET := preload("res://assets/textures/rug_violet.png")
+
 ## Ton moyen du parquet. Sert de fond de melange aux aplats du mobilier, pour
 ## qu'ils restent coherents avec le sol sur lequel ils sont poses.
 const FLOOR_COLOR := Color("#E8D4A8")
@@ -154,25 +163,26 @@ const DECOR_LAYER := 1 << 2
 ## §16 interdisant de trancher un reglage de trait en raisonnant.
 var _outline_scale := CelProp.OUTLINE_SCALE
 
-# Tapis — centre en fraction de la cellule, emprise en metres.
+# Tapis — centre en fraction de la cellule, LARGEUR en metres, et sa planche.
 # L'ordre compte : chaque tapis se pose un cran au-dessus du precedent.
 #
-# La palette vient de "Visual Art Direction" §4 : les pastels de l'ancien
-# prototype 2D (#9FF6FF, #FFC6FF, #BDB2FF) n'en font pas partie et juraient
-# avec le bois. Les flaques de lumiere ont quitte cette liste — elles sont
-# desormais peintes par le shader de sol, ce qui leur donne un bord irregulier
-# et les fait traverser les tapis au lieu de s'arreter a leur bord.
+# ⚠️ LA PROFONDEUR N'EST PAS ICI, ET C'EST VOULU. Elle se deduit du rapport de
+# l'illustration (`_rug_size`) : un tapis pose a un autre rapport que son dessin
+# etirerait son trait d'encre dans un sens et l'ecraserait dans l'autre, et le
+# defaut serait muet — les quatre planches ne sont pas au meme rapport (1,261 a
+# 1,302). Reposer une planche d'un autre format ne demande donc rien ici.
+#
+# Les couleurs, elles, ont quitte cette liste avec le tapis calcule : il y a
+# quatre PLANCHES, plus une planche et quatre teintes. Le vert etait pose deux
+# fois a 10 m d'ecart sur le meme flanc de cellule — deux tapis identiques si
+# proches se lisent comme du papier peint, c'est deja la raison du decalage
+# aleatoire par cellule. Le second passe au rose, a l'autre bout du motif.
 const RUGS := [
-	{"at": Vector2(0.50, 0.52), "size": Vector2(18.0, 12.0),
-		"color": Color("#A0C8D8")},   # grand tapis central, bleu ciel Ghibli
-	{"at": Vector2(0.10, 0.78), "size": Vector2(8.0, 8.0),
-		"color": Color("#E8B8A8")},   # rose poudre
-	{"at": Vector2(0.86, 0.22), "size": Vector2(9.0, 7.0),
-		"color": Color("#C8E4B8")},   # vert sauge
-	{"at": Vector2(0.16, 0.52), "size": Vector2(9.0, 7.0),
-		"color": Color("#C8A8D8")},   # lavande douce
-	{"at": Vector2(0.84, 0.60), "size": Vector2(10.0, 8.0),
-		"color": Color("#C8E4B8")},   # vert sauge
+	{"at": Vector2(0.50, 0.52), "width": 16.0, "art": RUG_BLUE},    # grand tapis central
+	{"at": Vector2(0.10, 0.78), "width": 10.0, "art": RUG_PINK},
+	{"at": Vector2(0.86, 0.22), "width": 9.0, "art": RUG_GREEN},
+	{"at": Vector2(0.16, 0.52), "width": 9.5, "art": RUG_VIOLET},
+	{"at": Vector2(0.84, 0.60), "width": 10.5, "art": RUG_PINK},
 ]
 
 # Mobilier — meme convention, plus une hauteur.
@@ -297,9 +307,9 @@ func _build_furnishings(rect: Rect2) -> void:
 
 			var layer := 1
 			for rug in RUGS:
-				var area := _placed(origin + jitter, rug)
+				var area := _placed_at(origin + jitter, rug["at"], _rug_size(rug))
 				if _is_placeable(area, rect, spawn):
-					_add_rug(area, rug["color"], float(layer) * 0.012)
+					_add_rug(area, rug["art"], float(layer) * 0.012)
 				layer += 1
 
 			for prop in PROPS:
@@ -310,8 +320,28 @@ func _build_furnishings(rect: Rect2) -> void:
 
 ## Emprise au sol d'un element, une fois pose dans sa cellule.
 func _placed(origin: Vector2, item: Dictionary) -> Rect2:
-	var size := _footprint(item)
-	return Rect2(origin + item["at"] * CELL - size * 0.5, size)
+	return _placed_at(origin, item["at"], _footprint(item))
+
+
+## Le meme calcul, pour un element dont l'emprise ne se lit pas dans sa fiche.
+## C'est le cas des tapis : leur profondeur vient de leur illustration.
+func _placed_at(origin: Vector2, at: Vector2, size: Vector2) -> Rect2:
+	return Rect2(origin + at * CELL - size * 0.5, size)
+
+
+## Emprise d'un tapis. Sa LARGEUR est choisie, sa PROFONDEUR est celle de sa
+## planche — c'est le rapport de l'image qui la donne, jamais un second chiffre
+## saisi a la main a cote du premier.
+##
+## ⚠️ Le rapport est celui de la TEXTURE, marge comprise : `bake_rugs.py` laisse
+## 2 px transparents sur chaque bord pour que la silhouette n'affleure pas le
+## cadre. Le tapis dessine occupe donc 99,5 % du plan qui le porte — un demi
+## pour cent sur 16 m, soit 8 cm, sous le texel d'ecran et sans consequence :
+## rien ne collisionne un tapis.
+func _rug_size(rug: Dictionary) -> Vector2:
+	var art: Texture2D = rug["art"]
+	var width: float = rug["width"]
+	return Vector2(width, width * float(art.get_height()) / float(art.get_width()))
 
 
 ## Emprise au sol d'un element une fois TOURNE, en metres.
@@ -349,18 +379,21 @@ func _is_placeable(area: Rect2, rect: Rect2, spawn: Vector2) -> bool:
 
 ## Tapis. Sans contour en coque inversee : sur une surface plane elle pousse ses
 ## sommets vers le haut et ne se voit pas d'en haut. Le trait du tapis est
-## dessine dans son propre shader, qui decoupe aussi sa silhouette au `discard`
-## pour lui donner des bords un peu mous.
-func _add_rug(area: Rect2, color: Color, y: float) -> void:
+## PEINT dans sa planche, avec sa silhouette — voir `cel_rug.gdshader`.
+##
+## ⚠️ Le plan fait exactement l'emprise du tapis, sans la marge de 2 m que
+## l'ancien tapis calcule demandait : sa silhouette ondulait AUTOUR de son
+## rectangle nominal et devait pouvoir en deborder. Ici la silhouette est dans
+## l'image, donc dans le cadre par construction. Garder la marge dilaterait le
+## tapis de 2 m sans que rien ne le dise.
+func _add_rug(area: Rect2, art: Texture2D, y: float) -> void:
 	var mesh := PlaneMesh.new()
-	# Marge : la silhouette ondule, elle doit avoir de la place pour deborder
-	# du rectangle nominal sans etre coupee au ras du plan.
-	mesh.size = area.size + Vector2(2.0, 2.0)
+	mesh.size = area.size
 
 	var node := MeshInstance3D.new()
 	node.mesh = mesh
 	node.position = Vector3(area.get_center().x, y, area.get_center().y)
-	node.material_override = CelStyle.make_rug(color, area.size, mesh.size)
+	node.material_override = CelStyle.make_rug(art)
 	# Meme raison que le sol, a 12 mm pres : un tapis pose a plat ne jetterait
 	# son ombre que sur le parquet qu'il touche.
 	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

@@ -1,95 +1,80 @@
-// Les tapis — memes regles que le parquet, un cran au-dessus.
+// Les tapis — PEINTS A LA MAIN depuis le 2026-08-21.
 //
-// Un tapis de fond d'anime n'est pas un rectangle : c'est une forme posee, aux
-// bords un peu mous, cernee d'un trait, avec un liseré interieur qui la fait
-// lire comme du tissu et non comme un aplat de couleur.
+// Le tapis etait dessine par ce shader : un rectangle arrondi, un bord ondule
+// au bruit, un trait d'encre et un liseré interieur, le tout module par une
+// couleur d'aplat. Il porte desormais une ILLUSTRATION, comme la table basse
+// ("Visual Art Direction" §2quater) — et c'est le cas le plus simple de toute
+// la technique.
 //
-// Ce qui le relie au sol pour qu'il ne se decolle pas : le meme trait d'encre,
-// teinte vers la couleur locale.
+// ⭐ POURQUOI IL N'Y A NI UV CUITE NI PROJECTION ICI. Un tapis est PLAT et POSE
+// AU SOL. La projection orthographique a 44,02° d'une face horizontale n'est
+// qu'un ecrasement uniforme en profondeur — c'est exactement ce que la camera
+// refait d'elle-meme. L'illustration vue de dessus EST donc la texture, et
+// l'UV du `PlaneMesh` suffit. Aucune matrice, aucun gabarit, aucun recalage :
+// `tools/bake_rugs.py` ne fait que cadrer, reduire et remplir le fond.
 //
-// ⚠️ Il partageait aussi la MEME flaque de lumiere, evaluee en coordonnees
-// monde, pour que le soleil traverse le tapis au lieu de s'arreter a son bord.
-// La flaque a ete retiree le 2026-08-17 — motif et reglages d'alors dans le
-// bandeau en tete de `cel_ground.gdshader`. Le point qui reste valable : sol et
-// tapis doivent s'eclairer PAREIL, sinon leur bord commun saute.
+// ⛔ CE QUE CE SHADER NE FAIT PLUS, ET AUCUN DE CES POINTS N'EST UN OUBLI :
 //
-// Le contour est obtenu par `discard` plutot que par un contour en coque
-// inversee : sur une surface plane, la coque pousse ses sommets vers le haut
-// et ne produit rien de visible en vue plongeante (meme raison que
-// CelStyle.make_flat).
+//   * plus de silhouette calculee. Le bord ondule du tapis est DESSINE, et
+//     l'alpha de la planche le porte. Un `sd_rect` par-dessus en redessinerait
+//     un second, decale ;
+//   * plus de trait ni de liseré. Ils sont dans l'image, a l'encre du dessin ;
+//   * plus de `base_color`. La couleur est le dessin — il y a quatre planches,
+//     pas une planche et quatre teintes.
+//
+// ✅ CE QU'IL GARDE, ET C'EST CE QUI LE RATTACHE AU SOL :
+//
+//   * l'aplat part en EMISSION, comme partout ailleurs ;
+//   * `cel_sun.gdshaderinc` est inclus TEL QUEL, donc le tapis et le parquet
+//     s'eclairent PAREIL. C'etait deja la seule regle a ne jamais casser ici :
+//     deux surfaces qui divergent d'un demi-pouce et leur bord commun saute.
+//     Le test d'acceptation de §6bis vaut donc aussi pour les tapis.
+//
+// ⚠️ LE BORD SE FAIT A LA COUVERTURE, PAS AU `discard`. L'ancien tapis coupait
+// sa silhouette au `discard` : un bord franc, non antialiase, que MSAA 4x ne
+// rattrape pas (le rejet vaut pour tous les echantillons du fragment). C'etait
+// tolerable sur une forme calculee ; ca ne l'est plus sur un trait d'encre
+// peint et adouci, dont la moitie de la matiere vit dans le degrade d'alpha.
+// `alpha_to_coverage` rend cette douceur aux echantillons de MSAA, qui sont
+// deja la et deja payes.
 
 shader_type spatial;
-render_mode cull_back, ambient_light_disabled, specular_disabled, depth_draw_opaque;
+render_mode cull_back, ambient_light_disabled, specular_disabled,
+	depth_draw_opaque, alpha_to_coverage;
 
 group_uniforms tapis;
-uniform vec4 base_color : source_color = vec4(0.784, 0.894, 0.722, 1.0);
-// Emprise nominale du tapis, en metres.
-uniform vec2 rug_size = vec2(10.0, 8.0);
-// Emprise du PLAN qui porte le tapis, en metres. Toujours plus grande que
-// `rug_size` : la silhouette ondule, il lui faut de la marge pour deborder
-// sans etre tranchee au ras du plan. Sert aussi a convertir l'UV en metres,
-// pour que le trait garde la meme epaisseur quelle que soit la taille du tapis.
-uniform vec2 plane_size = vec2(11.5, 9.5);
+
+// `filter_linear_mipmap_anisotropic`, meme raison que `cel_painted` et en pire :
+// le tapis est la surface la PLUS rasante du jeu. Il est a plat, la camera
+// plonge a 44° — un texel y est vu deux fois plus court en profondeur qu'en
+// largeur, et c'est precisement le cas que le filtre anisotrope traite.
+uniform sampler2D rug_art : source_color, filter_linear_mipmap_anisotropic;
 
 group_uniforms bord;
-// Mollesse du bord, en metres. Le tapis n'a pas de cotes droits.
-uniform float edge_wobble : hint_range(0.0, 1.5) = 0.55;
-// Retrait du liseré interieur, en metres.
-uniform float band_inset : hint_range(0.05, 3.0) = 0.55;
 
-group_uniforms trait;
-uniform vec4 ink_color : source_color = vec4(0.239, 0.169, 0.102, 1.0); // #3D2B1A
-uniform float ink_tint : hint_range(0.0, 1.0) = 0.30;
-uniform float ink_width : hint_range(0.005, 0.3) = 0.055;
-uniform float ink_variation : hint_range(0.0, 1.0) = 0.5;
+// Le seuil de silhouette. L'alpha des planches est franc — 253 dans le corps,
+// 0 dehors, une poignee de texels entre les deux — donc 0,5 tombe au milieu du
+// degrade et non sur un de ses cotes.
+uniform float alpha_cut : hint_range(0.0, 1.0) = 0.5;
 
-varying vec3 v_world;
+// La largeur de la bande ou la couverture prend le relais du seuil. Doit rester
+// SOUS `alpha_cut`, sinon elle n'a aucun effet (doc Godot, ALPHA_ANTIALIASING_EDGE).
+uniform float alpha_edge : hint_range(0.0, 1.0) = 0.3;
 
-#include "res://shaders/cel_floor.gdshaderinc"
 #include "res://shaders/cel_sun.gdshaderinc"
 
-// Distance signee a un rectangle arrondi. Negatif dedans.
-float sd_rect(vec2 p, vec2 half_size, float radius) {
-	vec2 d = abs(p) - half_size + radius;
-	return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - radius;
-}
-
-void vertex() {
-	v_world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-}
-
 void fragment() {
-	// Metres depuis le centre du tapis. Le PlaneMesh porte un UV 0..1.
-	vec2 q = (UV - 0.5) * plane_size;
+	vec4 art = texture(rug_art, UV);
 
-	// Le bord ondule : un tapis pose n'a pas de cotes droits. Le bruit est
-	// ancre au monde, donc deux tapis voisins n'ondulent pas pareil.
-	float radius = min(rug_size.x, rug_size.y) * 0.12;
-	float sd = sd_rect(q, rug_size * 0.5, radius);
-	sd += (vnoise(v_world.xz * 0.55) - 0.5) * edge_wobble;
-
-	// fwidth AVANT toute sortie de fonction : les derivees ne survivent pas a
-	// un discard divergent.
-	float w = ink_width * (1.0 + (vnoise(v_world.xz * 1.7) - 0.5) * 2.0 * ink_variation);
-	// Trait pose A L'INTERIEUR de la silhouette : ce qui deborde serait
-	// discarde, et le contour perdrait sa moitie exterieure.
-	float outline = ink_line(abs(sd + w), w);
-	float band = ink_line(abs(sd + band_inset), w * 0.7);
-
-	if (sd > 0.0) {
-		discard;
-	}
-
-	// Eclairage uniforme depuis le 2026-08-17 — voir le bandeau en tete de
-	// `cel_ground.gdshader`. Le tapis suit le sol : ils ne peuvent pas diverger
-	// sur ce point sans que leur bord commun se remette a sauter.
-	vec3 col = base_color.rgb;
-
-	float ink = clamp(max(outline, band), 0.0, 1.0);
-	col = mix(col, mix(ink_color.rgb, col, ink_tint), ink);
-
-	ALBEDO = col;
-	// L'aplat peint part en EMISSION : c'est lui qui survit a la coupure
-	// du soleil, au pixel pres. Voir le bandeau de cel_sun.gdshaderinc.
+	ALBEDO = art.rgb;
+	// L'aplat peint part en EMISSION : c'est lui qui survit a la coupure du
+	// soleil, au pixel pres. Voir le bandeau de cel_sun.gdshaderinc.
 	EMISSION = ALBEDO;
+
+	ALPHA = art.a;
+	ALPHA_SCISSOR_THRESHOLD = alpha_cut;
+	ALPHA_ANTIALIASING_EDGE = alpha_edge;
+	// En TEXELS, pas en UV : c'est la densite de la planche qui dit de combien
+	// un echantillon de MSAA se deplace dans l'alpha.
+	ALPHA_TEXTURE_COORDINATE = UV * vec2(textureSize(rug_art, 0));
 }

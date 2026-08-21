@@ -188,6 +188,14 @@ powershell -ExecutionPolicy Bypass -File tools/fetch_fonts.ps1
 python tools/bake_illustration.py --illustration maquettes/table_basse_illustration.png   --gabarit maquettes/table_basse_gabarit.png   --out assets/textures/prop_table_basse.png --force
 # ⚠️ Puis --headless --import, ET REVERIFIER assets/textures/*.png.import :
 #    compress/mode=0, mipmaps/generate=true, detect_3d/compress_to=0.
+# ⭐ CUIRE LES QUATRE TAPIS PEINTS (2026-08-21) — la branche la PLUS SIMPLE du
+#    peint : un tapis est plat et pose au sol, donc l'illustration vue de dessus
+#    EST la texture. Ni gabarit, ni recalage, ni UV cuite. Lit
+#    maquettes/rug_{blue,green,pink,violet}.png, ecrit assets/textures/rug_*.png.
+python tools/bake_rugs.py --force   # [--only blue] [--long-side 768]
+# ⚠️ Meme suite : --headless --import, PUIS les trois memes valeurs dans
+#    assets/textures/rug_*.png.import (Godot y ecrit mipmaps/generate=false et
+#    detect_3d/compress_to=1 a la creation — les deux sont a corriger).
 # Reconstruire puis exporter la CROQUETTE (meme moule : .blend REGENERE)
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --factory-startup   --python tools/build_kibble.py -- --save
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background   "C:/Users/tibo/Documents/zeucozy_3d/xp_croquette_v1.blend"   --python tools/export_prop.py -- --mesh MSH_croquette --out xp_croquette.glb
@@ -430,7 +438,11 @@ zeucozy/
                      # dust_bunny (le mouton de poussière — touffe cernée posée au sol)
 │                     # cel_paws (bouts de pattes + les 3 griffes dessinées)
 │                     # cel_creature_face (yeux + truffe des ENNEMIS, peints)
-│                     # cel_ground (parquet peint), cel_rug (tapis)
+│                     # cel_ground (parquet peint)
+│                     # cel_rug ⭐ LES TAPIS PEINTS (2026-08-21) — 6 lignes :
+│                     #           l'illustration EST le tapis, silhouette et trait
+│                     #           compris. Le seul shader du jeu à antialiaser sa
+│                     #           découpe (`alpha_to_coverage`), voir l'état actuel
 │                     # hit_burst (éclat de collision), impact_frame (flash, en sommeil)
 │                     # claw_slash (la griffure — 3 traits cernés, billboard dirigé)
 │                     # breath_aura (l'haleine puante — volutes cernées, décalque AU SOL)
@@ -462,6 +474,12 @@ zeucozy/
 │   │                       #    .glb. ⛔ Pochoir pris sur le GABARIT et pas sur la
 │   │                       #    couleur : le halo antialiasé du générateur est du
 │   │                       #    gris que la couleur seule laisse passer
+│   ├── bake_rugs.py        # ⭐ LES 4 TAPIS PEINTS → 4 textures (2026-08-21) —
+│   │                       #    cadrage sur l'ALPHA, réduction pondérée par
+│   │                       #    l'alpha, remplissage du fond. ⛔ Le RGB des
+│   │                       #    pixels transparents est du NOIR PUR : une
+│   │                       #    moyenne naïve cernerait le tapis d'un liseré
+│   │                       #    noir qui n'est pas dans le dessin
 │   ├── fetch_fonts.ps1     # Récupère les polices d'UI en sous-ensembles (rejouable)
 │   └── dump_paws.gd        # Relève os porteurs + boîtes de repos — source des PAWS
 ├── assets/
@@ -472,13 +490,18 @@ zeucozy/
 │   │                 # projectile_boule_poils.glb, enemy_souris.glb,
 │   │                 # enemy_chien.glb
 │   ├── fonts/        # Dela Gothic One + Zen Kaku Gothic New, sous-ensembles + OFL
-│   └── textures/     # ⭐ Les ILLUSTRATIONS PROJETÉES du décor (2026-08-21)
-│                     #    prop_table_basse.png — 304 × 192, 96 px/m, CUITE par
-│                     #    `bake_illustration.py` depuis maquettes/. ⚠️ Son
-│                     #    `.import` est RÉGLÉ À LA MAIN : `compress/mode=0`
-│                     #    (Lossless), `mipmaps/generate=true` et surtout
-│                     #    `detect_3d/compress_to=0`. Sans ça Godot bascule en
-│                     #    VRAM Compressed au 1er usage 3D et le trait bave
+│   └── textures/     # ⭐ Les ILLUSTRATIONS du décor (2026-08-21)
+│                     #    prop_table_basse.png — 304 × 192, 96 px/m, PROJETÉE,
+│                     #    CUITE par `bake_illustration.py` depuis maquettes/
+│                     #    rug_{blue,green,pink,violet}.png — 768 de grand côté,
+│                     #    POSÉES À PLAT (aucune projection), cuites par
+│                     #    `bake_rugs.py`. Les seules textures à ALPHA du jeu :
+│                     #    c'est lui qui porte la silhouette du tapis
+│                     #    ⚠️ Leurs `.import` sont RÉGLÉS À LA MAIN :
+│                     #    `compress/mode=0` (Lossless), `mipmaps/generate=true`
+│                     #    et surtout `detect_3d/compress_to=0`. Sans ça Godot
+│                     #    bascule en VRAM Compressed au 1er usage 3D et le
+│                     #    trait bave
 └── maquettes/        # 🖼️ Images de RÉFÉRENCE — jamais des assets, jamais chargées
                       # par le jeu. Prompts dans `Prompts de Génération.md` (vault).
                       # ⚠️ SAUF le prompt §4.8 depuis le 2026-08-21 : l'illustration
@@ -488,6 +511,9 @@ zeucozy/
                       #    gabarit qui l'a cadrée. Les deux vont ENSEMBLE : sans le
                       #    gabarit, `bake_illustration.py` n'a plus de référence
                       #    de recadrage et l'image n'est plus reposable.
+                      #    Les quatre planches de TAPIS sont dans le même cas —
+                      #    rug_{blue,green,pink,violet}.png (1402 × 1122), mais
+                      #    SANS gabarit : un tapis se cadre sur son propre alpha.
                       # ⚠️ `.gdignore` VIDE obligatoire : sans lui Godot importe
                       #    chaque PNG dans le dock et dans `.godot/imported/`
 ```
@@ -739,7 +765,50 @@ elle **bloque** désormais, comme le canapé. Les quatre choses vérifiées, jam
 > ne se voit qu'au banc. C'est **conforme** — §2quater peint à 96 px/m pour la marge, pas
 > pour être vu — mais ça veut dire qu'une illustration ne se juge **jamais** au fichier.
 
-**LA DÉCISION D'ENSEMBLE — prise le 2026-08-21 ; SEULE la table basse est construite.** Les
+**LES TAPIS SONT PEINTS À LEUR TOUR — le 2026-08-21, le même jour.** Quatre planches
+peintes à la main (`maquettes/rug_{blue,green,pink,violet}.png`, 1402 × 1122) remplacent le
+tapis **calculé** qui tenait depuis le passage en 3D — rectangle arrondi, bord ondulé au
+bruit, trait d'encre, liseré intérieur et couleur d'aplat, soit sept réglages qui sont
+désormais **du dessin**. `tools/bake_rugs.py` → `assets/textures/rug_*.png` →
+`shaders/cel_rug.gdshader` → `arena.RUGS`. Ce qu'il faut savoir avant d'y toucher :
+
+- ⭐ **C'est la branche la PLUS SIMPLE du peint, et la seule où l'image se pose
+  directement.** Un tapis est **plat et posé au sol** : la projection orthographique à
+  44,02° d'une face horizontale n'est qu'un écrasement uniforme en profondeur, que la
+  caméra refait d'elle-même. L'illustration vue de dessus **EST** la texture — ni gabarit,
+  ni recalage, ni UV cuite, ni `build_*.py`. L'UV du `PlaneMesh` suffit.
+- ⛔ **Le RGB des pixels transparents est du NOIR PUR**, et c'est le piège de ces
+  planches-ci. Une moyenne de réduction naïve le mélangerait au bord et cernerait le tapis
+  d'un **liseré noir qui n'est pas dans le dessin**. La réduction pèse donc le RGB par
+  l'alpha ; l'alpha, lui, se moyenne à plat — c'est lui qui porte le bord doux. Et le
+  cadrage se prend sur l'**alpha**, jamais sur la couleur : un test de couleur verrait de
+  l'encre dans ce noir.
+- ⭐ **La PROFONDEUR d'un tapis n'est pas saisie, elle se déduit de sa planche**
+  (`arena._rug_size`). Les quatre ne sont pas au même rapport — 1,261 à 1,302 — et un tapis
+  posé à un autre rapport que son dessin étirerait son trait dans un sens et l'écraserait
+  dans l'autre, muettement. Seule la **largeur** est un choix.
+- ⚠️ **Le bord se fait à la COUVERTURE, plus au `discard`.** L'ancien tapis coupait sa
+  silhouette au `discard` : un bord franc que MSAA 4× ne rattrape pas (le rejet vaut pour
+  tous les échantillons du fragment). Tolérable sur une forme calculée, plus sur un trait
+  d'encre peint dont la moitié de la matière vit dans le dégradé d'alpha. `cel_rug` est
+  donc le seul shader du jeu en **`alpha_to_coverage`** — il rend cette douceur aux
+  échantillons de MSAA, qui sont déjà là et déjà payés.
+- ✅ **Le test d'acceptation de §6bis tient sur les tapis** : `--sun=off` rend **0 pixel de
+  différence** sur 40 500 pixels de tapis en plein soleil (bleu et vert, capture du
+  2026-08-21). Les seuls écarts sont exactement les ombres portées du mobilier.
+- ⚠️ **768 px de grand côté, et c'est le seul réglage.** Le jeu montre 40,1 px/m au sol,
+  écrasés à ~29 en profondeur ; le plus grand tapis (16 m) rend donc **48 px/m**. Pas les
+  96 px/m de §2quater, qui sont la densité d'un **meuble vu de près**.
+- ⚠️ **L'épaisseur du trait suit la taille du tapis**, puisqu'elle est peinte à un nombre de
+  pixels fixe : ~11 cm sur le grand tapis de 16 m, ~6 cm sur celui de 9. C'est **conforme à
+  §11** (trait proportionnel à l'objet), mais ce n'est plus un réglage — c'est une
+  conséquence du choix de largeur.
+- **Le vert n'est plus posé deux fois** dans la cellule. Il l'était à 10 m d'écart sur le
+  même flanc, ce qui se lit comme du papier peint — exactement ce que le décalage aléatoire
+  par cellule existe pour éviter. Le second passe au rose, à l'autre bout du motif.
+
+**LA DÉCISION D'ENSEMBLE — prise le 2026-08-21 ; seuls la table basse et les tapis sont
+construits, et tous deux à 1 vue.** Les
 volumes cessent d'être modelés détail par détail : un **volume grossier porte une
 illustration 2D projetée**. Le maillage donne la position, l'occultation, la collision et
 une surface pour l'ombre portée ; l'image donne le dessin. Tout est en **§2quater** de la DA
@@ -1024,8 +1093,9 @@ variantes (bleu ciel, vert sauge). **Les croquettes d'XP sont modélisées** dep
 arrivée le 2026-08-19 et remplace la capsule rose du `chaser` : 1 132 tris, taupe chaud,
 oreilles roses et queue. **Le chien** est arrivé le même jour et remplace la sphère lavande
 de la `brute` : 1 610 tris, châtaigne, oreilles tombantes et museau clair — c'était **le
-dernier placeholder de primitive du gameplay**. Reste placeholder : le petit mobilier —
-tables / plantes / coussins en boîtes pastel.
+dernier placeholder de primitive du gameplay**. **Les quatre tapis sont peints à la main**
+depuis le 2026-08-21 et ne sont plus dessinés par un shader. Reste placeholder : le petit
+mobilier — plantes / coussins en boîtes pastel (la table basse, elle, est peinte).
 
 **Passe rétro anime — faite le 2026-08-16.** `Attr_Style` peint et câblé, trait à
 épaisseur variable **des deux côtés du pont** (Godot par `cel_outline.gdshader`, Blender par

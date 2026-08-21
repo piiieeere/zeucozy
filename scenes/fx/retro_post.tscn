@@ -2,8 +2,12 @@
 
 [ext_resource type="Shader" path="res://shaders/retro_post.gdshader" id="1_retropost"]
 
+; GRAIN COUPE (2026-08-21, a la demande). Le shader et ses reglages restent
+; entiers : c'est le seul uniform a rouvrir pour le rebrancher (0.04 = la
+; valeur d'avant). A 0, `retro_post` ne fait plus que recopier l'ecran.
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_retropost"]
 shader = ExtResource("1_retropost")
+shader_parameter/grain_amount = 0.0
 
 [node name="RetroPost" type="CanvasLayer"]
 layer = 0
