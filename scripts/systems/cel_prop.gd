@@ -339,11 +339,15 @@ const PALETTES := {
 	# (色トレス, §5.4) — le contour tire vers la couleur qu'il cerne, et il lui
 	# faut donc la teinte dominante de l'illustration.
 	#
-	# `#D4A860` est l'ambre Ghibli de §4, le seul bois de la palette, et c'est
-	# aussi le ton de base que peint `build_coffee_table.py`. Le jour ou la vraie
-	# illustration arrive avec un autre bois, c'est ce chiffre-la qui suit.
+	# ⚠️ ET CE CHIFFRE A SUIVI, LE 2026-08-21. Il valait `#D4A860` — l'ambre
+	# Ghibli de §4, le ton de base du PLACEHOLDER que peignait
+	# `build_coffee_table.py`. L'illustration peinte a la main arrive avec un
+	# bois plus sature et moins jaune : `#D3944B` est sa MEDIANE, mesuree sur
+	# les 43 172 pixels de dessin de la texture cuite, bande d'aplat uni exclue.
+	# C'est exactement le cas que le paragraphe ci-dessus avait prevu — un trait
+	# teinte de l'ambre d'origine cernerait un bois qu'il n'a plus.
 	"table_basse": {
-		"PAINT_table": Color("#D4A860"),
+		"PAINT_table": Color("#D3944B"),
 	},
 }
 

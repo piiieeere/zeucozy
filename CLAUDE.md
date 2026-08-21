@@ -177,6 +177,15 @@ powershell -ExecutionPolicy Bypass -File tools/fetch_fonts.ps1
 #    une image deja en place sans --force. Ni l'un ni l'autre n'est requis pour le .glb.
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --factory-startup   --python tools/build_coffee_table.py -- --save [--gabarit] [--texture [--force]]
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background   "C:/Users/tibo/Documents/zeucozy_3d/prop_table_basse_v1.blend"   --python tools/export_prop.py -- --mesh MSH_table_basse --out prop_table_basse.glb
+# ⭐ CUIRE L'ILLUSTRATION PEINTE A LA MAIN en texture (2026-08-21) — le dernier
+#    metre du pipeline du PEINT. Ne touche NI au .blend NI au .glb : le volume et
+#    l'UV sont deja cuits, seule l'image change. C'est la commande a relancer
+#    quand une nouvelle illustration se depose dans maquettes/.
+#    Elle RECADRE sur le gabarit (le generateur ne rend pas la taille demandee :
+#    1577x997 pour un cadre de 912x576), REDUIT a 96 px/m, et REMPLIT le fond
+#    par dilatation — sans quoi le gris du fond remonte sur la silhouette par
+#    les mipmaps. Aucune dependance : zlib + struct.
+python tools/bake_illustration.py --illustration maquettes/table_basse_illustration.png   --gabarit maquettes/table_basse_gabarit.png   --out assets/textures/prop_table_basse.png --force
 # ⚠️ Puis --headless --import, ET REVERIFIER assets/textures/*.png.import :
 #    compress/mode=0, mipmaps/generate=true, detect_3d/compress_to=0.
 # Reconstruire puis exporter la CROQUETTE (meme moule : .blend REGENERE)
@@ -447,6 +456,12 @@ zeucozy/
 │   ├── build_dog.py        # 🐶 Chien (la brute) : goutte + museau + 2 oreilles
 │   │                       #    tombantes + 4 pattes + queue, 1 610 tris
 │   ├── export_prop.py      # Export générique d'un .glb, même réinjection COLOR_0
+│   ├── bake_illustration.py # ⭐ L'ILLUSTRATION PEINTE → la texture (2026-08-21) —
+│   │                       #    recadrage sur le gabarit, réduction à 96 px/m,
+│   │                       #    remplissage du fond. Ne touche ni au .blend ni au
+│   │                       #    .glb. ⛔ Pochoir pris sur le GABARIT et pas sur la
+│   │                       #    couleur : le halo antialiasé du générateur est du
+│   │                       #    gris que la couleur seule laisse passer
 │   ├── fetch_fonts.ps1     # Récupère les polices d'UI en sous-ensembles (rejouable)
 │   └── dump_paws.gd        # Relève os porteurs + boîtes de repos — source des PAWS
 ├── assets/
@@ -458,7 +473,8 @@ zeucozy/
 │   │                 # enemy_chien.glb
 │   ├── fonts/        # Dela Gothic One + Zen Kaku Gothic New, sous-ensembles + OFL
 │   └── textures/     # ⭐ Les ILLUSTRATIONS PROJETÉES du décor (2026-08-21)
-│                     #    prop_table_basse.png — 304 × 192, 96 px/m. ⚠️ Son
+│                     #    prop_table_basse.png — 304 × 192, 96 px/m, CUITE par
+│                     #    `bake_illustration.py` depuis maquettes/. ⚠️ Son
 │                     #    `.import` est RÉGLÉ À LA MAIN : `compress/mode=0`
 │                     #    (Lossless), `mipmaps/generate=true` et surtout
 │                     #    `detect_3d/compress_to=0`. Sans ça Godot bascule en
@@ -467,7 +483,11 @@ zeucozy/
                       # par le jeu. Prompts dans `Prompts de Génération.md` (vault).
                       # ⚠️ SAUF le prompt §4.8 depuis le 2026-08-21 : l'illustration
                       #    PROJETABLE du décor EST un asset, et va dans assets/textures/.
-                      #    Sa source pleine résolution, elle, reste ici.
+                      #    Sa source pleine résolution, elle, reste ici —
+                      #    table_basse_illustration.png (1577 × 997), avec le
+                      #    gabarit qui l'a cadrée. Les deux vont ENSEMBLE : sans le
+                      #    gabarit, `bake_illustration.py` n'a plus de référence
+                      #    de recadrage et l'image n'est plus reposable.
                       # ⚠️ `.gdignore` VIDE obligatoire : sans lui Godot importe
                       #    chaque PNG dans le dock et dans `.godot/imported/`
 ```
@@ -669,13 +689,55 @@ elle **bloque** désormais, comme le canapé. Les quatre choses vérifiées, jam
   `mipmaps/generate=true`, `detect_3d/compress_to=0` — et ce réglage est à refaire pour
   **chaque** illustration qui arrive.
 
-> 🅿️ **L'illustration en place est un PLACEHOLDER peint par le script**, pas l'asset final.
-> Elle respecte les cinq contraintes de §4.8 (2 tons, ombre décidée, rien sur les flancs,
-> trait intérieur seul) et sert à prouver le pont ; le fil du bois, l'usure et les reflets
-> attendent une vraie image. Le **gabarit** à lui donner est dans
-> `maquettes/table_basse_gabarit.png` — c'est le blockout **rendu** par la même projection
-> que l'UV, donc superposable par construction (la règle de §4.9, appliquée d'avance à une
-> vue). Cadre : **3,1667 × 2,0000 m**, depuis `(−1,5833 ; −0,6080)`, à 96 px/m.
+> ✅ **ET L'ILLUSTRATION PEINTE À LA MAIN EST EN PLACE DEPUIS LE 2026-08-21** — le
+> placeholder du script a servi une journée. La source pleine résolution est
+> `maquettes/table_basse_illustration.png` (1577 × 997) ; c'est
+> **`tools/bake_illustration.py`** qui en fait la texture, et le geste est **rejouable** :
+> reposer une image au même chemin et relancer la commande suffit. Le **gabarit** à donner
+> au générateur reste `maquettes/table_basse_gabarit.png` — le blockout **rendu** par la
+> même projection que l'UV, donc superposable par construction (§4.9, appliquée d'avance à
+> une vue). Cadre : **3,1667 × 2,0000 m**, depuis `(−1,5833 ; −0,6080)`, à 96 px/m.
+>
+> Les trois choses que la cuisson fait, et dont **aucune n'est cosmétique** :
+>
+> - ⛔ **elle RECADRE, parce que le générateur ne rend pas le cadre qu'on lui donne.**
+>   1577 × 997 pour un gabarit de 912 × 576, soit un rapport de 1,729 en X contre 1,731 en
+>   Y **et** un décalage de quelques pixels. Posée telle quelle, l'image serait décalée de
+>   **~0,9 px de texture** — sur une tranche de plateau qui en fait 12, ça se voit. Le
+>   recalage se mesure par moindres carrés sur des repères détectés **des deux côtés par le
+>   même code**, donc à biais nul : écart résiduel **0,10 px de texture** sur les deux axes.
+> - ⛔ **elle REMPLIT le fond, et c'est le geste qu'on oublie.** Le fond de l'illustration
+>   est un gris neutre ; bilinéaire et mipmaps vont chercher des texels **au-delà** du bord
+>   de la face et ramènent donc ce gris **sur** la silhouette. Le placeholder s'en protégeait
+>   en remplissant son cadre de bois — une image peinte, elle, arrive avec son fond. Il est
+>   retiré **avant** la réduction (moyenne pondérée par la couverture), puis les 10 453
+>   pixels restés vides sont comblés par dilatation. ✅ **0 pixel neutre** dans la texture
+>   finale.
+> - ⛔ **le pochoir vient du GABARIT, jamais de la couleur.** Le test de couleur seul ne voit
+>   que le fond *plat* : il laisse passer le **halo antialiasé** que le générateur pose
+>   autour de sa silhouette — des gris de tous niveaux, trop loin du fond plat pour être
+>   reconnus, que la dilatation prend ensuite pour de la matière et étale en **coins gris**.
+>   Constaté, puis réparé en remontant chaque pixel dans le repère du gabarit : 26 316
+>   pixels rejetés.
+>
+> ⚠️ **Et la teinte de trait a suivi**, comme `cel_prop.gd` l'avait prévu par écrit : le bois
+> peint est plus saturé et moins jaune que l'ambre du placeholder. `#D4A860` → **`#D3944B`**,
+> la médiane des 43 172 pixels de dessin. C'est le seul chiffre du dépôt qu'une nouvelle
+> illustration oblige à rouvrir.
+>
+> ✅ **Les quatre vérifications de l'ouverture du chemin ont été refaites sur la vraie
+> image**, et elles tiennent : `--sun=off` rend **0 pixel de différence** sur la surface
+> éclairée de la table (8 250 pixels comparés), l'ombre portée creuse toujours, et la
+> traversée de cadre — table à gauche, au centre, à droite, soit ±21° hors axe — ne montre
+> aucun glissement. ⚠️ Une nuance sur le test au texel : le placeholder rendait
+> `#D4A860` **au chiffre près** parce qu'il était un aplat ; sur une image à grain, le rendu
+> sort **3/255 plus sombre** que le texel central — c'est le filtrage qui moyenne les
+> veines voisines, pas une dérive de couleur.
+>
+> 🅿️ **Ce que le jeu n'en montre pas.** À 40,1 px/m, le fil du bois et les ronds de tasse
+> sont sous le pixel : la table se lit comme un bloc de bois à deux tons, cerné. Le détail
+> ne se voit qu'au banc. C'est **conforme** — §2quater peint à 96 px/m pour la marge, pas
+> pour être vu — mais ça veut dire qu'une illustration ne se juge **jamais** au fichier.
 
 **LA DÉCISION D'ENSEMBLE — prise le 2026-08-21 ; SEULE la table basse est construite.** Les
 volumes cessent d'être modelés détail par détail : un **volume grossier porte une
