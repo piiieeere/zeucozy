@@ -22,6 +22,12 @@ const CelProp := preload("res://scripts/systems/cel_prop.gd")
 
 const CANAPE := "res://assets/models/prop_canape.glb"
 
+## ⭐ LE 1er MEUBLE PEINT — table basse, 2026-08-21. Son volume ne porte que la
+## silhouette ; le dessin arrive d'une illustration 2D projetee a 44,02°
+## ("Visual Art Direction" §2quater). Il se pose exactement comme le canape :
+## c'est `CelProp.PEINT` qui change tout, pas ce qui l'entoure.
+const TABLE_BASSE := "res://assets/models/prop_table_basse.glb"
+
 ## Ton moyen du parquet. Sert de fond de melange aux aplats du mobilier, pour
 ## qu'ils restent coherents avec le sol sur lequel ils sont poses.
 const FLOOR_COLOR := Color("#E8D4A8")
@@ -195,8 +201,22 @@ const PROPS := [
 	# devienne une decision.
 	{"at": Vector2(0.76, 0.66), "size": Vector2(6.4, 2.6),
 		"model": CANAPE, "variant": "sauge", "yaw": 90.0},
-	{"at": Vector2(0.50, 0.52), "size": Vector2(3.0, 1.6), "height": 0.8,
-		"color": Color("#FDFDB6"), "alpha": 0.58},   # table basse
+	# La table basse — le 1er objet du jeu dont le dessin vient d'une IMAGE.
+	#
+	# Son emprise 3,0 x 1,6 est celle que la boite pastel occupait deja : on ne
+	# change pas la place d'un meuble en meme temps que sa nature, sinon on ne
+	# sait plus lequel des deux on juge. Sa HAUTEUR, elle, monte de 0,8 a 1,0 —
+	# l'assise du canape est a 1,6, et une table basse se lit contre elle.
+	#
+	# ⚠️ ET ELLE BLOQUE, DESORMAIS. La boite pastel ne portait aucune collision
+	# (`_add_prop` n'en pose que sur les modeles) : passer la table en .glb lui
+	# en donne une, comme au canape. C'est voulu — c'est le second geste du
+	# chantier « le meuble comme terrain de jeu », et une table de 3 m au CENTRE
+	# de la cellule est exactement l'obstacle qui rend le placement du chat
+	# decisif. Le point d'apparition est protege par `SPAWN_CLEARANCE`.
+	{"at": Vector2(0.50, 0.52), "size": Vector2(3.0, 1.6),
+		"model": TABLE_BASSE, "variant": "table_basse", "yaw": 0.0,
+		"family": CelProp.PEINT},
 	{"at": Vector2(0.90, 0.12), "size": Vector2(1.4, 1.4), "height": 2.6,
 		"color": Color("#CDFFBF"), "alpha": 0.90},   # plante
 	{"at": Vector2(0.08, 0.88), "size": Vector2(1.4, 1.4), "height": 2.6,
@@ -376,7 +396,10 @@ func _add_prop(footprint: Rect2, prop: Dictionary) -> void:
 ## Pose sur le SOL, pas centre en hauteur : les modeles sortent de Blender avec
 ## leur origine entre les pieds, comme le chat ("Convention Blender" §2).
 func _add_model_prop(footprint: Rect2, prop: Dictionary) -> void:
-	var node := CelProp.spawn(prop["model"], prop["variant"], _outline_scale)
+	var node := CelProp.spawn(
+		prop["model"], prop["variant"], _outline_scale,
+		prop.get("family", CelProp.MEUBLE),
+	)
 
 	if node == null:
 		return

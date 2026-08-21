@@ -29,6 +29,10 @@ const CelStyle := preload("res://scripts/systems/cel_style.gd")
 ## creature n'a pas de squelette, donc pas de `rest_undo`, et pas d'expression.
 const FACE_SHADER := preload("res://shaders/cel_creature_face.gdshader")
 
+## ⭐ L'ILLUSTRATION PROJETEE — `cel_toon` moins le cluster, plus une texture
+## ("Visual Art Direction" §2quater, "Pipeline 3D" §4). Voir `PEINT` plus bas.
+const PAINTED_SHADER := preload("res://shaders/cel_painted.gdshader")
+
 ## Les deux FAMILLES de .glb sans squelette. Le partage n'est pas un gout :
 ## "Visual Art Direction" §2ter.A ne range pas un ramassable avec le mobilier.
 ## Un objet qu'on RAMASSE est manipulable — il garde son trait plein, comme les
@@ -36,6 +40,24 @@ const FACE_SHADER := preload("res://shaders/cel_creature_face.gdshader")
 ## valeur et non par la ligne.
 const MEUBLE := "meuble"
 const PICKUP := "pickup"
+
+## ⭐ LE DECOR PEINT — la 3e famille, ouverte le 2026-08-21 avec la table basse.
+##
+## Ce n'est PAS une variante de `MEUBLE` : c'est le meme trait, le meme facteur
+## de 50 %, la meme ombre portee — et un shader different. Un meuble `MEUBLE`
+## est modelise volume par volume et cel-shade par `cel_toon` ; un meuble
+## `PEINT` est un volume GROSSIER (5 a 15 faces) qui porte une illustration 2D
+## projetee, et son cluster est ETEINT parce que l'illustration EST l'aplat.
+##
+## La ligne de partage n'est pas « meuble ou pas » mais « son dessin est-il dans
+## une texture ou dans le shader ». Elle passe donc PAR MATERIAU et non par
+## objet : c'est le prefixe `PAINT_` qui decide, exactement comme "Convention
+## Blender" §12.5 le prescrit. Un modele peut donc melanger une coque peinte et
+## une coque toon sans qu'on ait a inventer une 4e famille.
+const PEINT := "peint"
+
+## Le prefixe de materiau Blender qui bascule une surface sur `cel_painted`.
+const PAINTED_PREFIX := "PAINT_"
 
 ## ⚠️ LE MEME NOM DE FAMILLE QUE `PICKUP`, DELIBEREMENT — ce n'est pas un oubli,
 ## et c'est pour ca que c'est un alias et non une 3e entree de `FAMILIES`.
@@ -162,6 +184,41 @@ const FAMILIES := {
 		# tenir synchronisee.
 		"shadow_bias_strength": 1.0,
 	},
+	# Le DECOR PEINT. Les trois nombres du mobilier, a l'identique — c'est un
+	# meuble, il se cerne comme un meuble : meme trait de plume, meme retrait de
+	# 50 % que §2ter.A a mesure sur le canape.
+	#
+	# `shadow_bias_strength` est ici SANS EFFET, et le laisser a 1,0 n'est pas
+	# un pis-aller : `cel_painted` n'a pas de cluster, donc pas de seuil a
+	# biaiser. Le champ reste pour que les trois familles gardent la meme forme
+	# — un dictionnaire a trous se lit comme un oubli.
+	PEINT: {
+		"thickness": OUTLINE_THICKNESS,
+		"outline_scale": OUTLINE_SCALE,
+		"shadow_bias_strength": 1.0,
+	},
+}
+
+## ⭐ LES ILLUSTRATIONS PROJETEES, par variante — la texture reste HORS du .glb.
+##
+## Trois raisons, et la premiere suffit ("Pipeline 3D" §2) :
+##
+##   1. on veut pouvoir retoucher l'image sans reexporter le modele. Une texture
+##      embarquee oblige a repasser par Blender pour changer un pixel, donc a
+##      retraverser les six pieges du pont ;
+##   2. Godot ne reimporte pas une image embarquee : elle n'apparait pas dans le
+##      dock, on ne peut regler ni sa compression ni ses mipmaps — et le piege
+##      d'import (Detect 3D casse le trait) devient alors inevitable ;
+##   3. le style du projet est reconstruit dans le moteur, toujours. Une texture
+##      assignee ici se mutualise entre tous les exemplaires du meme meuble,
+##      exactement comme les ShaderMaterial le sont deja.
+##
+## ⚠️ ET C'EST LA SEULE IMAGE DU DEPOT DANS `assets/`. §2quater l'ecrit noir sur
+## blanc : la technique PLIE une doctrine du projet, d'un cran et une seule fois.
+## Le VOLUME reste un script (`tools/build_coffee_table.py` produit geometrie,
+## UV et Attr_Style), et la source pleine resolution reste dans `maquettes/`.
+const TEXTURES := {
+	"table_basse": "res://assets/textures/prop_table_basse.png",
 }
 
 ## Palette par variante, puis par materiau du .glb.
@@ -275,6 +332,18 @@ const PALETTES := {
 		"pelage": Color("#8A5A38"),
 		"marques": Color("#C9A87C"),
 		"truffe": Color("#3D2B1A"),
+	},
+	# La TABLE BASSE — le 1er objet PEINT. ⚠️ Cette couleur ne fait PAS l'aplat,
+	# contrairement a toutes les autres entrees de cette table : sur une surface
+	# peinte, l'aplat est la texture. Elle ne sert plus qu'au TEINTAGE DU TRAIT
+	# (色トレス, §5.4) — le contour tire vers la couleur qu'il cerne, et il lui
+	# faut donc la teinte dominante de l'illustration.
+	#
+	# `#D4A860` est l'ambre Ghibli de §4, le seul bois de la palette, et c'est
+	# aussi le ton de base que peint `build_coffee_table.py`. Le jour ou la vraie
+	# illustration arrive avec un autre bois, c'est ce chiffre-la qui suit.
+	"table_basse": {
+		"PAINT_table": Color("#D4A860"),
 	},
 }
 
@@ -499,8 +568,14 @@ static func _apply(
 	for i in materials.size():
 		mesh_instance.set_surface_override_material(i, materials[i])
 
+	# Le decor caste — modelise comme peint : un meuble PEINT est immobile lui
+	# aussi, et son ombre fait partie de la piece. C'est meme l'une des quatre
+	# choses que §2quater demande a un volume grossier de fournir, avec la
+	# silhouette, l'occultation et la collision.
+	var casts := family == MEUBLE or family == PEINT
+
 	mesh_instance.cast_shadow = (
-		GeometryInstance3D.SHADOW_CASTING_SETTING_ON if family == MEUBLE
+		GeometryInstance3D.SHADOW_CASTING_SETTING_ON if casts
 		else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	)
 
@@ -532,12 +607,20 @@ static func _materials(
 		var source := mesh.surface_get_material(i)
 		var mat_name := source.resource_name if source else ""
 		var color: Color = palette.get(mat_name, FALLBACK_COLOR)
+		var thickness: float = style["thickness"] * outline_scale
+		var ink: Color = INKS.get(variant, CelStyle.INK)
 
-		var mat := CelStyle.make_outlined(
-			color,
-			style["thickness"] * outline_scale,
-			INKS.get(variant, CelStyle.INK),
-		)
+		# ⭐ UNE SURFACE `PAINT_` NE PASSE JAMAIS PAR `cel_toon` ("Convention
+		# Blender" §12.5). Elle sort du montage commun AVANT lui, et non apres
+		# comme le visage peint : `cel_creature_face` EST cel_toon plus les
+		# formes, donc les uniforms de cluster y restent valides ; `cel_painted`
+		# est cel_toon MOINS le cluster, et leur en poser serait dire deux fois
+		# le contraire au meme materiau.
+		if family == PEINT and mat_name.begins_with(PAINTED_PREFIX):
+			materials.append(_painted(color, thickness, ink, variant))
+			continue
+
+		var mat := CelStyle.make_outlined(color, thickness, ink)
 		# Le visage peint remplace le shader de base, il ne s'y ajoute pas —
 		# meme geste que `cel_model` sur les surfaces `visage` et `pattes` du
 		# chat, et pour la meme raison : cel_creature_face EST cel_toon plus les
@@ -562,6 +645,49 @@ static func _materials(
 
 	_materials_cache[key] = materials
 	return materials
+
+
+## Une surface a ILLUSTRATION PROJETEE — `cel_painted` + le contour du mobilier.
+##
+## `color` ne fait pas l'aplat ici : c'est la texture qui le fait. Elle ne sert
+## qu'au teintage du trait (§5.4), et c'est pour ca qu'elle reste dans
+## `PALETTES` — le contour est le seul etage du montage qui a encore besoin de
+## connaitre la couleur dominante de l'objet.
+##
+## ⚠️ Le contour, lui, est EXACTEMENT celui des autres meubles : meme coque
+## inversee, meme `Attr_Style.R`, meme facteur de 50 %. Il travaille sur la
+## geometrie et ignore la texture — c'est ce qui fait qu'un meuble peint se pose
+## sur le parquet comme le canape, et non comme une decalcomanie.
+static func _painted(
+	color: Color, thickness: float, ink: Color, variant: String
+) -> ShaderMaterial:
+	var mat := ShaderMaterial.new()
+	mat.shader = PAINTED_SHADER
+
+	var path: String = TEXTURES.get(variant, "")
+	var texture: Texture2D = load(path) if path != "" else null
+
+	if texture == null:
+		# Muet, ce defaut sortirait en meuble NOIR — un sampler2D non affecte
+		# rend du noir, ce qui ressemble a un probleme d'eclairage et pas du tout
+		# a une image absente. Le shader a donc un repli, et on previent.
+		push_warning(
+			"cel_prop : illustration introuvable pour la variante '%s' (%s)"
+			% [variant, path if path != "" else "aucun chemin declare"]
+		)
+
+	mat.set_shader_parameter("illustration", texture)
+	mat.set_shader_parameter("has_illustration", texture != null)
+
+	CelStyle.with_outline(mat, color, thickness, ink)
+
+	# Le canal R module l'epaisseur du trait, sur le peint comme sur le reste :
+	# c'est le SEUL canal d'Attr_Style qui serve encore ici (§12.4).
+	var outline := mat.next_pass as ShaderMaterial
+	if outline != null:
+		outline.set_shader_parameter("use_vertex_style", true)
+
+	return mat
 
 
 ## Bascule un materiau de surface sur le shader de visage peint.

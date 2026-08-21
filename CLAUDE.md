@@ -171,6 +171,14 @@ powershell -ExecutionPolicy Bypass -File tools/fetch_fonts.ps1
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background \
   "C:/Users/tibo/Documents/zeucozy_3d/prop_canape_v1.blend" \
   --python tools/export_prop.py -- --mesh MSH_canape --out prop_canape.glb
+# ⭐ Reconstruire puis exporter la TABLE BASSE — le 1er objet PROJETE (2026-08-21)
+#    --gabarit ecrit maquettes/table_basse_gabarit.png (le blockout, a donner au
+#    generateur) ; --texture ecrit l'illustration PLACEHOLDER, et REFUSE d'ecraser
+#    une image deja en place sans --force. Ni l'un ni l'autre n'est requis pour le .glb.
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --factory-startup   --python tools/build_coffee_table.py -- --save [--gabarit] [--texture [--force]]
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background   "C:/Users/tibo/Documents/zeucozy_3d/prop_table_basse_v1.blend"   --python tools/export_prop.py -- --mesh MSH_table_basse --out prop_table_basse.glb
+# ⚠️ Puis --headless --import, ET REVERIFIER assets/textures/*.png.import :
+#    compress/mode=0, mipmaps/generate=true, detect_3d/compress_to=0.
 # Reconstruire puis exporter la CROQUETTE (meme moule : .blend REGENERE)
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --factory-startup   --python tools/build_kibble.py -- --save
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background   "C:/Users/tibo/Documents/zeucozy_3d/xp_croquette_v1.blend"   --python tools/export_prop.py -- --mesh MSH_croquette --out xp_croquette.glb
@@ -189,6 +197,8 @@ powershell -ExecutionPolicy Bypass -File tools/fetch_fonts.ps1
 #   --model=res://assets/models/projectile_boule_poils.glb
 #   --model=res://assets/models/enemy_souris.glb
 #   --model=res://assets/models/enemy_chien.glb
+#   --model=res://assets/models/prop_table_basse.glb   ⭐ le 1er PEINT — le tour
+#       8 directions est ce qui juge ce que la projection COUTE hors axe
 #   (par defaut le canape ; le cadrage se deduit de la boite englobante)
 # Banc de PAUSE — ce qui se fige, ce qui vit, ce qui repart (18 verdicts)
 "C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --headless --path . \
@@ -396,9 +406,9 @@ zeucozy/
 │       └── pause_probe.gd  # ⏸️ Pause : 18 verdicts sur `get_tree().paused` + process_mode
 ├── shaders/          # cel_toon, cel_outline, cel_face, cel_paws, retro_post
 │                     # cel_wall (le mur d'arène : 2 tons + cimaise, encre à 50 %)
-│                     # cel_painted 🅿️ À ÉCRIRE — le DÉCOR PEINT : cel_toon moins le
-│                     #           cluster, plus une illustration projetée. Voir l'état
-│                     #           actuel, « Le décor se peint »
+│                     # cel_painted ⭐ LE DÉCOR PEINT (2026-08-21) — cel_toon moins le
+│                     #           cluster, plus une illustration projetée. 6 lignes de
+│                     #           `fragment()` : l'image EST l'aplat. Voir l'état actuel
 │                     # cel_sun (include) — ⭐ L'OMBRE PORTÉE, et la fonction light()
 │                     #           du projet. Une seule définition, six shaders
 │                     # ui_frame (plaque grise, angles droits, repères d'angle,
@@ -427,6 +437,10 @@ zeucozy/
 │   ├── paint_tuxedo.py     # Pelage noir/blanc : matériau des extrémités + couleurs
 │   ├── build_outline.py    # Contour Blender : épaisseur × Attr_Style.R, 1 encre / surface
 │   ├── build_couch.py      # Canapé : géométrie ET Attr_Style, dans un .blend neuf
+│   ├── build_coffee_table.py # ⭐ TABLE BASSE — le 1er objet PROJETÉ. Géométrie (12
+│   │                       #    quads), UV CUITE à 44,02°, Attr_Style, + le gabarit
+│   │                       #    et une illustration placeholder, tous trois issus de
+│   │                       #    la MÊME projection : `--gabarit` / `--texture`
 │   ├── build_kibble.py     # Croquette : trèfle à 3 lobes, 300 tris, même moule
 │   ├── build_hairball.py   # Boule de poils : amas à 6 touffes + 3 mèches, 308 tris
 │   ├── build_mouse.py      # 🐭 Souris : goutte + 2 oreilles + queue, 1 132 tris
@@ -438,12 +452,17 @@ zeucozy/
 ├── assets/
 │   ├── models/       # player_cat_tuxedo.glb ⭐ (le chat du jeu), player_cat.glb
 │   │                 # (celui de 2026-08-16, gardé, plus chargé),
-│   │                 # prop_canape.glb, xp_croquette.glb,
+│   │                 # prop_canape.glb, prop_table_basse.glb ⭐ (le 1er
+│   │                 # PEINT), xp_croquette.glb,
 │   │                 # projectile_boule_poils.glb, enemy_souris.glb,
 │   │                 # enemy_chien.glb
 │   ├── fonts/        # Dela Gothic One + Zen Kaku Gothic New, sous-ensembles + OFL
-│   └── textures/     # 🅿️ Les ILLUSTRATIONS PROJETÉES du décor (2026-08-21)
-│                     #    ⚠️ Le dossier n'existe PAS encore — voir l'état actuel
+│   └── textures/     # ⭐ Les ILLUSTRATIONS PROJETÉES du décor (2026-08-21)
+│                     #    prop_table_basse.png — 304 × 192, 96 px/m. ⚠️ Son
+│                     #    `.import` est RÉGLÉ À LA MAIN : `compress/mode=0`
+│                     #    (Lossless), `mipmaps/generate=true` et surtout
+│                     #    `detect_3d/compress_to=0`. Sans ça Godot bascule en
+│                     #    VRAM Compressed au 1er usage 3D et le trait bave
 └── maquettes/        # 🖼️ Images de RÉFÉRENCE — jamais des assets, jamais chargées
                       # par le jeu. Prompts dans `Prompts de Génération.md` (vault).
                       # ⚠️ SAUF le prompt §4.8 depuis le 2026-08-21 : l'illustration
@@ -627,7 +646,38 @@ Un uniform **`relief_scale`** est en place pour le survol et le clic, qui resten
 > locaux). ⚠️ **Les captures d'UI d'avant le 2026-08-20 ne sont plus comparables** : filets,
 > repères d'angle et biseaux y sont 2,5× plus fins.
 
-**LE JEU SE PEINT ET SE PROJETTE — décidé le 2026-08-21, RIEN N'EST CONSTRUIT.** Les
+**LE 1ᵉʳ OBJET PEINT EST DANS LE JEU — la TABLE BASSE, le 2026-08-21.** Le chemin
+complet est ouvert et **mesuré**, sur la branche « objet POSÉ, 1 vue » de §2quater :
+`tools/build_coffee_table.py` (12 quads, UV cuite à 44,02°, `Attr_Style` R peint / G 0,5 /
+B 0,0) → `export_prop.py` → `shaders/cel_painted.gdshader` → la famille **`CelProp.PEINT`**
+→ `arena.PROPS`. Elle remplace la boîte pastel qui tenait la place depuis le prototype, et
+elle **bloque** désormais, comme le canapé. Les quatre choses vérifiées, jamais supposées :
+
+- ✅ **L'UV traverse le glTF au bit près** — écart max **1,8 × 10⁻⁵** entre l'UV du `.glb`
+  et le recalcul des deux produits scalaires, sur les 48 sommets. Et le **V est bien
+  retourné une seule fois** : on calcule en convention Blender, l'exporteur bascule, on ne
+  compense rien à la main.
+- ✅ **Le cluster est bien ÉTEINT, et le test d'acceptation de §6bis tient.** Le dessus de
+  la table rend `(212, 168, 96)` — soit `#D4A860`, **le texel de l'illustration, au
+  chiffre près**. `--sun=off` donne **0 pixel de différence** sur la surface éclairée.
+- ✅ **Et le soleil creuse quand même.** Sous l'ombre portée, `(168,120,64)` devient
+  `(143, 97, 46)` — exactement `painted × sun_shade_tint`, les trois canaux à l'unité
+  près. C'est la preuve qu'il n'y a **pas d'`ALBEDO` de trop** dans la formule : le piège
+  de `cel_sun` (l'ombre en `painted − painted²`) est évité.
+- ⛔ **`Detect 3D` a bien basculé la texture**, comme annoncé. `assets/textures/
+  prop_table_basse.png.import` est **réglé à la main** — `compress/mode=0`,
+  `mipmaps/generate=true`, `detect_3d/compress_to=0` — et ce réglage est à refaire pour
+  **chaque** illustration qui arrive.
+
+> 🅿️ **L'illustration en place est un PLACEHOLDER peint par le script**, pas l'asset final.
+> Elle respecte les cinq contraintes de §4.8 (2 tons, ombre décidée, rien sur les flancs,
+> trait intérieur seul) et sert à prouver le pont ; le fil du bois, l'usure et les reflets
+> attendent une vraie image. Le **gabarit** à lui donner est dans
+> `maquettes/table_basse_gabarit.png` — c'est le blockout **rendu** par la même projection
+> que l'UV, donc superposable par construction (la règle de §4.9, appliquée d'avance à une
+> vue). Cadre : **3,1667 × 2,0000 m**, depuis `(−1,5833 ; −0,6080)`, à 96 px/m.
+
+**LA DÉCISION D'ENSEMBLE — prise le 2026-08-21 ; SEULE la table basse est construite.** Les
 volumes cessent d'être modelés détail par détail : un **volume grossier porte une
 illustration 2D projetée**. Le maillage donne la position, l'occultation, la collision et
 une surface pour l'ombre portée ; l'image donne le dessin. Tout est en **§2quater** de la DA

@@ -34,6 +34,7 @@ const KIBBLE := "res://assets/models/xp_croquette.glb"
 const HAIRBALL := "res://assets/models/projectile_boule_poils.glb"
 const MOUSE := "res://assets/models/enemy_souris.glb"
 const DOG := "res://assets/models/enemy_chien.glb"
+const TABLE := "res://assets/models/prop_table_basse.glb"
 
 ## Ce que le banc ne peut PAS deduire d'une boite englobante. Une entree par
 ## modele, et rien de plus que ce qui lui est propre.
@@ -74,6 +75,15 @@ const MODELS := {
 	# inversee reste au-dessus du sol (voir `LEG_FOOT_Z` dans build_dog.py).
 	DOG: {"variant": "chien", "family": CelProp.CREATURE, "seat": -1.0,
 			"hover": 0.0, "prefix": "chien"},
+	# La TABLE BASSE — le 1er meuble PEINT. `PEINT` et non `MEUBLE` : le tour de
+	# camera est exactement ce qui doit la juger, puisqu'une illustration
+	# projetee depuis UN axe n'est juste que dans cet axe. Les huit directions
+	# montrent donc, et c'est voulu, ce que la technique COUTE hors axe.
+	#
+	# `seat` = 1,0 : le plateau est une plateforme, comme l'assise du canape —
+	# le chat y saute, et le banc doit montrer s'il s'y lit.
+	TABLE: {"variant": "table_basse", "family": CelProp.PEINT, "seat": 1.0,
+			"hover": 0.0, "prefix": "table"},
 }
 
 const CAPTURE_DIR := "C:/Users/tibo/AppData/Local/Temp/claude/c--Users-tibo-Games-zeucozy/42e46b8e-306f-4ae8-91c9-344ef69f4749/scratchpad"
