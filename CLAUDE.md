@@ -396,6 +396,9 @@ zeucozy/
 │       └── pause_probe.gd  # ⏸️ Pause : 18 verdicts sur `get_tree().paused` + process_mode
 ├── shaders/          # cel_toon, cel_outline, cel_face, cel_paws, retro_post
 │                     # cel_wall (le mur d'arène : 2 tons + cimaise, encre à 50 %)
+│                     # cel_painted 🅿️ À ÉCRIRE — le DÉCOR PEINT : cel_toon moins le
+│                     #           cluster, plus une illustration projetée. Voir l'état
+│                     #           actuel, « Le décor se peint »
 │                     # cel_sun (include) — ⭐ L'OMBRE PORTÉE, et la fonction light()
 │                     #           du projet. Une seule définition, six shaders
 │                     # ui_frame (plaque grise, angles droits, repères d'angle,
@@ -438,9 +441,14 @@ zeucozy/
 │   │                 # prop_canape.glb, xp_croquette.glb,
 │   │                 # projectile_boule_poils.glb, enemy_souris.glb,
 │   │                 # enemy_chien.glb
-│   └── fonts/        # Dela Gothic One + Zen Kaku Gothic New, sous-ensembles + OFL
+│   ├── fonts/        # Dela Gothic One + Zen Kaku Gothic New, sous-ensembles + OFL
+│   └── textures/     # 🅿️ Les ILLUSTRATIONS PROJETÉES du décor (2026-08-21)
+│                     #    ⚠️ Le dossier n'existe PAS encore — voir l'état actuel
 └── maquettes/        # 🖼️ Images de RÉFÉRENCE — jamais des assets, jamais chargées
                       # par le jeu. Prompts dans `Prompts de Génération.md` (vault).
+                      # ⚠️ SAUF le prompt §4.8 depuis le 2026-08-21 : l'illustration
+                      #    PROJETABLE du décor EST un asset, et va dans assets/textures/.
+                      #    Sa source pleine résolution, elle, reste ici.
                       # ⚠️ `.gdignore` VIDE obligatoire : sans lui Godot importe
                       #    chaque PNG dans le dock et dans `.godot/imported/`
 ```
@@ -618,6 +626,49 @@ Un uniform **`relief_scale`** est en place pour le survol et le clic, qui resten
 > pas le même dessin sur deux machines. Réparé par une varying (`VERTEX` est en pixels
 > locaux). ⚠️ **Les captures d'UI d'avant le 2026-08-20 ne sont plus comparables** : filets,
 > repères d'angle et biseaux y sont 2,5× plus fins.
+
+**LE DÉCOR SE PEINT ET SE PROJETTE — décidé le 2026-08-21, RIEN N'EST CONSTRUIT.** Les
+grandes masses de décor cessent d'être modelées volume par volume : un **volume grossier de
+5 à 15 faces porte une illustration 2D projetée**. Le maillage donne la position,
+l'occultation, la collision et une surface pour l'ombre portée ; l'image donne le dessin.
+Tout est en §2quater de la DA (et §9.11 pour l'UI), le transit dans `Pipeline 3D.md`, les
+gestes dans `Convention Blender.md` §12, le prompt dans `Prompts de Génération.md` §4.8.
+Les six choses à savoir avant d'y toucher :
+
+- ⭐ **La règle de partage tient en une question : *est-ce que ça tourne ?*** Le chat, les
+  ennemis, les ramassables, le projectile et tous les FX **ne sont pas concernés** — ils
+  pivotent, une illustration projetée depuis un axe fixe se verrait de flanc en une
+  demi-seconde. Ce qui est posé une fois et regardé de loin peut porter un dessin cuit.
+- ⛔ **L'axe fait 44,02°, PAS 45°.** `look_height` de 0,9 m décale l'axe optique réel :
+  `atan2(38·sin45° − 0,9 ; 38·cos45°)`. Projeter à 45° décalerait tout le décor du **même**
+  cran — donc de façon cohérente, donc invisible en comparaison, et fausse partout. ⚠️ Le
+  jour où `look_height` bouge, toutes les illustrations sont à refaire.
+- ⭐ **Le cluster est ÉTEINT sous une illustration : elle EST l'aplat.** Elle porte déjà ses
+  deux tons et ses ombres. Lui appliquer `step(NdotL)` par-dessus poserait une **seconde**
+  frontière d'ombre en travers de la première. `Attr_Style.R` (le trait) et le contour en
+  coque inversée, eux, restent. ✅ Et `cel_sun.gdshaderinc` est inclus tel quel, donc le test
+  d'acceptation de §6bis reste vrai : `--sun=off` rend l'illustration au pixel près.
+- ⛔ **Le nœud `Decal` est une impasse, et c'est la voie qui semble évidente.** Le manuel est
+  catégorique — *« decals use purely fixed rendering logic »* : un décalque **ne peut pas
+  porter de shader personnalisé**. C'est un projecteur PBR, il ne saurait ni faire un aplat
+  en `EMISSION`, ni passer par `cel_sun`. La projection se cuit donc en **UV, au build**,
+  en six lignes de Python — deux produits scalaires, aucune matrice de caméra.
+- ⛔ **`Detect 3D` bascule la texture en VRAM Compressed à l'import**, et S3TC est le pire
+  cas possible sur des aplats francs cernés d'encre : le trait bave. Régler
+  **`Detect 3D → Compress To = Disabled`** *avant*, ou **`Compress → Mode = Lossless`**
+  après. ⚠️ **Ne pas désactiver `Detect 3D`** — le manuel le déconseille explicitement, on
+  perdrait les mipmaps avec.
+- ⛔ **Les flancs (normale ±X) sont perdus.** Le lacet de la caméra étant nul, ces faces sont
+  à 90° de l'axe, donc à étirement infini. Îlot d'UV séparé, aplat uni, jamais de détail
+  dessus. À l'inverse, **45° est le meilleur angle possible** pour cette technique : c'est
+  le seul qui égalise l'étirement des faces horizontales et verticales, à 1,41×.
+
+⚠️ **Et ça plie une doctrine du projet, une seule fois et d'un cran :** une image entre dans
+`assets/`. La raison d'origine reste vraie — *une image générée n'est ni rejouable ni
+corrigeable* — d'où les deux garde-fous : le **volume reste un script** (`build_*.py` produit
+géométrie, UV et `Attr_Style`), et la **source pleine résolution** reste dans `maquettes/`.
+Densité à peindre : **80–100 px/m** (le jeu n'en affiche que 40,1). Une planche de mobilier
+entière tient en 1024 px.
 
 **Le mur porte des BAIES et le soleil les traverse — le 2026-08-20.** C'est la
 **première `Light3D` du projet** : la fermeture du 2026-08-18 sur les lumières est

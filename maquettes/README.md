@@ -14,6 +14,21 @@ texture ni de calque de référence embarqué. Le style est **reconstruit dans l
 `cel_model.gd`, `cel_prop.gd`, les shaders — et c'est ce qui fait qu'un réglage corrigé au
 banc profite au jeu sans recopie.
 
+> ### ⚠️ Amendement du 2026-08-21 — une exception, et une seule
+>
+> Le **décor** se peint désormais : un volume grossier porte une **illustration 2D
+> projetée** (DA §2quater). Cette illustration-là **est un asset**, et elle va dans
+> `assets/textures/` — pas ici. Elle sort du prompt §4.8, et de lui seul.
+>
+> **Ce dossier garde sa version SOURCE** — pleine résolution, calques compris. C'est le
+> garde-fou : une image dont on n'a que le PNG aplati à 1024 px est un cul-de-sac, et la
+> raison d'origine de la règle reste vraie (*une image générée n'est ni rejouable ni
+> corrigeable*).
+>
+> ⛔ **Le reste ne bouge pas.** Rien de ce qui **tourne** — chat, ennemis, ramassables,
+> projectile, FX — ne prend de texture. L'UI non plus, sauf pour ce qui est déjà un
+> tableau : DA §9.11 en donne la liste close.
+
 **`.gdignore` est là pour ça** : Godot importe tout ce qu'il trouve sous la racine du
 projet, et sans ce fichier chaque PNG déposé ici sortirait dans le dock FileSystem et dans
 `.godot/imported/`. Le fichier doit rester **vide** — son contenu est ignoré, il ne
