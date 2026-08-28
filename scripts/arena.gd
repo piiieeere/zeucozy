@@ -163,8 +163,9 @@ const DECOR_LAYER := 1 << 2
 ## §16 interdisant de trancher un reglage de trait en raisonnant.
 var _outline_scale := CelProp.OUTLINE_SCALE
 
-# Tapis — centre en fraction de la cellule, LARGEUR en metres, et sa planche.
-# L'ordre compte : chaque tapis se pose un cran au-dessus du precedent.
+# Tapis — centre en fraction de la cellule, LARGEUR en metres, ANGLE en degres,
+# et sa planche. L'ordre compte : chaque tapis se pose un cran au-dessus du
+# precedent.
 #
 # ⚠️ LA PROFONDEUR N'EST PAS ICI, ET C'EST VOULU. Elle se deduit du rapport de
 # l'illustration (`_rug_size`) : un tapis pose a un autre rapport que son dessin
@@ -176,13 +177,28 @@ var _outline_scale := CelProp.OUTLINE_SCALE
 # quatre PLANCHES, plus une planche et quatre teintes. Le vert etait pose deux
 # fois a 10 m d'ecart sur le meme flanc de cellule — deux tapis identiques si
 # proches se lisent comme du papier peint, c'est deja la raison du decalage
-# aleatoire par cellule. Le second passe au rose, a l'autre bout du motif.
+# aleatoire par cellule.
+#
+# ⭐ CINQ TAPIS PAR CELLULE, C'ETAIT UN SOL EN TAPIS. Le second rose est
+# retire : il restait quatre planches pour quatre tapis, donc chacune se voit
+# une fois et une seule, et le parquet — qui est peint lui aussi — reprend la
+# place. Un tapis de moins par cellule, ce sont ~12 tapis de moins sur l'arene.
+#
+# ⭐ ET LE `yaw` EST NEUF. Poses tous a l'horizontale, les tapis alignaient
+# leurs quatre bords sur ceux du sol et de l'arene : la grille des cellules se
+# lisait a travers eux. Un tapis n'est pas un carrelage, il est POSE — de
+# travers, comme dans un salon. C'est gratuit sur ces planches-ci : un tapis
+# est plat, son illustration EST sa texture, elle tourne avec lui sans un
+# etirement (contrairement au decor PROJETE, dont l'UV est cuite sur un axe).
+#
+# ⚠️ Le grand tapis central garde 0°. C'est l'ancre de la piece : c'est par
+# rapport a lui que les autres se lisent DE TRAVERS. Tout incliner ne ferait
+# que tourner la grille, pas la casser.
 const RUGS := [
-	{"at": Vector2(0.50, 0.52), "width": 16.0, "art": RUG_BLUE},    # grand tapis central
-	{"at": Vector2(0.10, 0.78), "width": 10.0, "art": RUG_PINK},
-	{"at": Vector2(0.86, 0.22), "width": 9.0, "art": RUG_GREEN},
-	{"at": Vector2(0.16, 0.52), "width": 9.5, "art": RUG_VIOLET},
-	{"at": Vector2(0.84, 0.60), "width": 10.5, "art": RUG_PINK},
+	{"at": Vector2(0.50, 0.52), "width": 16.0, "yaw": 0.0, "art": RUG_BLUE},  # grand tapis central
+	{"at": Vector2(0.10, 0.78), "width": 10.0, "yaw": -14.0, "art": RUG_PINK},
+	{"at": Vector2(0.86, 0.22), "width": 9.0, "yaw": 21.0, "art": RUG_GREEN},
+	{"at": Vector2(0.16, 0.52), "width": 9.5, "yaw": 8.0, "art": RUG_VIOLET},
 ]
 
 # Mobilier — meme convention, plus une hauteur.
@@ -307,9 +323,14 @@ func _build_furnishings(rect: Rect2) -> void:
 
 			var layer := 1
 			for rug in RUGS:
-				var area := _placed_at(origin + jitter, rug["at"], _rug_size(rug))
+				# L'emprise TESTEE est la boite du tapis TOURNE ; le plan pose,
+				# lui, garde la taille de sa planche. Confondre les deux
+				# dilaterait le tapis a la boite de son propre angle.
+				var size: Vector2 = _rug_size(rug)
+				var yaw: float = rug.get("yaw", 0.0)
+				var area := _placed_at(origin + jitter, rug["at"], _rotated(size, yaw))
 				if _is_placeable(area, rect, spawn):
-					_add_rug(area, rug["art"], float(layer) * 0.012)
+					_add_rug(area.get_center(), size, yaw, rug["art"], float(layer) * 0.012)
 				layer += 1
 
 			for prop in PROPS:
@@ -360,8 +381,16 @@ func _rug_size(rug: Dictionary) -> Vector2:
 ## boite tournee), pas seulement pour les multiples de 90° : un `yaw` de biais
 ## ne doit pas rendre un chiffre plausible et faux.
 func _footprint(item: Dictionary) -> Vector2:
-	var size: Vector2 = item["size"]
-	var angle := deg_to_rad(float(item.get("yaw", 0.0)))
+	return _rotated(item["size"], float(item.get("yaw", 0.0)))
+
+
+## Boite englobante d'une emprise tournee d'un `yaw` en degres.
+##
+## Sortie de `_footprint` le 2026-08-21, quand les tapis ont pris un angle : eux
+## n'ont pas de "size" dans leur fiche — leur profondeur vient de leur planche —
+## et recopier ces quatre lignes aurait fait deux formules a tenir d'accord.
+func _rotated(size: Vector2, yaw: float) -> Vector2:
+	var angle := deg_to_rad(yaw)
 	var c := absf(cos(angle))
 	var s := absf(sin(angle))
 
@@ -386,13 +415,18 @@ func _is_placeable(area: Rect2, rect: Rect2, spawn: Vector2) -> bool:
 ## rectangle nominal et devait pouvoir en deborder. Ici la silhouette est dans
 ## l'image, donc dans le cadre par construction. Garder la marge dilaterait le
 ## tapis de 2 m sans que rien ne le dise.
-func _add_rug(area: Rect2, art: Texture2D, y: float) -> void:
+## ⚠️ `size` est celle de la PLANCHE, pas la boite englobante du tapis tourne :
+## le plan porte l'illustration, c'est lui qui tourne. Lui donner la boite
+## etirerait le dessin de son propre angle — muet, et d'autant plus fort que
+## l'angle est grand.
+func _add_rug(center: Vector2, size: Vector2, yaw: float, art: Texture2D, y: float) -> void:
 	var mesh := PlaneMesh.new()
-	mesh.size = area.size
+	mesh.size = size
 
 	var node := MeshInstance3D.new()
 	node.mesh = mesh
-	node.position = Vector3(area.get_center().x, y, area.get_center().y)
+	node.position = Vector3(center.x, y, center.y)
+	node.rotation_degrees.y = yaw
 	node.material_override = CelStyle.make_rug(art)
 	# Meme raison que le sol, a 12 mm pres : un tapis pose a plat ne jetterait
 	# son ombre que sur le parquet qu'il touche.
