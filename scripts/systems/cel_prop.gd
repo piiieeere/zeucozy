@@ -333,6 +333,28 @@ const PALETTES := {
 		"marques": Color("#C9A87C"),
 		"truffe": Color("#3D2B1A"),
 	},
+	# Le BASSET — la brute depuis le 2026-10-18, d'apres
+	# `maquettes/Chubby Basset Dog Turnaround Sheet.png`. Remplace le chien
+	# trapu ci-dessus, qui reste pour le banc (`--model=`).
+	#
+	# Le pelage est celui de la PLANCHE, tel quel : `#965A31`, valeur 0,59,
+	# saturation 67 %. Les trois bornes du chien tiennent toujours — parquet
+	# (0,32 dessous), chat (0,30 dessus), et la souris (0,07 seulement, mais
+	# 67 % de saturation contre 21 % et le double du gabarit).
+	#
+	# ⚠️ LES MARQUES NE SONT PAS CELLES DE LA PLANCHE. `#D9A668` y est a 0,85 :
+	# 0,06 sous le parquet fonce, sous le seuil de 0,10 ou un objet cesse de se
+	# detacher du sol — et ce sont les PIEDS, donc ce qui touche le sol. Meme
+	# teinte, ramenee a 0,80.
+	#
+	# Les OREILLES n'ont pas de matiere : la planche les peint plus sombres, et
+	# c'est le canal G (0, ombre permanente) qui les sort dans le ton d'ombre du
+	# pelage — 0,38, toujours au-dessus de l'encre (0,24), donc `CelStyle.INK`
+	# suffit. `tools/build_basset.py` imprime les trois valeurs.
+	"basset": {
+		"pelage": Color("#965A31"),
+		"marques": Color("#CC9C62"),
+	},
 	# La TABLE BASSE — le 1er objet PEINT. ⚠️ Cette couleur ne fait PAS l'aplat,
 	# contrairement a toutes les autres entrees de cette table : sur une surface
 	# peinte, l'aplat est la texture. Elle ne sert plus qu'au TEINTAGE DU TRAIT
@@ -425,6 +447,31 @@ const FACES := {
 		"nose_pos": Vector2(0.0, -0.345),
 		# Plus large que haute — une truffe de chien, pas un nez de chat.
 		"nose_size": Vector2(0.115, 0.082),
+	},
+	# Le basset. Meme partage que le chien : les yeux sur le crane (`pelage`),
+	# la truffe sur le bloc du museau (`marques`).
+	#
+	# Le repere est la TETE SEULE (une coque a part, centre et rayons de
+	# `HEAD_CENTER` / `HEAD_RADIUS` dans build_basset.py, convertis en Y-up) —
+	# pas la tete + museau comme sur le chien, dont le crane faisait partie du
+	# balayage. Le museau sort donc loin dans l'espace facial : son dessus tombe
+	# vers uv.y −0,38 entre les yeux, son bout vers −0,66.
+	#
+	# Les yeux sont releves sur la planche de face et de profil — (±0,13 ;
+	# Y 0,64 ; z 1,17) en Blender —, juste au-dessus des coins du museau, et
+	# PETITS : un basset a l'oeil enfonce sous le front.
+	"basset": {
+		"surfaces": ["pelage", "marques"],
+		"center": Vector3(0.0, 1.10, -0.43),
+		"radius": Vector3(0.30, 0.28, 0.28),
+		"front_min": 0.15,
+		"pitch_deg": 26.0,
+		"eye_pos": Vector2(0.48, -0.10),
+		"eye_size": Vector2(0.10, 0.12),
+		# Le DESSUS-AVANT du bloc : c'est la seule partie de la truffe qu'une
+		# plongee a 45° voit, comme sur le chien.
+		"nose_pos": Vector2(0.0, -0.55),
+		"nose_size": Vector2(0.13, 0.085),
 	},
 	# La souris. UN SEUL materiau touche, et PAS de truffe.
 	#

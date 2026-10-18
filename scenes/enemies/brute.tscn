@@ -14,9 +14,13 @@
 ; resterait donc alignee au monde pendant que la bete tourne, ce qui est pire
 ; qu'un disque un peu court. La deplacer sous `$Body` la ferait tourner : a
 ; faire le jour ou une creature vraiment allongee arrivera, pas pour celle-ci.
+;
+; ⚠️ 0,70 DEPUIS LE BASSET (2026-10-18) : meme rapport largeur/ombre (1,41),
+; sur un tronc de 0,96 au lieu de 0,84. Toujours rond, et toujours pour la meme
+; raison — le basset est pourtant la creature allongee annoncee plus haut.
 [sub_resource type="CylinderMesh" id="CylinderMesh_shadow"]
-top_radius = 0.6
-bottom_radius = 0.6
+top_radius = 0.7
+bottom_radius = 0.7
 height = 0.02
 radial_segments = 20
 rings = 0
@@ -37,8 +41,8 @@ base_speed = 2.6
 max_health = 7
 contact_damage = 30
 xp_drop = 3
-model_path = "res://assets/models/enemy_chien.glb"
-model_variant = "chien"
+model_path = "res://assets/models/enemy_basset.glb"
+model_variant = "basset"
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)

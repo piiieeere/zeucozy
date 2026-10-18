@@ -202,7 +202,10 @@ python tools/bake_rugs.py --force   # [--only blue] [--long-side 768]
 # Reconstruire puis exporter la BOULE DE POILS (le projectile) — meme moule
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --factory-startup   --python tools/build_hairball.py -- --save
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background   "C:/Users/tibo/Documents/zeucozy_3d/projectile_boule_poils_v1.blend"   --python tools/export_prop.py -- --mesh MSH_boule_poils --out projectile_boule_poils.glb
-# Reconstruire puis exporter le CHIEN (la BRUTE) — meme moule
+# ⭐ Reconstruire puis exporter le BASSET — la BRUTE depuis le 2026-10-18 (meme moule)
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --factory-startup   --python tools/build_basset.py -- --save
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background   "C:/Users/tibo/Documents/zeucozy_3d/enemy_basset_v1.blend"   --python tools/export_prop.py -- --mesh MSH_basset --out enemy_basset.glb
+# Reconstruire puis exporter le CHIEN d'avant (la brute du 2026-08-19, plus chargee)
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --factory-startup   --python tools/build_dog.py -- --save
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background   "C:/Users/tibo/Documents/zeucozy_3d/enemy_chien_v1.blend"   --python tools/export_prop.py -- --mesh MSH_chien --out enemy_chien.glb
 # Reconstruire puis exporter la SOURIS (le 1er ennemi modelise) — meme moule
@@ -213,7 +216,8 @@ python tools/bake_rugs.py --force   # [--only blue] [--long-side 768]
 #   --model=res://assets/models/xp_croquette.glb   n'importe quel .glb sans squelette
 #   --model=res://assets/models/projectile_boule_poils.glb
 #   --model=res://assets/models/enemy_souris.glb
-#   --model=res://assets/models/enemy_chien.glb
+#   --model=res://assets/models/enemy_basset.glb   ⭐ la brute
+#   --model=res://assets/models/enemy_chien.glb    le chien d'avant, plus charge
 #   --model=res://assets/models/prop_table_basse.glb   ⭐ le 1er PEINT — le tour
 #       8 directions est ce qui juge ce que la projection COUTE hors axe
 #   (par defaut le canape ; le cadrage se deduit de la boite englobante)
@@ -361,7 +365,7 @@ zeucozy/
 │   ├── xp_orb.tscn
 │   ├── enemies/
 │   │   ├── chaser.tscn   # 🐭 Ennemi rapide (spawn dès le début) — LA SOURIS
-│   │   └── brute.tscn    # Ennemi costaud (spawn après 22s) — LE CHIEN
+│   │   └── brute.tscn    # Ennemi costaud (spawn après 22s) — LE BASSET (2026-10-18)
 │   └── tests/
 │       ├── cel_test.tscn  # Banc de test du cel-shading du chat, isolé du gameplay
 │       ├── prop_test.tscn # Banc de test du mobilier
@@ -467,8 +471,14 @@ zeucozy/
 │   ├── build_kibble.py     # Croquette : trèfle à 3 lobes, 300 tris, même moule
 │   ├── build_hairball.py   # Boule de poils : amas à 6 touffes + 3 mèches, 308 tris
 │   ├── build_mouse.py      # 🐭 Souris : goutte + 2 oreilles + queue, 1 132 tris
-│   ├── build_dog.py        # 🐶 Chien (la brute) : goutte + museau + 2 oreilles
-│   │                       #    tombantes + 4 pattes + queue, 1 610 tris
+│   ├── build_basset.py     # 🐶 Basset (la brute depuis le 2026-10-18) : tronc en
+│   │                       #    ellipse, tête à part, museau en bloc, oreilles en
+│   │                       #    ombre (G = 0), 4 pieds en coques, 2 310 tris.
+│   │                       #    `__name__` gardé : l'atelier MCP appelle
+│   │                       #    `build_object()` sans `clear_scene()`
+│   ├── build_dog.py        # Chien trapu (la brute du 2026-08-19, plus chargé) :
+│   │                       #    goutte + museau + 2 oreilles tombantes + 4 pattes
+│   │                       #    + queue, 1 610 tris
 │   ├── export_prop.py      # Export générique d'un .glb, même réinjection COLOR_0
 │   ├── bake_illustration.py # ⭐ L'ILLUSTRATION PEINTE → la texture (2026-08-21) —
 │   │                       #    recadrage sur le gabarit, réduction à 96 px/m,
@@ -490,7 +500,8 @@ zeucozy/
 │   │                 # prop_canape.glb, prop_table_basse.glb ⭐ (le 1er
 │   │                 # PEINT), xp_croquette.glb,
 │   │                 # projectile_boule_poils.glb, enemy_souris.glb,
-│   │                 # enemy_chien.glb
+│   │                 # enemy_basset.glb ⭐ (la brute), enemy_chien.glb
+│   │                 # (la brute du 2026-08-19, gardé, plus chargé)
 │   ├── fonts/        # Dela Gothic One + Zen Kaku Gothic New, sous-ensembles + OFL
 │   └── textures/     # ⭐ Les ILLUSTRATIONS du décor (2026-08-21)
 │                     #    prop_table_basse.png — 304 × 192, 96 px/m, PROJETÉE,
@@ -671,6 +682,34 @@ Le rig de caméra fait exception : il bouge dans `_process`, donc son interpolat
 ennemis, **attaque de griffure au corps à corps**, **aura d'haleine puante**, XP/niveaux,
 **système de compétences à paliers**, scaling difficulté, HUD complet, Game Over/restart,
 arène large. Toute la logique de gameplay tourne — le passage en 3D ne l'a pas touchée.
+
+**LA BRUTE EST UN BASSET DEPUIS LE 2026-10-18**, d'après
+`maquettes/Chubby Basset Dog Turnaround Sheet.png` — `tools/build_basset.py` →
+`enemy_basset.glb` → `CelProp` variante `basset` → `brute.tscn`. C'est le **1ᵉʳ asset
+passé par « Intégration Assets 3D »** (esquisse dans le Blender ouvert via le MCP, puis
+build en ligne de commande). Rôle et chiffres de la brute **inchangés**. Détail dans
+[[Les modèles — les ennemis]]. Ce qu'il faut savoir avant d'y toucher :
+
+- ⚠️ **Il est plié à la hurtbox, pas à la planche.** La planche le dessine à **1,25×
+  le chat** (~2,3 m de haut) ; en jeu il en fait **0,74** — truffe→croupe **2,00 m**
+  (le diamètre de la hurtbox), crâne 1,38 m. Proportions de la planche, échelle du
+  gabarit : `PX = 2,00 / 470` m par pixel du profil, et tous les profils du script en
+  sont relevés.
+- ⚠️ **Les oreilles n'ont pas de matière.** La planche les peint plus sombres que le
+  pelage : elles sont en **ombre permanente** (`Attr_Style.G = 0`, plancher de G par
+  coque dans `G_FLOOR`), ce qui évite une 3ᵉ surface, donc 2 draw calls par bête.
+- ⚠️ **Les marques ne sont pas celles de la planche** — `#D9A668` y est à 0,06 du
+  parquet foncé, et ce sont les **pieds** qui touchent le sol. `#CC9C62`, même teinte à
+  0,80. Le pelage, lui, est celui de la planche : `#965A31`.
+- ⛔ **La queue en sabre suit la planche, contre la leçon de la souris.** Elle se lit
+  sur 7 directions sur 8 ; **vue de dos (000°) elle ne laisse qu'une boucle** sur la
+  croupe. Gardé en connaissance de cause — la sortie connue est celle du chien d'avant,
+  une queue qui court sur le côté.
+- ⚠️ **`enemy_basset.glb.import` a été réglé à la main** comme ceux des autres créatures :
+  `ensure_tangents`, `generate_lods`, `create_shadow_meshes` et `animation/import` à
+  `false`. Godot les écrit à `true` à la création d'un `.import`.
+- L'ancien `enemy_chien.glb` **reste dans le dépôt** (`build_dog.py` aussi), plus chargé,
+  rechargeable au banc par `--model=` — comme `player_cat.glb` après le chat tuxedo.
 
 **La boule de poils est modélisée et ralentie depuis le 2026-08-19** — voir « La boule de
 poils modélisée » plus bas. Le projectile est un amas de fourrure à 6 touffes, dans la couleur du chat, qui **roule** sur
@@ -1095,7 +1134,8 @@ variantes (bleu ciel, vert sauge). **Les croquettes d'XP sont modélisées** dep
 arrivée le 2026-08-19 et remplace la capsule rose du `chaser` : 1 132 tris, taupe chaud,
 oreilles roses et queue. **Le chien** est arrivé le même jour et remplace la sphère lavande
 de la `brute` : 1 610 tris, châtaigne, oreilles tombantes et museau clair — c'était **le
-dernier placeholder de primitive du gameplay**. **Les quatre tapis sont peints à la main**
+dernier placeholder de primitive du gameplay**. Il a cédé la brute au **basset** le
+2026-10-18 (voir plus haut). **Les quatre tapis sont peints à la main**
 depuis le 2026-08-21 et ne sont plus dessinés par un shader. Reste placeholder : le petit
 mobilier — plantes / coussins en boîtes pastel (la table basse, elle, est peinte).
 
