@@ -188,6 +188,14 @@ powershell -ExecutionPolicy Bypass -File tools/fetch_fonts.ps1
 python tools/bake_illustration.py --illustration maquettes/table_basse_illustration.png   --gabarit maquettes/table_basse_gabarit.png   --out assets/textures/prop_table_basse.png --force
 # ⚠️ Puis --headless --import, ET REVERIFIER assets/textures/*.png.import :
 #    compress/mode=0, mipmaps/generate=true, detect_3d/compress_to=0.
+# ⭐ La PLANTE EN POT — la BRANCHE E (2026-10-18) : un modele GENERE par Tripo
+#    (maquettes/potted plant 3d model.glb), retravaille par script. --texture
+#    ecrit assets/textures/prop_plante.png (la couleur Tripo, 1024 px, fond noir
+#    retire). Le build IMPRIME l'emprise a recopier dans arena.PROPS.
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --factory-startup   --python tools/build_plant_tripo.py -- --save --texture --force
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background   "C:/Users/tibo/Documents/zeucozy_3d/prop_plante_v2.blend"   --python tools/export_prop.py -- --mesh MSH_plante --out prop_plante.glb
+#    L'œuf peint d'avant (build_plant.py, prop_plante_v1.blend) est GARDE, plus
+#    charge : il sort desormais en prop_plante_oeuf.{glb,png}.
 # ⭐ CUIRE LES QUATRE TAPIS PEINTS (2026-08-21) — la branche la PLUS SIMPLE du
 #    peint : un tapis est plat et pose au sol, donc l'illustration vue de dessus
 #    EST la texture. Ni gabarit, ni recalage, ni UV cuite. Lit
@@ -220,6 +228,7 @@ python tools/bake_rugs.py --force   # [--only blue] [--long-side 768]
 #   --model=res://assets/models/enemy_chien.glb    le chien d'avant, plus charge
 #   --model=res://assets/models/prop_table_basse.glb   ⭐ le 1er PEINT — le tour
 #       8 directions est ce qui juge ce que la projection COUTE hors axe
+#   --model=res://assets/models/prop_plante.glb   la plante (Tripo, branche E)
 #   (par defaut le canape ; le cadrage se deduit de la boite englobante)
 # Banc de PAUSE — ce qui se fige, ce qui vit, ce qui repart (18 verdicts)
 "C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --headless --path . \
@@ -470,6 +479,12 @@ zeucozy/
 │   │                       #    quads), UV CUITE à 44,02°, Attr_Style, + le gabarit
 │   │                       #    et une illustration placeholder, tous trois issus de
 │   │                       #    la MÊME projection : `--gabarit` / `--texture`
+│   ├── build_plant_tripo.py # 🪴 LA PLANTE DU JEU — la BRANCHE E (2026-10-18) :
+│   │                       #    le .glb Tripo de maquettes/ remis en mètres,
+│   │                       #    feuilles ÉPAISSIES (solidify des coques ouvertes),
+│   │                       #    1 matériau PAINT_, couleur Tripo en texture
+│   ├── build_plant.py      # L'œuf peint d'avant (2e PROJETÉ) — gardé, plus
+│   │                       #    chargé ; sort en prop_plante_oeuf.*
 │   ├── build_kibble.py     # Croquette : trèfle à 3 lobes, 300 tris, même moule
 │   ├── build_hairball.py   # Boule de poils : amas à 6 touffes + 3 mèches, 308 tris
 │   ├── build_mouse.py      # 🐭 Souris : goutte + 2 oreilles + queue, 1 132 tris
@@ -500,7 +515,7 @@ zeucozy/
 │   ├── models/       # player_cat_tuxedo.glb ⭐ (le chat du jeu), player_cat.glb
 │   │                 # (celui de 2026-08-16, gardé, plus chargé),
 │   │                 # prop_canape.glb, prop_table_basse.glb ⭐ (le 1er
-│   │                 # PEINT), xp_croquette.glb,
+│   │                 # PEINT), prop_plante.glb (Tripo, branche E), xp_croquette.glb,
 │   │                 # projectile_boule_poils.glb, enemy_souris.glb,
 │   │                 # enemy_basset.glb ⭐ (la brute), enemy_chien.glb
 │   │                 # (la brute du 2026-08-19, gardé, plus chargé)
@@ -1163,8 +1178,33 @@ oreilles roses et queue. **Le chien** est arrivé le même jour et remplace la s
 de la `brute` : 1 610 tris, châtaigne, oreilles tombantes et museau clair — c'était **le
 dernier placeholder de primitive du gameplay**. Il a cédé la brute au **basset** le
 2026-10-18 (voir plus haut). **Les quatre tapis sont peints à la main**
-depuis le 2026-08-21 et ne sont plus dessinés par un shader. Reste placeholder : le petit
-mobilier — plantes / coussins en boîtes pastel (la table basse, elle, est peinte).
+depuis le 2026-08-21 et ne sont plus dessinés par un shader. Reste placeholder : les
+**coussins** en boîtes pastel.
+
+**LES PLANTES SONT UN MODÈLE GÉNÉRÉ — la BRANCHE E, ouverte le 2026-10-18.**
+« Intégration Assets 3D » §7 demandait si un maillage Tripo pouvait entrer dans le jeu ;
+réponse retenue : oui, **par un script rejouable** (`tools/build_plant_tripo.py`), la
+source restant dans `maquettes/`. Ce qu'il faut savoir :
+
+- ⭐ **La couleur Tripo devient l'« illustration » de `cel_painted`** (famille `PEINT`).
+  Ce shader lit une image par l'UV, en aplat — il ne sait pas que l'UV de la table était
+  projetée. Contour du mobilier et ombre portée de `cel_sun` compris.
+- ⛔ **Les cartes NORMAL et RM (métal/rugosité) ne passent pas** : éclairage physique,
+  que le cel-shading n'a pas, et §11 de la Convention Blender les interdit.
+- ⛔ **Les feuilles Tripo n'ont pas d'épaisseur** (438 coques ouvertes). `cull_back` les
+  efface vues de dessous, et la coque inversée du contour suppose un volume fermé.
+  `bmesh.ops.solidify` à 2 cm sur les coques ouvertes → **0 arête de bord**, mais
+  **3 208 → 13 244 tris** (les tranches). Au cadrage de jeu ça ne coûte rien de mesurable ;
+  c'est le premier chiffre à rouvrir si le décor pèse un jour.
+- ⚠️ **La texture est réduite en ignorant le fond noir** de l'atlas, puis comblée par
+  dilatation — même piège que les tapis : sinon les mipmaps remontent du noir sur chaque
+  couture d'UV, visible sur le pot.
+- ⚠️ **L'emprise est 2,22 × 2,22 m**, plus 1,4 : le feuillage déborde du pot. Elle vient du
+  modèle (le build l'imprime) et se recopie dans `arena.PROPS`.
+- ⭐ **Elle peut TOURNER, contrairement à la table** — un vrai dépliage d'UV ne glisse pas.
+  La 2ᵉ plante prend un quart de tour.
+- L'œuf peint de l'après-midi (`build_plant.py`, gabarit `maquettes/plante_gabarit.png`)
+  est **gardé, plus chargé**, et sort désormais en `prop_plante_oeuf.*`.
 
 **Passe rétro anime — faite le 2026-08-16.** `Attr_Style` peint et câblé, trait à
 épaisseur variable **des deux côtés du pont** (Godot par `cel_outline.gdshader`, Blender par

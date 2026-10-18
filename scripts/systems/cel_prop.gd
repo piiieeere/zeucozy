@@ -219,6 +219,11 @@ const FAMILIES := {
 ## UV et Attr_Style), et la source pleine resolution reste dans `maquettes/`.
 const TEXTURES := {
 	"table_basse": "res://assets/textures/prop_table_basse.png",
+	# ⭐ La PLANTE — la 1re texture qui n'est PAS projetee (2026-10-18). C'est
+	# la couleur du modele Tripo (BRANCHE E), lue par l'UV de Tripo :
+	# `cel_painted` ne fait aucune hypothese sur l'UV, il lit l'image en aplat.
+	# Ecrite par `tools/build_plant_tripo.py --texture`, reduite a 1024 px.
+	"plante": "res://assets/textures/prop_plante.png",
 }
 
 ## Palette par variante, puis par materiau du .glb.
@@ -370,6 +375,14 @@ const PALETTES := {
 	# teinte de l'ambre d'origine cernerait un bois qu'il n'a plus.
 	"table_basse": {
 		"PAINT_table": Color("#D3944B"),
+	},
+	# La PLANTE — meme statut que la table : la couleur ne sert qu'au
+	# teintage du trait. `#516424` est la MEDIANE de sa texture (1 048 576
+	# pixels, fond comble compris) — le vert des feuilles, qui font l'essentiel
+	# de la silhouette. Le pot est donc cerne d'un trait un peu trop vert :
+	# c'est le prix d'UN seul materiau. ⚠️ A remesurer si la texture change.
+	"plante": {
+		"PAINT_plante": Color("#516424"),
 	},
 }
 

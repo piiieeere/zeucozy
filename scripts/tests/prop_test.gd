@@ -36,6 +36,7 @@ const MOUSE := "res://assets/models/enemy_souris.glb"
 const DOG := "res://assets/models/enemy_chien.glb"
 const BASSET := "res://assets/models/enemy_basset.glb"
 const TABLE := "res://assets/models/prop_table_basse.glb"
+const PLANT := "res://assets/models/prop_plante.glb"
 
 ## Ce que le banc ne peut PAS deduire d'une boite englobante. Une entree par
 ## modele, et rien de plus que ce qui lui est propre.
@@ -89,6 +90,9 @@ const MODELS := {
 	# le chat y saute, et le banc doit montrer s'il s'y lit.
 	TABLE: {"variant": "table_basse", "family": CelProp.PEINT, "seat": 1.0,
 			"hover": 0.0, "prefix": "table"},
+	# La PLANTE — 2e meuble PEINT. Rien a escalader : 2,6 m de feuillage.
+	PLANT: {"variant": "plante", "family": CelProp.PEINT, "seat": -1.0,
+			"hover": 0.0, "prefix": "plante"},
 }
 
 const CAPTURE_DIR := "C:/Users/tibo/AppData/Local/Temp/claude/c--Users-tibo-Games-zeucozy/42e46b8e-306f-4ae8-91c9-344ef69f4749/scratchpad"

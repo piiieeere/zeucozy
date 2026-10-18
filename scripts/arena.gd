@@ -28,6 +28,12 @@ const CANAPE := "res://assets/models/prop_canape.glb"
 ## c'est `CelProp.PEINT` qui change tout, pas ce qui l'entoure.
 const TABLE_BASSE := "res://assets/models/prop_table_basse.glb"
 
+## La PLANTE EN POT — 2026-10-18, `tools/build_plant_tripo.py`. Un modele
+## GENERE (Tripo), retravaille par script : la BRANCHE E. Montee comme la table
+## — famille PEINT, sa texture de couleur faisant l'aplat — mais lue par un vrai
+## depliage d'UV, pas par une projection.
+const PLANTE := "res://assets/models/prop_plante.glb"
+
 ## ⭐ LES TAPIS PEINTS — 2026-08-21. Quatre planches peintes a la main, cuites
 ## par `tools/bake_rugs.py`. C'est la branche la plus simple du PEINT de
 ## §2quater : un tapis est plat et pose au sol, donc son illustration vue de
@@ -258,10 +264,26 @@ const PROPS := [
 	{"at": Vector2(0.50, 0.52), "size": Vector2(3.0, 1.6),
 		"model": TABLE_BASSE, "variant": "table_basse", "yaw": 0.0,
 		"family": CelProp.PEINT},
-	{"at": Vector2(0.90, 0.12), "size": Vector2(1.4, 1.4), "height": 2.6,
-		"color": Color("#CDFFBF"), "alpha": 0.90},   # plante
-	{"at": Vector2(0.08, 0.88), "size": Vector2(1.4, 1.4), "height": 2.6,
-		"color": Color("#CDFFBF"), "alpha": 0.90},   # plante
+	# Les deux PLANTES — le modele Tripo retravaille (BRANCHE E, 2026-10-18),
+	# a la place des boites pastel. Comme la table, elles BLOQUENT : un meuble
+	# modelise recoit son StaticBody3D, et entre du meme coup dans
+	# `blockers`, donc dans la carte des chemins des ennemis.
+	#
+	# ⚠️ L'emprise est passee de 1,4 a 2,22 m : le feuillage deborde du pot,
+	# et c'est le modele qui la donne (`build_plant_tripo.py` l'imprime).
+	#
+	# ⭐ ET ELLES PEUVENT TOURNER, contrairement a la table. Leur UV est un vrai
+	# depliage, pas une projection cuite sur l'axe de la camera : le dessin
+	# suit la feuille sous tous les caps. La seconde prend un quart de tour —
+	# deux plantes identiques sous le meme angle se liraient comme du papier
+	# peint. 90° et pas un angle quelconque : l'emprise etant carree, la boite
+	# de collision reste celle du meuble.
+	{"at": Vector2(0.90, 0.12), "size": Vector2(2.22, 2.22),
+		"model": PLANTE, "variant": "plante", "yaw": 0.0,
+		"family": CelProp.PEINT},
+	{"at": Vector2(0.08, 0.88), "size": Vector2(2.22, 2.22),
+		"model": PLANTE, "variant": "plante", "yaw": 90.0,
+		"family": CelProp.PEINT},
 	{"at": Vector2(0.38, 0.76), "size": Vector2(1.6, 1.6), "height": 0.45,
 		"color": Color("#FFC6FF"), "alpha": 0.72},   # coussin
 	{"at": Vector2(0.64, 0.24), "size": Vector2(1.6, 1.6), "height": 0.45,
