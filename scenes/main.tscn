@@ -1,4 +1,4 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_rhi7x"]
 [ext_resource type="PackedScene" path="res://scenes/player.tscn" id="2_h0b1r"]
@@ -7,6 +7,7 @@
 [ext_resource type="PackedScene" path="res://scenes/fx/retro_post.tscn" id="5_retropost"]
 [ext_resource type="PackedScene" path="res://scenes/fx/impact_frame.tscn" id="6_impactframe"]
 [ext_resource type="Script" path="res://scripts/ui/hud.gd" id="7_hud"]
+[ext_resource type="Script" path="res://scripts/systems/flow_field.gd" id="8_flowfield"]
 
 [sub_resource type="Environment" id="Environment_arena"]
 background_mode = 1
@@ -43,6 +44,12 @@ script = ExtResource("3_arena")
 
 [node name="Enemies" type="Node3D" parent="."]
 process_mode = 1
+
+; La carte des chemins (Dijkstra depuis le chat). PAUSABLE comme le reste du
+; monde : derriere un carton, aucun calcul n'est relance.
+[node name="FlowField" type="Node" parent="."]
+process_mode = 1
+script = ExtResource("8_flowfield")
 
 [node name="Projectiles" type="Node3D" parent="."]
 process_mode = 1

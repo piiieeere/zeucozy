@@ -163,6 +163,21 @@ const DECOR_LAYER := 1 << 2
 ## §16 interdisant de trancher un reglage de trait en raisonnant.
 var _outline_scale := CelProp.OUTLINE_SCALE
 
+## Emprises au sol des meubles qui BLOQUENT, dans le plan XZ (x → x, y → z) —
+## celles qui ont recu un StaticBody3D, et elles seules. C'est ce que lit la
+## carte des chemins (`FlowField`) pour faire contourner les meubles aux
+## ennemis (2026-10-18).
+##
+## ⚠️ Remplie par `_add_blocker` et nulle part ailleurs : un meuble ne peut donc
+## pas bloquer le corps sans figurer ici, ni l'inverse. Une boite pastel, qui ne
+## collisionne rien, n'y entre pas — les ennemis la traversent, comme le chat.
+##
+## ⚠️ Ce sont des rectangles ALIGNES sur les axes. Exact aux quarts de tour
+## (tout le mobilier actuel) ; a un autre angle, l'emprise tournee de
+## `_footprint()` est une boite englobante, donc un peu plus large que le meuble
+## — les ennemis passeraient un peu plus au large, sans jamais le traverser.
+var blockers: Array[Rect2] = []
+
 # Tapis — centre en fraction de la cellule, LARGEUR en metres, ANGLE en degres,
 # et sa planche. L'ordre compte : chaque tapis se pose un cran au-dessus du
 # precedent.
@@ -258,6 +273,8 @@ const PROPS := [
 func build(rect: Rect2) -> void:
 	for child in get_children():
 		child.queue_free()
+
+	blockers.clear()
 
 	for argument in OS.get_cmdline_user_args():
 		if argument.begins_with("--decor-outline="):
@@ -473,7 +490,7 @@ func _add_model_prop(footprint: Rect2, prop: Dictionary) -> void:
 
 	node.position = Vector3(footprint.get_center().x, 0.0, footprint.get_center().y)
 	node.rotation_degrees.y = prop.get("yaw", 0.0)
-	_add_blocker(node, prop)
+	_add_blocker(node, prop, footprint)
 	add_child(node)
 
 
@@ -493,7 +510,7 @@ func _add_model_prop(footprint: Rect2, prop: Dictionary) -> void:
 ## table. Un `"height"` ecrit a la main serait un second nombre a tenir
 ## synchronise avec Blender, et le jour ou le canape change de hauteur rien ne
 ## signalerait que la collision est restee sur l'ancienne.
-func _add_blocker(model: Node3D, prop: Dictionary) -> void:
+func _add_blocker(model: Node3D, prop: Dictionary, footprint: Rect2) -> void:
 	var bounds := _model_bounds(model)
 
 	if bounds.size == Vector3.ZERO:
@@ -521,6 +538,7 @@ func _add_blocker(model: Node3D, prop: Dictionary) -> void:
 	body.collision_mask = 0
 	body.add_child(collider)
 	model.add_child(body)
+	blockers.append(footprint)
 
 
 ## Boite englobante du maillage d'un meuble, dans l'espace du modele.

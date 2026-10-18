@@ -63,6 +63,25 @@ var current_health := 0
 var target: Node3D
 var damage_cooldown := 0.0
 
+## Cadence a laquelle l'ennemi se demande s'il peut foncer droit sur le chat.
+## Pas a chaque frame : la reponse change quand on contourne un coin, pas
+## d'une frame a l'autre — et a 10 Hz, deux cents betes font 2 000 tests par
+## seconde au lieu de 12 000.
+const SIGHT_INTERVAL := 0.1
+## Le test de course s'arrete a cette distance du chat. Un chat colle au canape
+## ferait sinon toucher le meuble au bout de chaque course — le corps de la
+## bete est plus large que le sien — et il deviendrait « cache » de tous.
+const SIGHT_SLACK := 1.0
+
+## La carte des chemins — `null` = poursuite en ligne droite partout, la
+## conduite d'avant le 2026-10-18 (un banc sans arene, par exemple).
+var _field: FlowField
+var _sight_clock := 0.0
+var _clear_run := true
+## Le cap de marche de la frame. C'est lui que le modele regarde pendant la
+## poursuite — voir `_face`.
+var _heading := Vector3.ZERO
+
 ## Le RECUL — vitesse imposee de l'exterieur, qui remplace la poursuite tant
 ## qu'elle n'est pas retombee. Posee par `push()`, freinee par `_knockback_drag`.
 ##
@@ -100,13 +119,17 @@ func _ready() -> void:
 	CelStyle.apply_contact_shadow(shadow)
 
 
-func setup(new_target: Node3D, difficulty_scale: float) -> void:
+func setup(new_target: Node3D, field: FlowField, difficulty_scale: float) -> void:
 	target = new_target
+	_field = field
+	# Dephase : une vague pose jusqu'a cinq betes sur la meme frame, et elles
+	# feraient sinon leurs tests de course toutes ensemble, a chaque fois.
+	_sight_clock = randf() * SIGHT_INTERVAL
 
 	# Le cap est POSE d'un coup a l'apparition, jamais interpole depuis le cap
 	# par defaut : un ennemi qui nait dos au chat et pivote en 0,2 s se lit comme
 	# s'il avait hesite, alors qu'il vient d'arriver.
-	_face_target(INF)
+	_face(target.global_position - global_position, INF)
 	max_health = max(1, int(round(max_health * difficulty_scale)))
 	current_health = max_health
 	base_speed *= 1.0 + (difficulty_scale - 1.0) * 0.35
@@ -133,20 +156,26 @@ func _physics_process(delta: float) -> void:
 	if damage_cooldown > 0.0:
 		damage_cooldown -= delta
 
+	var facing := Vector3.ZERO
+
 	if _knockback.length_squared() > 0.01:
 		# Repousse : la poursuite attend. Voir `_knockback`.
 		velocity = _knockback
 		_knockback = _knockback.move_toward(Vector3.ZERO, _knockback_drag * delta)
+		# Pendant le recul, le modele continue de faire face au chat — voir
+		# `_face`. Le cap de marche, lui, ne bouge pas : la poursuite reprend la
+		# ou elle s'etait arretee.
+		if is_instance_valid(target):
+			facing = target.global_position - global_position
 	elif is_instance_valid(target):
-		# Poursuite a plat : tout le jeu vit dans le plan XZ.
-		var to_target := target.global_position - global_position
-		to_target.y = 0.0
-		velocity = to_target.normalized() * base_speed
+		_heading = _chase_heading(delta)
+		velocity = _heading * base_speed
+		facing = _heading
 	else:
 		velocity = Vector3.ZERO
 
 	move_and_slide()
-	_face_target(delta)
+	_face(facing, delta)
 
 	if damage_cooldown > 0.0:
 		return
@@ -170,11 +199,64 @@ func _physics_process(delta: float) -> void:
 			break
 
 
-## Le modele regarde LA CIBLE, jamais sa propre vitesse — et la nuance ne se voit
-## que quand le recul entre en jeu. Un ennemi repousse recule en CONTINUANT de
-## faire face au chat ; s'il s'orientait sur sa vitesse, il partirait en marche
-## arriere puis ferait demi-tour, ce qui se lit comme une fuite et non comme un
-## coup encaisse.
+## Le cap de poursuite, a plat et norme (2026-10-18).
+##
+## ⭐ DEUX CONDUITES, ET LA BETE CHOISIT. Si son corps peut courir droit
+## jusqu'au chat sans toucher un meuble, elle fonce en ligne droite — la
+## poursuite d'avant, au cap exact. Sinon elle suit la carte des chemins,
+## qui la fait contourner. Le champ n'est donc jamais lu sur un parquet
+## degage, ou ses 8 caps de grille feraient courir la horde en octogones.
+##
+## ⚠️ `test_move` ET PAS UN RAYON. Il essaie le VRAI corps de la bete (son
+## cylindre, contre son masque — le decor seul) : un rayon central passerait a
+## 0,3 m de l'angle du canape, la ou un basset de 0,9 m de rayon le prend en
+## plein. Et c'est un appel moteur : le meme test en GDScript, case par case,
+## coutait 48 µs.
+func _chase_heading(delta: float) -> Vector3:
+	var to_target := target.global_position - global_position
+	to_target.y = 0.0
+	var straight := to_target.normalized()
+
+	if _field == null:
+		return straight
+
+	_sight_clock -= delta
+
+	if _sight_clock <= 0.0:
+		_sight_clock += SIGHT_INTERVAL
+		_clear_run = _has_clear_run(to_target)
+
+	if _clear_run:
+		return straight
+
+	var along: Vector3 = _field.direction_at(global_position)
+
+	# Hors grille, ou la carte n'est pas encore calculee : la ligne droite,
+	# plutot que l'immobilite.
+	return straight if along == Vector3.ZERO else along
+
+
+func _has_clear_run(to_target: Vector3) -> bool:
+	var reach := to_target.length() - SIGHT_SLACK
+
+	if reach <= 0.0:
+		return true
+
+	return not test_move(global_transform, to_target.normalized() * reach)
+
+
+## Le modele regarde OU IL VA pendant la poursuite, et LE CHAT pendant le recul.
+##
+## A decouvert les deux sont la meme direction — la poursuite y est une ligne
+## droite vers le chat. Ils ne divergent que dans deux cas, et chacun a sa
+## raison :
+##
+##   * pendant un CONTOURNEMENT, la bete regarde ou elle marche. Tournee vers un
+##     chat cache derriere le canape, une souris longerait le meuble en crabe —
+##     exactement ce que `turn_speed` existe pour eviter ;
+##   * pendant un RECUL, elle continue de faire face au chat. Orientee sur sa
+##     vitesse, elle partirait en marche arriere puis ferait demi-tour, ce qui
+##     se lit comme une fuite et non comme un coup encaisse.
 ##
 ## C'est `$Body` qui tourne, jamais le CharacterBody3D — meme partage que le
 ## chat, dont seul `$Model` pivote. Les formes de collision sont un cylindre et
@@ -184,17 +266,13 @@ func _physics_process(delta: float) -> void:
 ## Un objet Godot tourne de rotation.y regarde (-sin y, 0, -cos y) : d'ou l'atan2
 ## sur les composantes negatives. Meme formule que `player._face_direction`.
 ## `delta` infini pose le cap d'un coup (voir `setup`).
-func _face_target(delta: float) -> void:
-	if not is_instance_valid(target):
+func _face(direction: Vector3, delta: float) -> void:
+	direction.y = 0.0
+
+	if direction.length_squared() < 1.0e-6:
 		return
 
-	var to_target := target.global_position - global_position
-	to_target.y = 0.0
-
-	if to_target.length_squared() < 1.0e-6:
-		return
-
-	var wanted := atan2(-to_target.x, -to_target.z)
+	var wanted := atan2(-direction.x, -direction.z)
 	body.rotation.y = lerp_angle(body.rotation.y, wanted, 1.0 - exp(-turn_speed * delta))
 
 

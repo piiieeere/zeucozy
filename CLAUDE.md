@@ -394,6 +394,8 @@ zeucozy/
 │   │   ├── skill_definitions.gd    # ⭐ LE catalogue — types, paliers, poids de tirage
 │   │   ├── skill_set.gd            # ⭐ Ce que le chat PORTE — build, horloge, et
 │   │   │                           #    l'ÉCHANGE de slot (`replace`)
+│   │   ├── flow_field.gd           # 🧭 LA CARTE DES CHEMINS — Dijkstra depuis le chat,
+│   │   │                           #    sur THREAD, lu par toute la horde (2026-10-18)
 │   │   ├── cel_style.gd            # Matériaux cel des primitives, du sol + ombre de contact
 │   │   ├── cel_model.gd            # ⭐ Le style du chat — partagé jeu ↔ banc de test
 │   │   ├── cel_prop.gd             # ⭐ Le style des .glb sans squelette — 2 familles :
@@ -682,6 +684,31 @@ Le rig de caméra fait exception : il bouge dans `_process`, donc son interpolat
 ennemis, **attaque de griffure au corps à corps**, **aura d'haleine puante**, XP/niveaux,
 **système de compétences à paliers**, scaling difficulté, HUD complet, Game Over/restart,
 arène large. Toute la logique de gameplay tourne — le passage en 3D ne l'a pas touchée.
+
+**LES ENNEMIS CONTOURNENT LES MEUBLES DEPUIS LE 2026-10-18** — `scripts/systems/flow_field.gd`
+(node `FlowField` de `main.tscn`). Avant, la poursuite était une ligne droite : un canapé
+entre la bête et le chat la clouait contre lui pour de bon. Ce qu'il faut savoir :
+
+- ⭐ **Un Dijkstra, UN SEUL, lancé depuis le chat** — pas un chemin par ennemi. Il donne à
+  chaque case de 0,5 m la direction du chat ; toute la horde lit le même champ, en
+  **bilinéaire** (sinon 8 caps de grille, donc des virages par crans de 45°). File à seaux
+  (Dial), coûts entiers 5/7. Les obstacles viennent de **`Arena.blockers`**, rempli par
+  `_add_blocker` et nulle part ailleurs : ce qui bloque le corps est ce que le champ évite.
+- ⛔ **Le calcul tourne sur un thread de travail** (`WorkerThreadPool`) : **~51 ms** en
+  GDScript sur les 58 604 cases de l'arène, soit trois frames. Double tampon — les ennemis
+  lisent toujours un champ complet, au pire vieux de ~50 ms. `_exit_tree` attend la tâche
+  en cours : le restart recharge la scène.
+- ⭐ **À découvert, rien n'a changé** : la bête teste son vrai corps (`test_move`, 10 Hz)
+  et fonce en ligne droite si la course est libre. Le champ ne sert que chat caché.
+- Les meubles ont un **anneau de 1,0 m** (rayon du basset 0,9) franchissable mais ×4 plus
+  cher : les chemins longent à distance, sans qu'un ennemi repoussé dedans soit piégé.
+- Le modèle regarde **où il marche** en contournant, **le chat** pendant un recul.
+- ✅ **Mesuré** — chat de l'autre côté d'un canapé, ennemi derrière, 10 s : sans champ,
+  souris et basset **bloqués** à 5,3 / 5,5 m ; avec, souris **3,1 s**, basset **4,5 s**,
+  canapé horizontal comme vertical.
+- ⚠️ Une sonde qui charge `chaser.tscn` en premier échoue sur `brute.tscn` (« referenced
+  non-existent resource ») — c'est le cycle `enemy.gd → Player → GameRoot → brute.tscn`,
+  **déjà présent avant**, et le jeu y échappe en partant de `main.tscn`.
 
 **LA BRUTE EST UN BASSET DEPUIS LE 2026-10-18**, d'après
 `maquettes/Chubby Basset Dog Turnaround Sheet.png` — `tools/build_basset.py` →

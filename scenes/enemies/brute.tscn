@@ -10,7 +10,7 @@
 ;
 ; ⚠️ ET IL RESTE ROND, alors que le chien est deux fois plus long que large. Une
 ; ellipse serait plus juste — mais `Shadow` est enfant du CharacterBody3D, qui NE
-; TOURNE PAS (seul `$Body` pivote, voir enemy._face_target). Une ombre allongee
+; TOURNE PAS (seul `$Body` pivote, voir enemy._face). Une ombre allongee
 ; resterait donc alignee au monde pendant que la bete tourne, ce qui est pire
 ; qu'un disque un peu court. La deplacer sous `$Body` la ferait tourner : a
 ; faire le jour ou une creature vraiment allongee arrivera, pas pour celle-ci.

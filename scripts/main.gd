@@ -48,6 +48,10 @@ var arena_rect := Rect2(-ARENA_SIZE * 0.5, ARENA_SIZE)
 # (voir `_on_player_hit`). Garde pour que le rebrancher tienne en une ligne.
 @onready var impact_frame: ImpactFrame = $ImpactFrame
 @onready var enemies_container: Node3D = $Enemies
+## La carte des chemins — un Dijkstra depuis le chat, lu par tous les ennemis
+## pour contourner les meubles. Construite apres l'arene, dont elle lit les
+## emprises bloquantes.
+@onready var flow_field: FlowField = $FlowField
 @onready var projectiles_container: Node3D = $Projectiles
 @onready var pickups_container: Node3D = $Pickups
 @onready var _fx_container: Node3D = $Fx
@@ -111,6 +115,8 @@ func _ready() -> void:
 	arena.build(arena_rect)
 	player.global_position = _spawn_point()
 	player.reset_physics_interpolation()
+	# APRES le placement du chat : le premier calcul part de sa case.
+	flow_field.setup(player, arena_rect, arena.blockers)
 	# Le rectangle de jeu n'existe qu'ici : la camera ne pouvait pas se cadrer
 	# toute seule dans son propre _ready.
 	camera_rig.snap_to_target()
@@ -432,7 +438,7 @@ func _spawn_wave() -> void:
 		enemies_container.add_child(enemy)
 		enemy.global_position = _get_enemy_spawn_position()
 		enemy.reset_physics_interpolation()
-		enemy.setup(player, difficulty_scale)
+		enemy.setup(player, flow_field, difficulty_scale)
 		enemy.defeated.connect(_on_enemy_defeated)
 
 
