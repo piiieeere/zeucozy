@@ -366,6 +366,25 @@ const REST_UNDO_BONES := {
 # Clips portes par le .glb, construits par tools/build_animations.py.
 const ANIM_IDLE := &"idle"
 const ANIM_WALK := &"walk"
+## La fin de run — "Visual Art Direction" §7bis. `assise` est la transition
+## debout -> pain, `repos` la boucle qui suit.
+const ANIM_ASSISE := &"assise"
+const ANIM_REPOS := &"repos"
+
+## ⛔ LES CLIPS QUI NE BOUCLENT PAS — `_setup_animations()` passe tout le reste
+## en LOOP_LINEAR. `assise` est une TRANSITION : bouclee, le chat s'assierait en
+## boucle. C'est le premier clip du projet dans ce cas (§7bis.6).
+const ONE_SHOT_CLIPS: Array[StringName] = [ANIM_ASSISE]
+
+## Le quart de tour vers la camera, a la fin de run : en combien de temps. Le
+## chat ne PIVOTE pas en continu — ce serait le seul mouvement lisse du
+## personnage — il se tourne en pas, sur `BODY_POSE`.
+const SETTLE_TURN_TIME := 0.30
+
+## Une pose de personnage : 3 frames, la grille de `STEP` dans
+## tools/build_animations.py (§7, "joueur et ennemis sur 3s"). Pas `FX_POSE`,
+## qui tient 2 frames : le chat ne claque pas a la cadence de ses FX.
+const BODY_POSE := 3.0 / 60.0 - 0.002
 
 # L'os racine — le seul dont la TRANSLATION deplace tout le personnage.
 # Voir _smooth_root_translation().
@@ -443,6 +462,12 @@ var _skinned_paint := {}
 # L'entree d'ANCHORS du modele charge, resolue une fois dans _ready.
 var _anchors := {}
 
+# Le quart de tour de `settle()` : d'ou il part, ou il va, depuis quand. -1 quand
+# aucun tour n'est en cours.
+var _turn_from := 0.0
+var _turn_to := 0.0
+var _turn_time := -1.0
+
 
 ## Les boites de griffes du modele charge. Une seule ligne, mais elle passe par
 ## ici et non par une constante : c'est ce qui permet aux deux chats de garder
@@ -507,7 +532,8 @@ func _ready() -> void:
 ## Recalcule, pour chaque surface peinte, la transformation qui ramene un
 ## sommet deforme a sa position de repos. Sans ca, tout ce qui est peint
 ## (visage, interieur d'oreille) glisse sur la geometrie des qu'un os bouge.
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_advance_turn(delta)
 	update_rest_undo()
 
 
@@ -626,7 +652,7 @@ func _setup_animations() -> void:
 	for anim_name in animation_player.get_animation_list():
 		var anim := animation_player.get_animation(anim_name)
 
-		if anim.loop_mode == Animation.LOOP_NONE:
+		if anim.loop_mode == Animation.LOOP_NONE and not StringName(anim_name) in ONE_SHOT_CLIPS:
 			anim.loop_mode = Animation.LOOP_LINEAR
 
 		# Le mode de boucle d'abord : l'interpolation a besoin de savoir que la
@@ -740,6 +766,61 @@ func play(anim_name: StringName) -> void:
 		return
 
 	animation_player.play(anim_name)
+
+
+## La fin de run : le chat se replie en pain, tourne de trois quarts vers la
+## camera, puis respire — "Visual Art Direction" §7bis.
+##
+## ⚠️ L'ENCHAINEMENT SE FAIT A LA FILE, JAMAIS PAR UN FONDU. `queue()` lance
+## `repos` sur la frame ou `assise` se termine, et `playback_default_blend_time`
+## reste a 0 : un fondu interpolerait les deux poses, exactement le glissement
+## que la cadence existe pour supprimer (§7bis.6).
+##
+## `yaw` est la rotation de CE noeud (`rotation.y`) a atteindre. Le tour se fait
+## en pas, dans `_process` — ce qui suppose que le noeud tourne encore pendant
+## la pause : c'est a l'appelant de le passer en PROCESS_MODE_ALWAYS.
+func settle(yaw: float) -> void:
+	if animation_player == null:
+		return
+
+	animation_player.clear_queue()
+	animation_player.play(ANIM_ASSISE)
+	animation_player.queue(ANIM_REPOS)
+
+	_turn_from = rotation.y
+	_turn_to = yaw
+	_turn_time = 0.0
+	set_process(true)
+
+
+## La meme fin, sans la transition : le chat est DEJA replie et tourne. C'est ce
+## que montre la fin de run quand le joueur la coupe (§7bis.2) — on ne peut pas
+## faire attendre une mise en scene a quelqu'un qui veut relancer.
+func settle_now(yaw: float) -> void:
+	if animation_player == null:
+		return
+
+	animation_player.clear_queue()
+	animation_player.play(ANIM_REPOS)
+	_turn_time = -1.0
+	rotation.y = yaw
+
+
+## Le quart de tour de `settle()`, quantifie sur `BODY_POSE` : six poses sur
+## 0,30 s. Une rotation lisse serait le seul mouvement du chat a ne pas claquer
+## en pas — et il tourne SUR PLACE, donc l'oeil le lit comme une pose, pas comme
+## un deplacement (c'est la distinction de §7).
+func _advance_turn(delta: float) -> void:
+	if _turn_time < 0.0:
+		return
+
+	_turn_time += delta
+	var stepped := floorf(_turn_time / BODY_POSE) * BODY_POSE
+	var t := clampf(stepped / SETTLE_TURN_TIME, 0.0, 1.0)
+	rotation.y = lerp_angle(_turn_from, _turn_to, 1.0 - pow(1.0 - t, 3.0))
+
+	if t >= 1.0:
+		_turn_time = -1.0
 
 
 func _apply_painted_caps(mat: ShaderMaterial, mat_name: String) -> int:

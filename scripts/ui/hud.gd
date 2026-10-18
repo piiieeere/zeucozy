@@ -71,6 +71,12 @@ const CARD_POSES: Array[float] = [0.0, 0.34, 0.72, 1.0]
 ## 592 - 2 x 16 - 7 = 553, pour 3 x 176 + 2 x 12 = 552.
 const CARD_SIZE := Vector2(592.0, 408.0)
 const GAME_OVER_SIZE := Vector2(448.0, 268.0)
+## ⚠️ LE CARTON DE FIN EST A DROITE, PAS AU CENTRE (§7bis.4). Le zoom pose le
+## chat au tiers gauche du cadre ; un carton centre recouvrirait exactement ce
+## que la camera vient de montrer. Le decalage du chat est un reglage de CAMERA
+## (`CameraRig.REST_SHIFT_X`), celui du carton un reglage de layout — les deux
+## vont ensemble, et l'un ne se touche pas sans l'autre.
+const GAME_OVER_ANCHOR_X := 0.72
 const SETTINGS_SIZE := Vector2(468.0, 266.0)
 ## +20 px le 2026-08-17 pour le marqueur de palier, puis +86 le meme jour pour le
 ## bandeau de type et la vignette. Compte tenu : bandeau 18 + marge 10 + fenetre
@@ -498,7 +504,12 @@ func set_telemetry(text: String) -> void:
 ## Le VOILE compte autant que la plaque. Sans lui le carton flotte au-dessus
 ## d'une arene toujours lisible et ne prend jamais vraiment l'ecran — or un
 ## level-up MET LE JEU EN PAUSE, et l'image doit le dire.
-func _build_card(card_size: Vector2) -> Dictionary:
+##
+## ⚠️ `veiled` A FALSE POUR LE SEUL CARTON DE FIN (§7bis). Le voile a 80 % et les
+## lignes de vitesse recouvriraient exactement ce que le zoom vient de montrer :
+## le chat qui se repose. Ce carton-la ne dit pas « le jeu est en pause », il
+## laisse la place a l'image — la camera s'en charge.
+func _build_card(card_size: Vector2, veiled: bool = true) -> Dictionary:
 	var card := Control.new()
 	card.set_anchors_preset(Control.PRESET_FULL_RECT)
 	card.visible = false
@@ -516,6 +527,7 @@ func _build_card(card_size: Vector2) -> Dictionary:
 	veil.color = Color(UiStyle.VEIL, 0.80)
 	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
 	veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	veil.visible = veiled
 	card.add_child(veil)
 
 	# Les lignes sont SOMBRES, et opaques.
@@ -537,6 +549,7 @@ func _build_card(card_size: Vector2) -> Dictionary:
 	# ou le trait de vitesse est noir.
 	var lines := UiStyle.make_speedlines(UiStyle.VEIL)
 	lines.set_anchors_preset(Control.PRESET_FULL_RECT)
+	lines.visible = veiled
 	card.add_child(lines)
 
 	# ⚠️ `card_size`, PAS `size` : dans une methode de Control, `size` est la
@@ -926,9 +939,18 @@ func _set_slot_hover(entry: Dictionary, hovered: bool) -> void:
 	)
 
 
+## Le carton de fin de run — gagnee comme perdue, seul le titre changera
+## (§3.3). Il s'ouvre sur le chat replie, apres le zoom (§7bis). Il est a
+## droite : voir `GAME_OVER_ANCHOR_X`.
 func _build_game_over_card() -> void:
-	var parts := _build_card(GAME_OVER_SIZE)
+	var parts := _build_card(GAME_OVER_SIZE, false)
+	var plate: Control = parts["plate"]
+	plate.anchor_left = GAME_OVER_ANCHOR_X
+	plate.anchor_right = GAME_OVER_ANCHOR_X
 	_game_over_card = parts["card"]
+	# Sans voile, rien ne doit non plus avaler les clics hors de la plaque : le
+	# carton plein cadre en MOUSE_FILTER_STOP serait un mur invisible.
+	_game_over_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_game_over_card.set_meta("plate", parts["plate"])
 	_game_over_card.set_meta("lines", parts["lines"])
 	_game_over_card.set_meta("content", parts["content"])
@@ -1408,11 +1430,18 @@ func _tier_marker(id: String, tier: int) -> String:
 	return Locale.t("card.tier") % tier
 
 
-func show_game_over(elapsed: float, level: int) -> void:
-	_game_over_summary.text = Locale.t("card.game_over_summary") % [
-		int(elapsed) / 60, int(elapsed) % 60, level
+func show_game_over(elapsed: float, level: int, defeated: int) -> void:
+	# Le singulier : 1 partout, et 0 aussi en francais (« 0 ennemi repoussé »).
+	var singular := defeated == 1 or (defeated == 0 and Locale.language() == "fr")
+	var key := "card.game_over_summary_one" if singular else "card.game_over_summary"
+	_game_over_summary.text = Locale.t(key) % [
+		int(elapsed) / 60, int(elapsed) % 60, level, defeated
 	]
 	_open_card(_game_over_card)
+
+
+func is_game_over_card_open() -> bool:
+	return _game_over_card.visible
 
 
 ## ⚠️ LES VIGNETTES SE COUPENT AVEC LE CARTON, et ce n'est pas une economie de

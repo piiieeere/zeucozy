@@ -63,6 +63,31 @@ extends Node3D
 ## hauteur du mur et cette marge ne peuvent pas etre decidees separement.
 @export var arena_margin: Vector2 = Vector2(14.0, 13.0)
 
+## Le cadrage de la fin de run — "Visual Art Direction" §7bis.4. DISTANCE ET
+## HAUTEUR DE VISEE, rien d'autre.
+##
+## ⛔ `pitch_deg` NE BOUGE PAS, et c'est contre-intuitif : un portrait demande
+## une camera plus basse, mais tout le decor peint est projete a 44,02° (§2quater)
+## et son UV est CUITE a cet angle. Changer la plongee ferait glisser
+## l'illustration de chaque meuble encore au cadre, a 268 px/m.
+##
+## `REST_SHIFT_X` decale le point vise a droite du chat, donc le chat a GAUCHE
+## du cadre — au tiers, pour laisser la droite au carton. Ca ne marche que parce
+## que le rig n'a pas de lacet : le +X monde est le +X ecran.
+##
+## ⚠️ 6,4 m ET 1,15 m, PAS LES 5,7 / 0,72 DE §7bis.4 — et c'est la capture qui
+## l'a dit. Le chiffre de la DA comptait un chat replie de 1,10 m apparent ; le
+## chat tuxedo en pain s'allonge sur ~1,8 m avec sa queue, et il REGARDE VERS
+## LE CARTON (`main.REST_YAW`) : sa tete est le bord droit de sa silhouette. A
+## 5,7 / 0,72 le carton recouvrait l'oeil droit. A 6,4 m le cadre fait 2,72 m
+## de haut, le chat en prend encore ~40 %.
+const REST_DISTANCE := 6.4
+const REST_LOOK_HEIGHT := 0.35
+const REST_SHIFT_X := 1.15
+## Le zoom est LISSE (la camera est rangee avec le deplacement, §7) :
+## cubique, ease-out.
+const REST_ZOOM_TIME := 0.90
+
 @onready var camera: Camera3D = $Camera3D
 
 var _target: Node3D
@@ -70,6 +95,13 @@ var _target: Node3D
 ## la premiere frame (P3 de la revue de code). Ce rig etait le seul des six
 ## sites a mettre le resultat en cache ; il n'a plus rien a mettre en cache.
 var _game: GameRoot
+
+# Le zoom de fin de run : d'ou il part, depuis quand. -1 tant qu'il n'a pas
+# commence. Une fois lance, la camera ne suit plus personne — le chat dort.
+var _zoom_time := -1.0
+var _zoom_from_position := Vector3.ZERO
+var _zoom_from_distance := 0.0
+var _zoom_from_look := 0.0
 
 
 ## Qui dirige la run. Appelee une fois, par `main._ready()` — avant
@@ -102,9 +134,56 @@ func _process(delta: float) -> void:
 	if not is_instance_valid(_target):
 		return
 
+	if _zoom_time >= 0.0:
+		_advance_zoom(delta)
+		return
+
 	var wanted := _focus_point(_target.get_global_transform_interpolated().origin)
 	# Lissage independant du framerate.
 	global_position = global_position.lerp(wanted, 1.0 - exp(-follow_speed * delta))
+
+
+## Descend sur le chat — la fin de run, §7bis.4.
+##
+## ⚠️ LE RIG DOIT TOURNER PENDANT LA PAUSE : c'est a l'appelant de le passer en
+## PROCESS_MODE_ALWAYS, comme le modele du chat.
+##
+## ⛔ LE CLAMP D'ARENE EST COUPE, ET AVANT DE PARTIR. `_focus_point()` tient le
+## point vise a `arena_margin` (14, 13) m du bord, une marge faite pour qu'a
+## 38 m le mur reste en haut de l'image. Le cadre de fin fait 4,31 m de large :
+## un chat endormi pres d'un mur serait tenu jusqu'a 14 m hors du cadre. Le zoom
+## part donc de la position COURANTE du rig (bornee) vers le point non borne —
+## pas de saut, et une arrivee juste.
+func zoom_to_rest() -> void:
+	_zoom_time = 0.0
+	_zoom_from_position = global_position
+	_zoom_from_distance = distance
+	_zoom_from_look = look_height
+
+
+## Le meme cadrage, sans le trajet : la fin de run coupee par le joueur.
+func snap_to_rest() -> void:
+	if _zoom_time < 0.0:
+		zoom_to_rest()
+	_zoom_time = REST_ZOOM_TIME
+	_advance_zoom(0.0)
+
+
+func _advance_zoom(delta: float) -> void:
+	_zoom_time = minf(_zoom_time + delta, REST_ZOOM_TIME)
+	var t := _zoom_time / REST_ZOOM_TIME
+	var k := 1.0 - pow(1.0 - t, 3.0)
+
+	var cat := _target.global_position
+	var rest_focus := Vector3(cat.x + REST_SHIFT_X, 0.0, cat.z)
+	global_position = _zoom_from_position.lerp(rest_focus, k)
+	distance = lerpf(_zoom_from_distance, REST_DISTANCE, k)
+	look_height = lerpf(_zoom_from_look, REST_LOOK_HEIGHT, k)
+
+	# ⚠️ A CHAQUE FRAME : la position et l'orientation de la camera sont DERIVEES
+	# de `distance` et `look_height`, et ne se calculent qu'ici. Animer les deux
+	# reglages sans rappeler `_place_camera()` ne bougerait rien.
+	_place_camera()
 
 
 ## Recale la camera sans transition. A appeler apres la mise en place de

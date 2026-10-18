@@ -64,6 +64,15 @@ var _clip := 0
 var _capture_mode := false
 var _capture_dir := CAPTURE_DIR
 
+## `--poses=assise@18,repos@330` : des instantanes de clip, a la frame pres,
+## au lieu du tour de camera. C'est ce qui juge une pose qui n'est pas celle de
+## repos — le pain de la fin de run (§7bis) ne se voit dans aucun autre mode.
+## `--yaws=` dit sous quels angles, `--target-height=` ou viser : le chat replie
+## a son centre a ~0,3 m, pas aux 0,85 du chat debout.
+var _poses: Array[String] = []
+var _pose_yaws: Array[float] = [0.0, 35.0, 90.0, 180.0]
+var _target := CAM_TARGET
+
 
 func _ready() -> void:
 	_capture_mode = "--capture" in OS.get_cmdline_user_args()
@@ -86,6 +95,15 @@ func _ready() -> void:
 			_distance = float(arg.trim_prefix("--distance="))
 		elif arg.begins_with("--out="):
 			_capture_dir = arg.trim_prefix("--out=")
+		elif arg.begins_with("--poses="):
+			for token in arg.trim_prefix("--poses=").split(",", false):
+				_poses.append(token.strip_edges())
+		elif arg.begins_with("--yaws="):
+			_pose_yaws.clear()
+			for token in arg.trim_prefix("--yaws=").split(",", false):
+				_pose_yaws.append(float(token))
+		elif arg.begins_with("--target-height="):
+			_target.y = float(arg.trim_prefix("--target-height="))
 
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 	DisplayServer.window_set_size(CAPTURE_SIZE if _capture_mode else WINDOW_SIZE)
@@ -107,6 +125,12 @@ func _ready() -> void:
 		# comparables d'une session a l'autre.
 		_clip = CLIPS.find("")
 		_apply_clip()
+
+		if not _poses.is_empty():
+			await _capture_poses()
+			_finish()
+			return
+
 		await _capture_turntable()
 		await _capture_skinning_probe()
 		await _capture_cadence()
@@ -211,12 +235,12 @@ func _setup_model() -> void:
 func _update_camera() -> void:
 	_pivot.rotation_degrees.y = _yaw
 	var pitch := deg_to_rad(_pitch)
-	_camera.position = CAM_TARGET + Vector3(
+	_camera.position = _target + Vector3(
 		0.0,
 		_distance * sin(pitch),
 		_distance * cos(pitch),
 	)
-	_camera.look_at(CAM_TARGET, Vector3.UP)
+	_camera.look_at(_target, Vector3.UP)
 
 
 func _setup_hud() -> void:
@@ -534,6 +558,46 @@ func _capture_cadence() -> void:
 			)
 
 		_log("idle : 4 instantanes sur %.2fs -> cel_idle_*.png" % length)
+
+	player.stop()
+
+
+## Un instantane par pose demandee et par angle — voir `_poses`.
+## ⚠️ `seek(..., true)` puis `update_rest_undo()` : le visage peint suit l'os de
+## la tete, et il faut lui donner la pose de la frame avant de dessiner.
+func _capture_poses() -> void:
+	var player := _model.animation_player
+
+	if player == null:
+		_log("poses : pas d'AnimationPlayer, ignorees")
+		return
+
+	if not DirAccess.dir_exists_absolute(_capture_dir):
+		DirAccess.make_dir_recursive_absolute(_capture_dir)
+
+	for token in _poses:
+		var parts := token.split("@")
+		var clip := parts[0]
+		var frame := int(parts[1]) if parts.size() > 1 else 0
+
+		if not player.has_animation(clip):
+			_log("poses : clip '%s' absent du .glb" % clip)
+			continue
+
+		player.play(clip)
+		player.pause()
+		player.seek(frame / 60.0, true)
+		_model.update_rest_undo()
+
+		for yaw in _pose_yaws:
+			_yaw = yaw
+			_update_camera()
+			await RenderingServer.frame_post_draw
+			await RenderingServer.frame_post_draw
+
+			var path := "%s/pose_%s_%03d_y%03d.png" % [_capture_dir, clip, frame, int(yaw)]
+			get_viewport().get_texture().get_image().save_png(path)
+			_log("pose %s@%d, %d° -> %s" % [clip, frame, int(yaw), path])
 
 	player.stop()
 

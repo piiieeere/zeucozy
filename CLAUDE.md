@@ -165,6 +165,11 @@ powershell -ExecutionPolicy Bypass -File tools/fetch_fonts.ps1
 #   --pitch=0          PLEIN PROFIL — le cadrage ou se juge la TETE (le museau)
 #   --distance=10.5    recul ; a plat le chat se presente en long et SORT DU CADRE
 #   --out=<dossier>    ou ecrire les PNG
+#   --poses=assise@36,repos@330   des instantanes de clip a la frame pres, AU LIEU
+#                      du tour de camera — la seule facon de juger le pain de fin
+#   --yaws=325         sous quels angles (325 = le trois-quarts de la fin de run)
+#   --target-height=0.35   ou viser : le chat replie a son centre a ~0,3 m
+#   ex. fin de run :  -- --capture --pitch=45 --distance=7.2 --target-height=0.35 --poses=assise@36 --yaws=325
 # Reconstruire puis exporter le canape (le .blend est REGENERE, jamais edite a la main)
 "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" --background --factory-startup \
   --python tools/build_couch.py -- --save
@@ -243,6 +248,8 @@ python tools/bake_rugs.py --force   # [--only blue] [--long-side 768]
 #    physique donne un cap au chat, et les deux images ne sont pas comparables.
 "C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --path . \
   --write-movie <dossier>/game.png --fixed-fps 30 --quit-after 200 -- --aim=135
+#   --end-at=6       ⭐ la FIN DE RUN part a 6 s — le chat est immortel, c'est le seul
+#                    moyen de la voir. Carton ouvert ~1,3 s apres (frame 218 a 30 fps)
 # Le MUR A BAIES et son SOLEIL — le chat colle au mur, sinon on ne voit rien
 "C:/Users/tibo/Games/Godot/Godot_v4.7.1-stable_win64_console.exe" --path .   --write-movie <dossier>/g.png --fixed-fps 30 --quit-after 60 -- --aim=160 --spawn=0,-40
 #   --spawn=x,z      ou le chat commence — le mur n'entre au cadre qu'a la bordure
@@ -681,9 +688,9 @@ Le rig de caméra fait exception : il bouge dans `_process`, donc son interpolat
 
 ## État actuel
 
-> ⛔ **MODE TEST ACTIF — LE CHAT EST IMMORTEL** (`player.gd`, `const IMMORTAL := true`,
-> posé le 2026-08-17 à la demande). **À repasser à `false`.** Tant qu'il est là, aucun
-> chiffre d'équilibrage ni aucune courbe de difficulté ne veut dire quoi que ce soit.
+> ✅ **MODE TEST COUPÉ LE 2026-10-18 — LE CHAT PEUT MOURIR** (`player.gd`,
+> `const IMMORTAL := false`), à la demande, pour jouer la fin de run. Il avait été posé le
+> 2026-08-17. Ce qui suit reste vrai le jour où on le rallume :
 >
 > - **Il n'a ni réglage ni argument de ligne de commande**, et c'est délibéré : un mode de
 >   triche qu'on peut activer est un mode qu'on oublie d'éteindre. Une constante, vraie ou
@@ -699,6 +706,22 @@ Le rig de caméra fait exception : il bouge dans `_process`, donc son interpolat
 ennemis, **attaque de griffure au corps à corps**, **aura d'haleine puante**, XP/niveaux,
 **système de compétences à paliers**, scaling difficulté, HUD complet, Game Over/restart,
 arène large. Toute la logique de gameplay tourne — le passage en 3D ne l'a pas touchée.
+
+**LA FIN DE RUN EST MISE EN SCÈNE DEPUIS LE 2026-10-18** — §7bis de la DA. Le chat ne
+meurt pas, il se repose : 0,20 s d'image tenue, puis il se replie en pain (`assise`, qui
+**ne boucle pas** — `cel_model.ONE_SHOT_CLIPS`), se tourne de trois quarts vers la
+caméra, la caméra descend (6,4 m), `repos` boucle, et le carton monte **à droite**. Une
+touche dès 0,40 s coupe tout. Ce qu'il faut savoir :
+
+- ⚠️ **Le MODÈLE et la CAMÉRA passent en `PROCESS_MODE_ALWAYS`, jamais `Player`** — en
+  ALWAYS le chat lirait les entrées et marcherait en dormant. `pause_probe` le vérifie.
+- ⚠️ **La pose de §7bis.3 était fausse sur ce rig** (pattes jusqu'à 0,46 m sous le sol).
+  `SIT_POSE` vient d'une sonde Blender ; un nouveau rig la refait, pas un nouveau réglage.
+- ⚠️ **Les FX s'effacent, ils ne se figent pas** — `player.put_away()` et les conteneurs
+  `Fx` / `Projectiles`. Figé, un FX reste collé au chat qui dort pour toujours.
+- Le cadrage (`CameraRig.REST_*`) et la place du carton (`Hud.GAME_OVER_ANCHOR_X`)
+  **vont ensemble** : la tête du chat, tournée vers le carton, est le bord droit de sa
+  silhouette.
 
 **LES ENNEMIS CONTOURNENT LES MEUBLES DEPUIS LE 2026-10-18** — `scripts/systems/flow_field.gd`
 (node `FlowField` de `main.tscn`). Avant, la poursuite était une ligne droite : un canapé

@@ -26,9 +26,42 @@ const ARENA_SIZE := Vector2(160.0, 90.0)
 ## Les ennemis apparaissent juste au-dela du cadre (~16 m de haut, ~29 de large).
 const SPAWN_DISTANCE := Vector2(11.0, 17.0)
 
+## La fin de run, au dixieme — "Visual Art Direction" §7bis.2.
+##
+##   0,00  la run s'arrete, LA DERNIERE IMAGE TIENT
+##   0,20  le chat s'assied (`assise`), le zoom part (0,90 s)
+##   0,80  `repos` prend le relais et boucle
+##   1,10  la camera est arrivee
+##   1,25  le carton monte
+##
+## ⚠️ Le temps mort n'est pas une transition, c'est ce qui rend la suite lisible :
+## sans lui, le chat s'assied pendant que le dernier coup est encore a l'ecran,
+## et les deux mouvements se mangent.
+const END_STILL := 0.20
+## ⚠️ A partir d'ici, une entree quelconque SAUTE a l'etat final. Dans un
+## survivor on relance vite ; une mise en scene qu'on ne peut pas couper devient
+## une punition des la dixieme mort. Pas avant 0,40 : le clic qui tombait a
+## l'instant du K.O. — un coup de griffe, une morsure — ne doit pas l'avaler.
+const END_SKIPPABLE := 0.40
+const END_CARD := 1.25
+## Le chat replie se tourne de trois quarts vers la camera, regard vers la
+## DROITE de l'ecran, donc vers le carton. `PI` le met face a la camera (le rig
+## n'a pas de lacet : elle regarde -Z) ; les 35° de plus le tournent vers la
+## droite et presentent son flanc DROIT, celui ou `assise` couche la queue.
+## Juge au banc : `cel_test -- --poses=assise@36 --yaws=325`.
+const REST_YAW := PI + deg_to_rad(35.0)
+
 var elapsed_time := 0.0
 var spawn_timer := 0.0
 var game_over := false
+## Depuis quand la fin de run tourne. -1 tant que la run n'est pas finie.
+var _end_time := -1.0
+## `--end-at=8` : la fin de run part a 8 s de jeu. Le chat est IMMORTEL tant que
+## `Player.IMMORTAL` vaut true, et une fin qu'on ne peut pas declencher est une
+## fin qu'on regle a l'aveugle. Meme famille que `--brutes-now`.
+var _end_at := -1.0
+## Le bilan du carton de fin (§3.3) : les ennemis venus a bout.
+var defeated_count := 0
 var current_upgrade_choices: Array[Dictionary] = []
 ## La competence choisie qui attend qu'on lui fasse de la place (§2.3). Vide
 ## quand aucun echange n'est en cours.
@@ -160,9 +193,9 @@ func _apply_ui_preview() -> void:
 				var forced := _forced_choices()
 				_open_replacement(String(forced[0]["id"]) if not forced.is_empty() else "purr")
 			"gameover":
-				game_over = true
-				get_tree().paused = true
-				hud.show_game_over(96.0, 4)
+				# La fin de run entiere, mise en scene comprise : le carton ne se
+				# juge plus seul, il se juge a cote du chat qui dort.
+				_begin_run_end()
 			"settings":
 				_open_settings()
 
@@ -198,8 +231,11 @@ var brute_delay := 22.0
 
 ## `--brutes-now` : les brutes des la premiere vague. Voir `brute_delay`.
 func _apply_spawn_overrides() -> void:
-	if "--brutes-now" in OS.get_cmdline_user_args():
-		brute_delay = 0.0
+	for argument in OS.get_cmdline_user_args():
+		if argument == "--brutes-now":
+			brute_delay = 0.0
+		elif argument.begins_with("--end-at="):
+			_end_at = float(argument.trim_prefix("--end-at="))
 
 
 func _forced_choices() -> Array[Dictionary]:
@@ -254,6 +290,14 @@ func _apply_language_override() -> void:
 ## `_input` ni `_unhandled_input` : sans ce mode, Échap n'aurait plus jamais
 ## rouvert les reglages une fois le jeu en pause.
 func _unhandled_input(event: InputEvent) -> void:
+	# La fin de run se coupe a la premiere touche — voir `END_SKIPPABLE`. Avant
+	# le carton, aucune entree ne va ailleurs : ni les reglages, ni le chat.
+	if game_over and not hud.is_game_over_card_open():
+		if _end_time >= END_SKIPPABLE and _is_press(event):
+			_skip_run_end()
+			get_viewport().set_input_as_handled()
+		return
+
 	if not event.is_action_pressed("ui_cancel"):
 		return
 
@@ -313,8 +357,16 @@ func _refresh_text() -> void:
 ## C'est le SEUL node du jeu dans ce cas — tout le reste du monde est en
 ## PROCESS_MODE_PAUSABLE et n'a plus une seule ligne de garde.
 func _process(delta: float) -> void:
-	# `game_over` met aussi le jeu en pause : ce test les couvre tous les deux.
+	# La fin de run tourne PENDANT la pause — c'est elle qui l'a posee.
+	if game_over:
+		_advance_run_end(delta)
+		return
+
 	if get_tree().paused:
+		return
+
+	if _end_at >= 0.0 and elapsed_time >= _end_at:
+		_begin_run_end()
 		return
 
 	elapsed_time += delta
@@ -477,6 +529,7 @@ func _get_enemy_spawn_position() -> Vector3:
 
 
 func _on_enemy_defeated(world_position: Vector3, xp_value: int) -> void:
+	defeated_count += 1
 	call_deferred("_spawn_xp_orb", world_position, xp_value)
 
 
@@ -609,9 +662,81 @@ func _on_replacement_cancelled() -> void:
 
 
 func _on_player_died() -> void:
+	_begin_run_end()
+
+
+## La run s'arrete — gagnee comme perdue, la mise en scene est la meme (§7bis.1).
+## Le chat ne meurt pas : il se replie, la camera descend sur lui, puis le
+## carton monte. Voir `END_STILL` pour la sequence.
+##
+## Tout le monde se fige d'un coup, par `get_tree().paused` — ennemis, spawner,
+## competences, FX. Ce qui doit continuer a vivre (le modele du chat, la camera)
+## n'est reveille qu'a `END_STILL`, pour que la derniere image TIENNE.
+func _begin_run_end() -> void:
+	if game_over:
+		return
+
 	game_over = true
+	_end_time = 0.0
 	get_tree().paused = true
-	hud.show_game_over(elapsed_time, player.level)
+
+
+func _advance_run_end(delta: float) -> void:
+	if _end_time < 0.0 or hud.is_game_over_card_open():
+		return
+
+	var before := _end_time
+	_end_time += delta
+
+	if before < END_STILL and _end_time >= END_STILL:
+		_settle_cat()
+
+	if _end_time >= END_CARD:
+		_show_end_card()
+
+
+## ⚠️ LE MODELE ET LA CAMERA PASSENT EN ALWAYS, PAS LE CHAT. `Player` en ALWAYS
+## laisserait `_physics_process` lire les entrees, et le chat marcherait sur
+## place pendant qu'il est cense dormir (§7bis.5). Le modele est un enfant : il
+## tourne seul, avec son AnimationPlayer.
+func _settle_cat() -> void:
+	player.put_away()
+	# Ce qui reste du combat dans le monde — un eclat de collision, une boule de
+	# poils en vol. Fige, il resterait a l'ecran pour toujours, a cote du chat
+	# qui dort. Les croquettes au sol, elles, restent : elles sont du decor.
+	_fx_container.visible = false
+	projectiles_container.visible = false
+
+	player.model.process_mode = Node.PROCESS_MODE_ALWAYS
+	camera_rig.process_mode = Node.PROCESS_MODE_ALWAYS
+	player.model.settle(REST_YAW)
+	camera_rig.zoom_to_rest()
+
+
+## Le joueur coupe la mise en scene : caméra collee, `repos` en cours, carton
+## ouvert (§7bis.2).
+func _skip_run_end() -> void:
+	if _end_time < END_STILL:
+		_settle_cat()
+
+	player.model.settle_now(REST_YAW)
+	camera_rig.snap_to_rest()
+	_show_end_card()
+
+
+func _show_end_card() -> void:
+	_end_time = maxf(_end_time, END_CARD)
+	hud.show_game_over(elapsed_time, player.level, defeated_count)
+
+
+## Une touche, un bouton de souris ou de manette ENFONCE. Pas un mouvement de
+## souris : le curseur qui bouge n'est pas une demande de relancer.
+func _is_press(event: InputEvent) -> bool:
+	if not (event is InputEventKey or event is InputEventMouseButton
+			or event is InputEventJoypadButton):
+		return false
+
+	return event.is_pressed() and not event.is_echo()
 
 
 ## ⚠️ LA PAUSE SURVIT AU RECHARGEMENT DE SCENE, ET IL FAUT LA LEVER ICI.

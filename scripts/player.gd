@@ -89,7 +89,7 @@ signal died
 ## la seule chose qui empêchera de croire à un équilibrage qui tient alors que
 ## rien ne peut tuer. Le précédent est dans ce fichier même — la montée des
 ## dégâts de contact était morte pendant des mois sans que rien ne le dise.
-const IMMORTAL := true
+const IMMORTAL := false
 
 ## Hauteur du plan de visee, en metres au-dessus des pattes du chat.
 ##
@@ -599,6 +599,24 @@ func heal(amount: int) -> void:
 
 	if health != before:
 		health_changed.emit(health, max_health)
+
+
+## La fin de run — "Visual Art Direction" §7bis. Le combat est fini : tout ce que
+## le chat porte de dessin s'efface quand il s'assied (aura d'haleine, griffure
+## en vol, onde, halo, machoires). Ne restent que son modele et son ombre.
+##
+## ⚠️ C'EST UNE ENTORSE ASSUMEE A §7bis.5, qui fige les FX avec le reste. Fige,
+## un FX reste a l'ecran POUR TOUJOURS — la pose de l'eclat ou de la griffure qui
+## tombait a l'instant du K.O. — et le zoom le montrerait a 268 px/m, colle au
+## chat qui dort. Le temps mort de 0,20 s existe pour que le dernier coup ne
+## mange pas la pose ; un coup fige l'aurait mangee indefiniment.
+##
+## Le chat lui-meme reste en PROCESS_MODE_PAUSABLE : il ne lit plus ni entree ni
+## physique. Seul son modele tourne, c'est a `main` de le reveiller.
+func put_away() -> void:
+	for child in get_children():
+		if child is Node3D and child != model and child.name != &"Shadow":
+			(child as Node3D).visible = false
 
 
 ## Le point de contact : entre le chat et ce qui le touche, a mi-hauteur de

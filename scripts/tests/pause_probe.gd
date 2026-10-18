@@ -42,6 +42,13 @@ func _wait(frames: int) -> void:
 		await get_tree().process_frame
 
 
+## Attendre en TEMPS, pas en frames : en `--headless` les frames ne sont pas
+## cadencees, et la fin de run est une sequence au dixieme de seconde.
+## `process_always` et `ignore_time_scale` : le timer doit courir pendant la pause.
+func _seconds(duration: float) -> void:
+	await get_tree().create_timer(duration, true, false, true).timeout
+
+
 func _say(line: String) -> void:
 	_rows.append(line)
 	print(line)
@@ -169,6 +176,45 @@ func _run() -> void:
 	_check("et le temps s'arrete", is_equal_approx(t_dead, _game.elapsed_time),
 		"%.3f -> %.3f" % [t_dead, _game.elapsed_time])
 
+	# ── 6ter. La fin de run : le chat se repose (§7bis.5) ───────────────
+	# Tout est fige SAUF le modele du chat et la camera, et seulement apres le
+	# temps mort de 0,20 s. Le corps du chat, lui, reste fige : en ALWAYS il
+	# lirait les entrees et marcherait en dormant.
+	var anim := player.model.animation_player
+	_check("la derniere image tient (pas d'assise avant 0,20 s)",
+		anim.current_animation != CelModel.ANIM_ASSISE
+			and player.model.process_mode != Node.PROCESS_MODE_ALWAYS,
+		"clip = %s" % anim.current_animation)
+
+	await _seconds(0.5)
+	var body_rest := player.global_position
+	var enemies_rest: Array[Vector3] = []
+	for enemy in _game.enemies():
+		enemies_rest.append(enemy.global_position)
+	var clip_time := anim.current_animation_position
+	await _seconds(0.15)
+
+	_check("le modele du chat tourne pendant la pause",
+		anim.current_animation_position != clip_time,
+		"%s %.3f -> %.3f" % [anim.current_animation, clip_time,
+			anim.current_animation_position])
+	_check("le corps du chat, lui, ne bouge pas",
+		body_rest.is_equal_approx(player.global_position), "")
+	var drifted := 0
+	for i in mini(enemies_rest.size(), _game.enemies().size()):
+		if not enemies_rest[i].is_equal_approx(_game.enemies()[i].global_position):
+			drifted += 1
+	_check("les ennemis restent figes", drifted == 0,
+		"%d / %d bougent" % [drifted, enemies_rest.size()])
+
+	await _seconds(1.0)
+	_check("le carton de fin est ouvert, sur `repos`",
+		_game.hud.is_game_over_card_open() and anim.current_animation == CelModel.ANIM_REPOS,
+		"clip = %s" % anim.current_animation)
+	_check("la camera est descendue sur le chat",
+		is_equal_approx(_game.camera_rig.distance, CameraRig.REST_DISTANCE),
+		"distance = %.2f" % _game.camera_rig.distance)
+
 	# ── 7. La pause SURVIT au rechargement de scene ────────────────────
 	# C'est ce qui oblige `_on_restart_button_pressed` a la lever : sinon la
 	# run relancee depuis le carton de K.O. demarrerait figee.
@@ -181,6 +227,27 @@ func _run() -> void:
 	_check("une scene neuve herite de la pause de l'arbre", get_tree().paused,
 		"elapsed = %.3f" % fresh.elapsed_time)
 	_check("et elle est bien figee", is_equal_approx(fresh.elapsed_time, 0.0), "")
+	get_tree().paused = false
+
+	# ── 8. La fin de run se COUPE (§7bis.2) ───────────────────────────
+	# Une touche a partir de 0,40 s saute a l'etat final : camera collee,
+	# `repos` en cours, carton ouvert — sans attendre 1,25 s.
+	await _wait(4)
+	fresh._on_player_died()
+	await _seconds(0.45)
+	var key := InputEventKey.new()
+	key.keycode = KEY_SPACE
+	key.physical_keycode = KEY_SPACE
+	key.pressed = true
+	Input.parse_input_event(key)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_check("une touche saute a l'etat final",
+		fresh.hud.is_game_over_card_open()
+			and fresh.player.model.animation_player.current_animation == CelModel.ANIM_REPOS
+			and is_equal_approx(fresh.camera_rig.distance, CameraRig.REST_DISTANCE),
+		"t = %.2f, clip = %s" % [fresh._end_time,
+			fresh.player.model.animation_player.current_animation])
 	get_tree().paused = false
 
 	var failed := _rows.filter(func(r: String) -> bool: return r.contains("FAIL"))

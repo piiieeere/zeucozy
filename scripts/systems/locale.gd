@@ -108,9 +108,17 @@ const STRINGS := {
 	},
 	"card.replace_back": {"fr": "REVENIR AU CHOIX", "en": "BACK TO THE CHOICE"},
 
+	# Le bilan de §3.3, ce qui en existe : temps, niveau, ennemis. La map et
+	# l'allure attendront qu'il y en ait.
 	"card.game_over_summary": {
-		"fr": "Survie %d:%02d  ·  Niveau %d",
-		"en": "Survived %d:%02d  ·  Level %d",
+		"fr": "Survie %d:%02d  ·  Niveau %d\n%d ennemis repoussés",
+		"en": "Survived %d:%02d  ·  Level %d\n%d foes shooed away",
+	},
+	# Le meme a l'unite — 0 et 1 au singulier en francais, 1 seul en anglais.
+	# C'est `Hud.show_game_over` qui choisit.
+	"card.game_over_summary_one": {
+		"fr": "Survie %d:%02d  ·  Niveau %d\n%d ennemi repoussé",
+		"en": "Survived %d:%02d  ·  Level %d\n%d foe shooed away",
 	},
 	"card.restart": {"fr": "RELANCER", "en": "RESTART"},
 

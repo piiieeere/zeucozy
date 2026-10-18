@@ -384,6 +384,192 @@ def walk() -> tuple:
     return build("walk", tracks, WALK_LENGTH)
 
 
+# ------------------------------------------------------------ la fin de run
+#
+# "Visual Art Direction" §7bis : quand la run s'arrete, gagnee comme perdue, le
+# chat se replie en pain (`assise`, la transition) puis respire, frissonne et se
+# leche (`repos`, la boucle). Le chat ne meurt pas, il se repose.
+
+# ⚠️ LA POSE D'ARRIVEE N'EST PAS CELLE DU TABLEAU DE §7bis.3, ET C'EST MESURE.
+# Le tableau a ete ecrit avant le chat tuxedo : posees telles quelles sur ce
+# rig, ses valeurs enfoncent les pattes de 0,13 a 0,46 m sous le parquet
+# (`cuisse` a +75° renvoie le pied arriere a 0,9 m derriere la croupe). Celles-ci
+# viennent d'une sonde qui pose le squelette dans Blender et releve le sommet
+# le plus bas de chaque os : ventre, quatre pattes et queue touchent le sol a
+# ±1,5 cm pres.
+#
+# Le pain, tel que ce rig le permet :
+#   * `racine` descend de 0,53 — le ventre (0,56 au repos) vient a 3 cm du sol ;
+#   * les pattes avant se replient SOUS le poitrail : le bras part en arriere,
+#     l'avant-bras revient a plat vers l'avant, la patte reste cachee ;
+#   * les pattes arriere se plient en Z : cuisse en avant, jambe a plat vers
+#     l'arriere, metatarse a plat vers l'avant ;
+#   * ⚠️ les quatre pattes se replient a ~12 cm du sol, PAS au sol. Posees au
+#     parquet, elles depassaient sous la ligne du ventre et sortaient en
+#     eclats blancs cernes sous le poitrail (capture du banc) : c'est le ventre
+#     qui doit toucher, les pattes restent dedans ;
+#   * la queue se couche (`queue_1.rx`) puis s'enroule sur le flanc DROIT du
+#     chat (x negatif), pointe vers les pattes avant.
+#
+# ⛔ La tete reste RELEVEE (§7bis.3) : `tete.rx` negatif releve le menton, sinon
+# la camera a 45° filme le crane au moment ou le zoom montre enfin le visage.
+#
+# ⚠️ Le cote d'enroulement de la queue se choisit A L'ECRAN : il doit etre le
+# flanc que la camera voit. `main.gd` tourne le chat de trois quarts vers la
+# droite de l'ecran — on y voit son flanc droit, c'est donc la que va la queue.
+SIT_POSE = {
+    "racine": {"ty": -0.53},
+    "cou": {"rx": 6.0},
+    "tete": {"rx": -12.0},
+    "oreille_L": {"rx": -6.0},
+    "oreille_R": {"rx": -6.0},
+    "bras_L": {"rx": 60.0}, "bras_R": {"rx": 60.0},
+    "avantbras_L": {"rx": -130.0}, "avantbras_R": {"rx": -130.0},
+    "pattavant_L": {"rx": 14.0}, "pattavant_R": {"rx": 14.0},
+    "cuisse_L": {"rx": -43.0}, "cuisse_R": {"rx": -43.0},
+    "jambe_L": {"rx": 91.0}, "jambe_R": {"rx": 91.0},
+    "tibia_L": {"rx": -96.0}, "tibia_R": {"rx": -96.0},
+    "piedar_L": {"rx": 28.0}, "piedar_R": {"rx": 28.0},
+    # `rz` balaie la queue lateralement (vers x negatif), `rx` la couche ou la
+    # releve. Les deux ensemble sur `queue_2` et `queue_3` : `rz` seul les
+    # enfoncait de 10 a 18 cm sous le sol, leurs axes etant obliques.
+    "queue_1": {"rx": -38.0, "rz": 75.0},
+    "queue_2": {"rx": 12.0, "rz": 60.0},
+    "queue_3": {"rx": 4.0, "rz": 40.0},
+}
+
+ASSISE_LENGTH = 36   # 0,60 s — 12 poses apres celle de depart
+REPOS_LENGTH = 480   # 8,00 s
+
+# Quand chaque groupe d'os part, et en combien de temps il arrive, en part de
+# la duree d'`assise`. Le corps tombe d'abord, la tete et la queue suivent :
+# c'est l'overlap de §6.3, decale par groupe et non par cle — chaque os garde
+# ses canaux sur la meme grille (piege n°4).
+SIT_TIMING = {
+    "racine": (0.00, 0.60),
+    "bras": (0.05, 0.70), "avantbras": (0.05, 0.70), "pattavant": (0.10, 0.70),
+    "cuisse": (0.00, 0.70), "jambe": (0.00, 0.70), "tibia": (0.05, 0.70),
+    "piedar": (0.10, 0.70),
+    "cou": (0.25, 0.75), "tete": (0.25, 0.75),
+    "queue_1": (0.20, 0.65), "queue_2": (0.30, 0.65), "queue_3": (0.35, 0.65),
+    "oreille": (0.45, 0.55),
+}
+
+
+def _timing(bone_name: str) -> tuple:
+    if bone_name in SIT_TIMING:
+        return SIT_TIMING[bone_name]
+    return SIT_TIMING[bone_name.rsplit("_", 1)[0]]
+
+
+def _ease_out(t: float) -> float:
+    """Cubique ease-out — le chat se laisse tomber vite et se pose doucement."""
+    t = max(0.0, min(1.0, t))
+    return 1.0 - (1.0 - t) ** 3
+
+
+def assise() -> tuple:
+    """Debout -> pain, 36 frames, en poses — §7bis.3.
+
+    Ce n'est PAS un fondu : la transition est animee pose par pose, sur la
+    grille de 3. Un `blend_time` cote moteur ferait exactement le glissement
+    que la cadence existe pour supprimer.
+
+    ⚠️ La frame 36 est posee EXPLICITEMENT, et c'est ce qui distingue une
+    transition d'une boucle : sans elle, `build()` y reposerait la frame 0 pour
+    fermer le cycle, et le chat se releverait sur la derniere image.
+    """
+    tracks = {}
+
+    for bone_name, channels in SIT_POSE.items():
+        start, span = _timing(bone_name)
+        tracks[bone_name] = {}
+
+        for channel, target in channels.items():
+            keys = {}
+            for frame in range(0, ASSISE_LENGTH + 1, STEP):
+                t = (frame / float(ASSISE_LENGTH) - start) / span
+                keys[frame] = target * _ease_out(t)
+            tracks[bone_name][channel] = keys
+
+    return build("assise", tracks, ASSISE_LENGTH)
+
+
+def _held(bone_name: str, channel: str) -> float:
+    return SIT_POSE.get(bone_name, {}).get(channel, 0.0)
+
+
+def repos() -> tuple:
+    """Le pain qui respire, 8 s en boucle — §7bis.3.
+
+    Tout part de SIT_POSE, la derniere image d'`assise` : `cel_model` enchaine
+    les deux a la file, sans fondu, donc la premiere pose de `repos` doit etre
+    la derniere d'`assise` au chiffre pres.
+
+    ⛔ `tete` N'A QUE `rx`. La leche bat sur 3, la respiration sur 12 : deux
+    canaux d'un meme os sur deux grilles feraient reechantillonner la tete en
+    LINEAR a l'export (piege n°4). La respiration est donc portee par `thorax`,
+    `dos` et `racine`, et la tete ne fait que la leche.
+    """
+    breath = lambda amplitude, base: wave(REPOS_LENGTH, 12, amplitude,
+                                          phase=-0.25, cycles=4.0, offset=base)
+
+    tracks = {
+        # Respiration : 4 cycles de 2 s, poses tenues sur 12 frames.
+        "racine": {"ty": breath(0.010, _held("racine", "ty"))},
+        "thorax": {"rx": breath(2.0, 0.0)},
+        "dos": {"rx": breath(-1.4, 0.0)},
+    }
+
+    # Frisson d'oreille, sur 3 — deux poses franches et le retour.
+    ear = _held("oreille_L", "rx")
+    tracks["oreille_L"] = {"rx": {0: ear, 96: ear - 12.0, 102: ear + 3.0, 108: ear}}
+    tracks["oreille_R"] = {"rx": {0: _held("oreille_R", "rx")}}
+
+    # Battement de queue — la pointe seule, sur 3. Son `rx` est tenu SUR LES
+    # MEMES FRAMES que le `rz` qui bat : deux canaux d'un os, une seule grille.
+    tip = _held("queue_3", "rz")
+    beat = {0: tip, 168: tip + 14.0, 174: tip - 5.0, 180: tip}
+    tracks["queue_3"] = {"rz": beat,
+                         "rx": {frame: _held("queue_3", "rx") for frame in beat}}
+
+    # La leche : descente (4 poses), le lechage (12 poses a ±6° sur 3), remontee
+    # (8 poses). Le cou et la tete descendent ENSEMBLE, sur la meme grille.
+    #
+    # ⚠️ +8 / +22 et non les +18 / +30 de §7bis.3 : sur ce chat replie, la tete
+    # partait EN AVANT du poitrail et plongeait dans le parquet (capture du
+    # banc). La patte avant est cachee sous le poitrail : c'est lui qu'on leche.
+    neck, head = _held("cou", "rx"), _held("tete", "rx")
+    neck_keys, head_keys = {0: neck}, {0: head}
+    NECK_DIP, HEAD_DIP = 8.0, 22.0
+
+    for i, frame in enumerate(range(300, 313, STEP)):
+        u = _ease_out(i / 4.0)
+        neck_keys[frame] = neck + NECK_DIP * u
+        head_keys[frame] = head + HEAD_DIP * u
+
+    for i, frame in enumerate(range(315, 348, STEP)):
+        neck_keys[frame] = neck + NECK_DIP
+        head_keys[frame] = head + HEAD_DIP + (6.0 if i % 2 == 0 else -6.0)
+
+    for i, frame in enumerate(range(348, 373, STEP)):
+        u = 1.0 - _ease_out(i / 8.0)
+        neck_keys[frame] = neck + NECK_DIP * u
+        head_keys[frame] = head + HEAD_DIP * u
+
+    tracks["cou"] = {"rx": neck_keys}
+    tracks["tete"] = {"rx": head_keys}
+
+    # Le reste du pain, tenu tel quel. Sans ces cles, `build()` remet chaque os
+    # au repos et le chat se releverait a la premiere frame de la boucle.
+    for bone_name, channels in SIT_POSE.items():
+        if bone_name in tracks:
+            continue
+        tracks[bone_name] = {channel: {0: value} for channel, value in channels.items()}
+
+    return build("repos", tracks, REPOS_LENGTH)
+
+
 # ------------------------------------------------------------------------ sortie
 
 def describe(name: str, action, curves, length: int) -> None:
@@ -399,11 +585,16 @@ def describe(name: str, action, curves, length: int) -> None:
 def main() -> None:
     scene = bpy.context.scene
     scene.frame_start = 0
-    scene.frame_end = max(IDLE_LENGTH, WALK_LENGTH)
+    scene.frame_end = max(IDLE_LENGTH, WALK_LENGTH, REPOS_LENGTH)
 
     print("\n[build_animations] scene a %d fps, cadence sur %ds" % (scene.render.fps, STEP))
 
-    built = [("idle", idle(), IDLE_LENGTH), ("walk", walk(), WALK_LENGTH)]
+    built = [
+        ("idle", idle(), IDLE_LENGTH),
+        ("walk", walk(), WALK_LENGTH),
+        ("assise", assise(), ASSISE_LENGTH),
+        ("repos", repos(), REPOS_LENGTH),
+    ]
 
     if "--canari" in sys.argv:
         built.append(("canari", canari(), CANARI_LENGTH))
