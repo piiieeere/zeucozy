@@ -1,8 +1,13 @@
 {
   "mcpServers": {
     "blender": {
-      "command": "uvx",
-      "args": ["blender-mcp"]
+      "command": "C:/Users/tibo/AppData/Local/Programs/Python/Python313/Scripts/blender-mcp.exe",
+      "args": [],
+      "env": {
+        "BLENDER_PATH": "C:/Program Files/Blender Foundation/Blender 5.2/blender.exe",
+        "BLENDER_MCP_HOST": "localhost",
+        "BLENDER_MCP_PORT": "9876"
+      }
     }
   }
 }

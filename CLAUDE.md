@@ -270,10 +270,12 @@ Lire ces fichiers avant toute tâche concernant le domaine correspondant :
 | `04 - Roadmap/Critères MVP.md` | Critères de succès du prototype |
 | `02 - Direction Artistique/Prompts de Génération.md` | Les prompts de **maquette** — sol, meubles, UI, boss vétérinaire, coffres. Réécrit le 2026-08-19 : la partie sprites 2D a été supprimée |
 | `04 - Roadmap/Todo.md` | Suivi des features en cours |
+| `03 - Production/Intégration Assets 3D.md` | ⭐ **LA procédure d'intégration d'un asset 3D** (2026-10-18) — maquette → `build_*.py` → `.glb` → Godot, Blender piloté par le **MCP `blender`**. ⛔ Ne jamais lancer un `build_*.py` dans le Blender ouvert (`clear_scene()`), ni exporter par le MCP |
 
 > 📦 **Archivés** (pipeline 2D abandonné, conservés pour référence historique) :
-> `Pipeline Sprites.md`, `Convention de Nommage Sprites.md`,
-> `Template Intégration Assets.md`.
+> `Pipeline Sprites.md`, `Convention de Nommage Sprites.md`.
+> `Template Intégration Assets.md` a été **supprimé** le 2026-10-18, remplacé par
+> `Intégration Assets 3D.md`.
 
 ### Le journal technique — `06 - Journal technique/` (sorti de CLAUDE.md le 2026-08-19)
 
